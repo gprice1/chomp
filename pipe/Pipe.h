@@ -6,9 +6,10 @@
 using namespace chomp;
 
 class Phase{
+  public:
+    size_t start_index, end_index;
   private: 
     size_t _id;
-    size_t start_index, end_index;
     Constraint* trajectory_constraint_ptr;
     Constraint* goal_constraint_ptr;
 
@@ -22,6 +23,7 @@ class Phase{
     {
     }
     
+
     size_t get_start_index(){ return start_index; }
     size_t get_end_index(){return end_index; }
     size_t get_id(){ return _id; }
@@ -31,9 +33,6 @@ class Phase{
 };
 
 class Plan : public ConstraintFactory{
-  private: 
-     MatX _start_state;
-     MatX _end_state;
 
   public:
 
@@ -42,24 +41,17 @@ class Plan : public ConstraintFactory{
     
     //holds all of the phases
     std::vector<Phase> phases;
-    
+    MatX start_state;
+    MatX end_state;
+
     
     //adding phases
-    void addphase( Constraint * trajectory_constraint,
+    void addPhase( Constraint * trajectory_constraint,
                    Constraint * goal_constraint ){
         Phase newPhase( phases.size(), trajectory_constraint,
                         goal_constraint);
         phases.push_back( newPhase );
     }
-
-    //getters and setters for the start and end states
-    void set_start_state( MatX& start_state )
-                        { _start_state = start_state;}
-    void set_end_state( MatX& end_state )
-                        { _end_state = end_state;}
-    MatX get_start_state(){ return _start_state; }
-    MatX get_end_state(){ return _end_state;}
-
 
     Constraint* getConstraint( size_t t, size_t total);
 
@@ -71,8 +63,16 @@ class PathConstructor{
     public:
     //Trajectory matrix should be an n*m matrix that can be submitted to
     //chomp as the inital trajectory.
+    //It is not necessary to make a create path function, because 
+    // the default just calls plan phase for each of the phases, and
+    // then chains the trajectories for each path into a complete trajectory
+    virtual void createPath( Plan * plan, MatX & trajectory);
+    
+    //Plans a trajectory for a single phase. 
+    virtual void planPhase( Phase & phase,
+                            const MatX & start_state,
+                            MatX & trajectory ) = 0;
 
-    virtual void createPath( const Plan * plan, MatX & trajectory) = 0;
 };
 
 
@@ -83,19 +83,19 @@ class Pipe{
     /////////////////member variables
     PathConstructor * pathConstructor_ptr;
     Plan * plan_ptr;
-    int Nmax;
+    size_t upsample;
     double alpha, errorTol;
 
 
     ////////////////Public Member Functions//////////////////
     Pipe(PathConstructor* pathConstructor,
              Plan * plan,
-             size_t Nmax,
+             size_t upsample,
              double alpha = 0.01,
              double errorTol= 0.01) : 
         pathConstructor_ptr( pathConstructor),
         plan_ptr(plan),
-        Nmax(Nmax),
+        upsample(upsample),
         alpha(alpha),
         errorTol(errorTol)
     {

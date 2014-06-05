@@ -178,7 +178,8 @@ namespace chomp {
     max_global_iter(mg),
     max_local_iter(ml),
     full_global_at_final(false),
-    t_total(tt)
+    t_total(tt),
+    doDeleteConstraints(true)
   {
 
     
@@ -198,12 +199,20 @@ namespace chomp {
 
 
   void Chomp::clearConstraints() {
-
-    while (!constraints.empty()) {
-      delete constraints.back();
-      constraints.pop_back();
+    
+    if (doDeleteConstraints){
+      while (!constraints.empty()) {
+        delete constraints.back();
+        constraints.pop_back();
+      }
+    } else{
+      constraints.clear();
     }
 
+  }
+  
+  void Chomp::setDoDeleteConstraints( bool deleteConstraints ){
+      doDeleteConstraints = deleteConstraints;
   }
 
   void Chomp::prepareChomp() {
