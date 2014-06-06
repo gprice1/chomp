@@ -99,5 +99,136 @@ namespace chomp {
     }
 
   }
+    
+
+  ///////////////////// GENERALIZED TSR CONSTRAINTS ////////////////
+    
+    size_t TSRConstraint::numOutputs(){
+        return _dim_constraint;
+    }
+
+    //a basic constructor
+    TSRConstraint::TSRConstraint( MatX & pose_0_w,
+                                  MatX & Bw,
+                                  Matx & pose_w_e ) :
+        _pose_0_w( pose_0_w ),
+        _Bw( Bw ),
+        _pose_w_e( pose_w_e )
+    {
+        
+        // check the dimensions of the matrices to make sure that 
+        // they are of the correct shape
+        assert( _pose_0_w.cols() == 1 ); 
+        assert( _pose_0_w.rows() == 7 );
+        
+        assert( _pose_w_e.cols() == 1 );
+        assert( _pose_w_e.rows() == 7 );
+        
+        assert( _Bw.cols() == 2 );
+        assert( _Bw.rows() == 6 );
+
+        calclulateDimensionality();
+        calculateInverse();
+    }
+
+    TSRConstraint::calculateDimensionality()
+    {
+        //get the dimension of the volume by counting all of the
+        // dimensions of Bw that have non-zero width. 
+        _dim_volume = 0;
+        for ( int i = 0; i < 6; i ++ ){
+
+            //if the two values in each row are not the same, then the
+            // dimension has width.
+            if( _Bw( i, 0 ) != _Bw(i, 1) ){
+                
+                //for each dimension that has width, increase the 
+                // dimension of the volume by 1. 
+                _dim_volume ++;
+            }
+        }
+        
+
+        //get the dimension of the constraint by counting up all of the 
+        // dimensions that do NOT go from infinity to negative infinity
+        _dim_constraint = 0
+        for ( int i = 0; i < 6; i ++ ){
+
+            if ( -HUGE_VAL < _Bw(i, 0 ) || _Bw(i, 1 ) < HUGE_VAL ){
+
+                //store the index of all dimensions that are constrained
+                dimension_id.push_back( i );
+
+                // if a dimension is constrained, count it
+                _dim_constraint ++;
+            }
+        }
+    }
+
+    TSRConstraint::calculateInverses(){
+        _pose_w_0 = _pose_0_w.inverse();
+        _pose_e_w = _pose_w_e.inverse();
+    }
+
+
+    //Evaluate the constraints for Chompification
+    virtual void evaluateConstraints(const MatX& qt, 
+                                     MatX& h, 
+                                     MatX& H)
+    {
+        //the pos is equivalent to the position of the 
+        // end-effector in the robot frame. 
+        MatX xyzrpy;
+        forwardKinematics( qt, pos );
+        
+
+        // TODO figure the above out.
+
+        MatX & xyzrpy; // this is a vector which holds the xyz coordinates, and
+                       // roll, pitch, yaw angles from the end effector to the
+                       // TSR
+                
+        size_t DoF = std::max(qt.rows(), qt.cols());
+        
+        //format h (constraint value vector) and H (jacobian matrix).
+        if (size_t(h.rows()) != _dim_constraint || h.cols() != 1) {
+          h.resize(_dim_constraint, 1);
+        }
+        
+        if (size_t(H.rows()) != _dim_constraint || size_t(H.cols()) != DoF) {
+          H.resize(_dim_constraint, DoF);
+        }
+
+        H.setZero();
+        
+        for ( int i = 0; i < _dim_constraint; i ++ ){
+            dim = _dimension_id[i];
+            
+            //if the robot's position goes over the TSR's upper bound:
+            if ( xyzrpy(dim) > Bw(dim, 1) ){
+                h(i) = xyzrpy( dim ) - Bw(dim, 1);
+                H(i, dim) = 1;
+            }
+            //if the robot's position goes below the TSR's lower bound:
+            else if ( xyzrpy(dim) < Bw( dim, 0 ) ){
+                h(i) = xyzrpy( dim ) - Bw(dim, 1);
+                H(i, dim) = 1;
+            }
+            //if the robot's position is inside of the TSR's bounds:
+            // TODO : Should the Jacobian be set to 0 here?
+            else {
+                h(i) = 0.0;
+                H(i, dim) = 0.0;
+            }
+        }
+
+
+
+    }
+
+            
+
+
+
 
 }
