@@ -385,6 +385,14 @@ namespace chomp {
       local = false;
     }
 
+    else if (usingGoalConstraint){
+        usingGoalConstraint = false;
+        xi = xi.topRows(xi.rows()-1);
+        N--
+        prepareChomp();
+        prepareChompIter();
+    }
+
     cur_local_iter = 0;
     while (local) {
       localSmooth();
