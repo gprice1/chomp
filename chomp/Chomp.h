@@ -210,6 +210,9 @@ namespace chomp {
     
     bool doDeleteConstraints; //should the constraints be deleted when
                               //the constraint vector is cleared, or not?
+    bool usingGoalConstraint; //Should the goal position be anchored,
+                              // or should it be able to float, subject to
+                              // a constraint. 
 
     Eigen::LDLT<MatX> cholSolver;
 
@@ -229,6 +232,7 @@ namespace chomp {
     void clearConstraints();
     
     void setDoDeleteConstraints(bool deleteConstraints );
+    void setUsingGoalConstraint(bool useGoalConstraint );
 
     void prepareChomp();    
 

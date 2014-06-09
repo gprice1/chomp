@@ -179,7 +179,8 @@ namespace chomp {
     max_local_iter(ml),
     full_global_at_final(false),
     t_total(tt),
-    doDeleteConstraints(true)
+    doDeleteConstraints(true),
+    usingGoalConstraint(false)
   {
 
     
@@ -210,7 +211,10 @@ namespace chomp {
     }
 
   }
-  
+
+  void Chomp::setUsingGoalConstraint( bool useGoalConstraint ){
+      usingGoalConstraint = useGoalConstraint;
+  }
   void Chomp::setDoDeleteConstraints( bool deleteConstraints ){
       doDeleteConstraints = deleteConstraints;
   }
@@ -260,15 +264,21 @@ namespace chomp {
 
     if (!subsample) {
       N_sub = 0;
+
     } else {
-      N_sub = (N+1)/2;
+      if (usingGoalConstraint){
+        N_sub = N/2;
+      }else {
+        N_sub = (N+1)/2;
+      }
+
       g_sub.resize(N_sub, M);
       xi_sub.resize(N_sub, M);
-      skylineChol((N+1)/2, coeffs_sub, L_sub); 
+      skylineChol(N_sub , coeffs_sub, L_sub); 
     }
 
     dt = t_total / (N+1);
-    inv_dt = (N+1) / t_total;
+    inv_dt = 1 / dt;
 
     if (objective_type == MINIMIZE_VELOCITY) {
       fscl = inv_dt*inv_dt;
@@ -306,7 +316,8 @@ namespace chomp {
       // q0    q2    q4    q6  
 
       for (int t=0; t<N_sub; t++){
-
+        
+        //TODO LOOK AT THIS
         g_sub.row(t) = g.row(2*t);
         xi_sub.row(t) = xi.row(2*t);
 
@@ -460,11 +471,32 @@ namespace chomp {
   // upsamples the trajectory by 2x
   void Chomp::upsample() {
 
-    int N_up = 2*N+1; // e.g. size 3 goes to size 7
+    //TODO make sure this works 
+    int N_up;
+    if (usingGoalConstraint){
+        N_up = 2*N;
+    }
+    else{
+        N_up = 2*N+1; // e.g. size 3 goes to size 7
+    }
     //MatX xi_up(M*N_up, 1), q_t(M,1), q_prev(M,1), q_next(M,1);
     
     MatX xi_up(N_up, M);
+    //WITH GOAL CONSTRAINTS:
+    // q0    d0    d1    d2    q1   with n = 4 (q1 is in the mat,
+    //                                           and q0 is not )
+    // q0 u0 u1 u2 u3 u4 u5 u6 q1   with n = 8
+    //
+    // u0 = 0.5*(q0 + d0)
+    // u1 = d0
+    // u2 = 0.5*(d0 + d1)
+    // u3 = d1 
+    // u4 = 0.5*(d1 + d2)
+    // u5 = d2
+    // u6 = 0.5*(d2 + q1)
 
+
+    // WITHOUT GOAL CONSTRAINT: 
     // q0    d0    d1    d2    q1   with n = 3
     // q0 u0 u1 u2 u3 u4 u5 u6 q1   with n = 7
     //
@@ -533,7 +565,7 @@ namespace chomp {
     const MatX& g_which = subsample ? g_sub : g;
     const MatX& L_which = subsample ? L_sub : L;
     const MatX& h_which = subsample ? h_sub : h;
-    const int  N_which = subsample ? N_sub : N;
+    const int  N_which  = subsample ? N_sub : N;
 
     if (H_which.rows() == 0) {
 
@@ -619,6 +651,13 @@ namespace chomp {
 
     }
     
+    //TODO make this more efficient (maybe)
+    //Set the Goal state equal to the final element of the trajectory
+    if ( usingGoalConstraint ){
+      assert( q1.cols() == xi.cols() );
+      q1 = xi.row( xi.rows() - 1 );
+      c = createBMatrix(N, coeffs, q0, q1, b, dt);
+    }
 
   }
 
@@ -632,7 +671,10 @@ namespace chomp {
 
     hmag = 0;
 
-    for (int t=0; t<N; ++t){
+    int max_index = N;
+    if ( usingGoalConstraint ){ max_index -- ; }
+
+    for (int t=0; t<max_index; ++t){
 
       Constraint* c = constraints.empty() ? 0 : constraints[t];
       
@@ -650,14 +692,16 @@ namespace chomp {
         assert(H_t.cols() == M);
         assert(size_t(h_t.rows()) == constraints[t]->numOutputs());
         assert(h_t.cols() == 1);
-    
+      
         // Now we calculate, using opencv
 
         P_t = H_t*H_t.transpose();
         P_t_inv = P_t.inverse();
 
         // transpose g to be a column vector
-        delta_t = ( -alpha*(MatX::Identity(M,M)-H_t.transpose()*P_t_inv*H_t)*g.row(t).transpose()
+        delta_t = ( -alpha
+                    *(MatX::Identity(M,M)-H_t.transpose()
+                    *P_t_inv*H_t)*g.row(t).transpose()
                     -H_t.transpose()*P_t_inv*h_t );
 
       } else {
@@ -666,13 +710,27 @@ namespace chomp {
         delta_t = -alpha * g.row(t).transpose();
         
       }
-
-      // transpose delta to be a row vector
+      
       xi.row(t) += delta_t.transpose();
+      // transpose delta to be a row vector
 
     }
+    
+    //TODO make sure this works
+    if (usingGoalConstraint){
+      assert( xi.cols() == q1.cols() );
+
+      std::cout << "Qt = " << q1 << "\n";
+      std::cout << "Delta = " << delta_t << "\n";
+      q1 = xi.row( xi.rows() - 1 );
+
+      std::cout << "Qt - delta = " << q1 << "\n";
+    }
+
 
   }
+    
+ 
 
   // evaluates the objective function for cur. thing.
   //
@@ -689,7 +747,7 @@ namespace chomp {
       1 -2  1  0 ... 0  0  0
       0  1 -2  1 ... 0  0  0
       ...
-      0  0  0  0 ... 1 -2  1 
+      0  0  0  0 ... 1 -2  1
       0  0  0  0 ... 0  1 -2 
       0  0  0  0 ... 0  0  1 ]
   
