@@ -8,7 +8,6 @@ include(mzsettings.cmake)
 
 set(BASE_LIBS
   ${OPENGL_LIBRARY}
-  ${CCD_LDFLAGS}
 )
 
 set(GUI_LIBS

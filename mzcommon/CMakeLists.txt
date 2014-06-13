@@ -12,8 +12,7 @@ set(mzcommon_srcs
   HeightMap.cpp
   DtGrid.cpp
   Geom2.cpp
-  glstuff.cpp
-  CCDWrapper.cpp)
+  glstuff.cpp)
 
 if (GLEW_FOUND)
   set(mzcommon_srcs ${mzcommon_srcs} GlFramebufferObject.cpp)
