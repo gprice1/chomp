@@ -39,6 +39,3 @@ else()
 target_link_libraries(testgeom2 mzcommon)
 endif()
 
-add_gui_app( ccddemo ccddemo.cpp )
-target_link_libraries( ccddemo mzcommon 
-  ${CCD_LDFLAGS} ${GLUT_LIBRARY} ${OPENGL_LIBRARY} expat )
