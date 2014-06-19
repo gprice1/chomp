@@ -12,13 +12,14 @@ set(mzcommon_srcs
   HeightMap.cpp
   DtGrid.cpp
   Geom2.cpp
-  glstuff.cpp)
+  glstuff.cpp
+)
 
 if (GLEW_FOUND)
   set(mzcommon_srcs ${mzcommon_srcs} GlFramebufferObject.cpp)
 endif()
 
-add_library( mzcommon ${mzcommon_srcs} )
+add_library( mzcommon SHARED ${mzcommon_srcs} )
 target_link_libraries(mzcommon ${OPENGL_LIBRARY} ${GLUT_LIBRARY} ${EXPAT_LIBRARY} ${PNG_LIBRARY} ${CCD_LDFLAGS} )
 
 if (GLEW_FOUND)

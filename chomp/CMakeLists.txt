@@ -1,4 +1,4 @@
-add_library(chomp Constraint.cpp ConstraintFactory.cpp Chomp.cpp)
+add_library(chomp SHARED Constraint.cpp ConstraintFactory.cpp Chomp.cpp)
 
 add_executable(testmatops testmatops.cpp)
 target_link_libraries(testmatops chomp)
