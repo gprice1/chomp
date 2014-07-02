@@ -85,6 +85,61 @@ namespace chomp {
 
   };
 
+  class TSRConstraint: public Constraint {
+  public:
+    
+    //The main features of the TSR: 
+    //    _pose_0_w : the origin to TSR transform
+    //    _BW       : the constraint matrix
+    //    _pose_w_e : the TSR to end-effector transform
+    MatX _pose_0_w;
+    MatX _Bw;
+    MatX _pose_w_e;
+
+    MatX _pose_w_0, _pose_e_w;
+    
+    //dimensionality of different features:
+    // Dimensionality of the volume defined by the TSR,
+    // Dimensionality of constraint surface. 
+    int _dim_volume, _dim_constraint;
+
+    std::vector<int> _dimension_id; // a vector that holds the indices 
+                                   //   (in Bw) that correspond to
+                                   //   constrained dimensions
+
+    TSRConstraint( MatX & pose_0_w, MatX & Bw, MatX & pose_w_e ); 
+    
+    //these are useful helper functions that determine various things.
+    // They should not be overwritten.
+    void calculateDimensionality();
+    void calculateInverses();
+    void endeffectorToTSRFrame( const MatX & qt, MatX & xyzrpy);
+
+    virtual ~TSRConstraint(){};
+  
+    virtual size_t numOutputs();
+    
+    virtual void evaluateConstraints(const MatX& qt, 
+                                     MatX& h, 
+                                     MatX& H);
+    
+    //this function takes in a robot state, qt, and returns the position of
+    // the relevant end-effector in the world frame. This is equivalent
+    //  to the transformation from the end-effector frame to the world
+    //  frame.
+    // This is the only function that needs to be redefined for each
+    //  implementation.
+    virtual void forwardKinematics( const MatX& qt, MatX& pos ) = 0;
+
+    virtual void computeJacobian( const MatX& qt, 
+                                  const std::vector<int> & dimension_id,
+                                  const MatX& pose_S_e,
+                                  MatX & jacobian
+                                  ) = 0;
+
+
+  };
 }
 
 #endif
+
