@@ -108,30 +108,26 @@ namespace chomp {
     }
 
     //a basic constructor
-    TSRConstraint::TSRConstraint( MatX & pose_0_w,
+    TSRConstraint::TSRConstraint( Transform & pose_0_w,
                                   MatX & Bw,
-                                  MatX & pose_w_e ) :
+                                  Transform & pose_w_e ) :
         _pose_0_w( pose_0_w ),
         _Bw( Bw ),
-        _pose_w_e( pose_w_e )
+        _pose_w_e( pose_w_e ),
+        _pose_w_0( pose_0_w.inverse() ),
+        _pose_e_w( pose_w_e.inverse() ),
+        _getRotationJacobian(false),
+        _getTranslationJacobian( false)
     {
         
-        // check the dimensions of the matrices to make sure that 
-        // they are of the correct shape
-        assert( _pose_0_w.cols() == 1 ); 
-        assert( _pose_0_w.rows() == 7 );
-        
-        assert( _pose_w_e.cols() == 1 );
-        assert( _pose_w_e.rows() == 7 );
-        
+        //check the dimensionality of the bw matrix
         assert( _Bw.cols() == 2 );
         assert( _Bw.rows() == 6 );
 
         calculateDimensionality();
-        calculateInverses();
     }
 
-    void TSRConstraint::calculateDimensionality()
+    inline void TSRConstraint::calculateDimensionality()
     {
         //get the dimension of the volume by counting all of the
         // dimensions of Bw that have non-zero width. 
@@ -154,87 +150,104 @@ namespace chomp {
         _dim_constraint = 0;
         for ( int i = 0; i < 6; i ++ ){
 
-            if ( -HUGE_VAL < _Bw(i, 0 ) || _Bw(i, 1 ) < HUGE_VAL ){
-
+            //if it is a translation dimension, and one of the bounds is 
+            //  between (-HUGE_VAL and +HUGE_VAL) or if it is a
+            //  rotation dimension, and one of the dimensions is 
+            //  between (-PI and +PI).
+            if ( (i < 3 && (_Bw(i,0) > -HUGE_VAL || _Bw(i,1) < HUGE_VAL ))
+                ||
+                 (i >=3 && (_Bw(i,0) > -M_PI     || _Bw(i,1) < M_PI )) )
+            {
                 //store the index of all dimensions that are constrained
                 _dimension_id.push_back( i );
 
                 // if a dimension is constrained, count it
                 _dim_constraint ++;
+
+                if ( i <  3 ){ _getTranslationJacobian = true; }
+                if ( i >= 3 ){ _getRotationJacobian    = true; }
             }
+
         }
     }
 
-    void TSRConstraint::calculateInverses(){
-        _pose_w_0 = _pose_0_w.inverse();
-        _pose_e_w = _pose_w_e.inverse();
+
+    inline void TSRConstraint::endeffectorToTSRFrame(
+                                               const Transform & pose_ee,
+                                               double * xyzrpy){
+        
+        //this is the transform from the tsr to the end effector.
+        Transform ee_offset = _pose_w_0 * pose_ee * _pose_e_w ;        
+        
+        //store the xform values in the double.
+        xyzrpy[0] = ee_offset.translation()[0];
+        xyzrpy[1] = ee_offset.translation()[1];
+        xyzrpy[2] = ee_offset.translation()[2];
+        
+        xyzrpy[3] = ee_offset.rotation()[0];
+        xyzrpy[4] = ee_offset.rotation()[1];
+        xyzrpy[5] = ee_offset.rotation()[2];
+
     }
 
-
-    void TSRConstraint::endeffectorToTSRFrame( const MatX & qt,
-                                                     MatX & xyzrpy){
-        
-        MatX pose_0_endeffector;
-
-        forwardKinematics( qt, pose_0_endeffector );
-        // transform the pos into the the correct frame
-        
-        
-        const MatX pose_e_0 = _pose_e_w * _pose_w_0;
-
-        // TODO : finish this function!!
-
-    }
     //Evaluate the constraints for Chompification
     void TSRConstraint::evaluateConstraints(const MatX& qt, 
-                                                          MatX& h, 
-                                                          MatX& H)
+                                             MatX& h, 
+                                             MatX& H)
     {
         //the pos is equivalent to the position of the 
         // end-effector in the robot frame. 
-        MatX xyzrpy;
+        double xyzrpy[6];
         
-        endeffectorToTSRFrame( qt, xyzrpy );
+        //the position of the ee. 
+        Transform pos;
 
-        size_t DoF = std::max(qt.rows(), qt.cols());
+        //get the position of the ee
+        forwardKinematics( qt, pos );
+
+        //get the position of the ee in the TSR frame
+        endeffectorToTSRFrame( pos, xyzrpy );
         
-        //format h (constraint value vector) and H (jacobian matrix).
+        //the dimensionality of the configuration space
+        size_t DoF = qt.size() ;
+        
+        //format h (constraint value vector).
         if (size_t(h.rows()) != _dim_constraint || h.cols() != 1)
         {
-          h.resize(_dim_constraint, 1);
+            h.resize(_dim_constraint, 1);
         }
         
-        if (size_t(H.rows()) != _dim_constraint || size_t(H.cols()) != DoF)         {
-          H.resize(_dim_constraint, DoF);
-        }
+        int current_dim = 0;
 
-        H.setZero();
+        std::vector< int > active_dims;
         
         for ( int i = 0; i < _dim_constraint; i ++ )
         {
-            int dim = _dimension_id[i];
+            const int dim = _dimension_id[i];
             
             //if the robot's position goes over the TSR's upper bound:
-            if ( xyzrpy(dim) > _Bw(dim, 1) ){
-                h(i) = xyzrpy( dim ) - _Bw(dim, 1);
-
-                //TODO Add Jacobian.
+            if ( xyzrpy[dim] > _Bw(dim, 1) ){
+                h(current_dim) = xyzrpy[ dim ] - _Bw(dim, 1);
+                active_dims.push_back( dim );
+                current_dim ++;
             }
             //if the robot's position goes below the TSR's lower bound:
-            else if ( xyzrpy(dim) < _Bw( dim, 0 ) ){
-                h(i) = xyzrpy( dim ) - _Bw(dim, 0);
-
-                //TODO : Add Jacobian information
-            }
-            //if the robot's position is inside of the TSR's bounds:
-            // TODO : Should the Jacobian be set to 0 here?
-            //  This could be bad because there are disconintuities in
-            //  the derivative of the constraint function
-            else {
-                h(i) = 0.0;
-                H(i, dim) = 0.0;
+            else if ( xyzrpy[dim] < _Bw( dim, 0 ) ){
+                h(current_dim) = xyzrpy[ dim ] - _Bw(dim, 0);
+                active_dims.push_back( dim );
+                current_dim ++;
             }
         }
+
+        
+        if ( current_dim != _dim_constraint ){
+            h.conservativeResize( current_dim, 1 );
+        }
+        if ( H.rows() != current_dim || size_t( H.cols() ) != DoF ){
+            H.resize( current_dim, DoF );
+        }
+        computeJacobian( qt, pos, H, active_dims );
+
     }
 
 

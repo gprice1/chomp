@@ -38,12 +38,14 @@
 
 #include <iostream>
 #include <vector>
+#include <pthread.h>
+#include "../mzcommon/TimeUtil.h"
 
 namespace chomp {
 
   class ConstraintFactory;
   class Constraint;
-
+  class HMC;
   class Chomp;
 
   enum ChompEventType { 
@@ -51,6 +53,8 @@ namespace chomp {
     CHOMP_GLOBAL_ITER,
     CHOMP_LOCAL_ITER,
     CHOMP_FINISH,
+    CHOMP_TIMEOUT,
+    CHOMP_GOALSET_ITER,
   };
 
   const char* eventTypeString(int eventtype);
@@ -144,7 +148,7 @@ namespace chomp {
     ChompGradientHelper* ghelper;
 
     ChompObjectiveType objective_type;
-
+    
     int M; // degrees of freedom
 
     // the actual desired number of timesteps
@@ -199,18 +203,45 @@ namespace chomp {
     double alpha;
     double objRelErrTol;
 
-    size_t max_global_iter;
-    size_t max_local_iter;
+    size_t min_global_iter, max_global_iter;
+    size_t min_local_iter, max_local_iter;
 
     bool full_global_at_final;
 
     double t_total; // total time for (N+1) timesteps
     double dt; // computed automatically from t_total and N
     double inv_dt; // computed automatically from t_total and N
+    
+    double timeout_seconds;
+    bool canTimeout, didTimeout;
+    TimeStamp stop_time;
+
+    pthread_mutex_t trajectory_mutex;
+    bool use_mutex;
 
     Eigen::LDLT<MatX> cholSolver;
 
     std::vector<Constraint*> constraints; // vector of size N
+    
+    //used for goal set chomp.
+    Constraint * goalset;
+    bool use_goalset;
+    MatX goalset_coeffs;
+     
+    bool use_momentum;
+    MatX momentum;
+
+    HMC * hmc;
+
+    // last_objective : save the last objective, for use with rejection.
+    double lastObjective;
+    
+    //TODO add cost scheduling
+    //cost scheduling values.
+    double cost_schedule_multiplier1, cost_schedule_multiplier2;
+    double smooth_start, smooth_end;
+    double obstacle_start, obstacle_end;
+    size_t cost_schedule_start_iter, cost_schedule_end_iter;
 
     Chomp(ConstraintFactory* f,
           const MatX& xi_init, // should be N-by-M
@@ -221,11 +252,38 @@ namespace chomp {
           double obstol = 0.01,
           size_t max_global_iter=size_t(-1),
           size_t max_local_iter=size_t(-1),
-          double t_total=1.0);
+          double t_total=1.0,
+          double timeout_seconds=-1.0,
+          bool use_momentum = false);
+    
+    ~Chomp(){
+        if( use_mutex ){
+            pthread_mutex_destroy( &trajectory_mutex );
+        }
+    }
+    void lockTrajectory(){
+        if (use_mutex){
+            pthread_mutex_lock( &trajectory_mutex );
+        }
+    }
+    void unlockTrajectory(){
+        if (use_mutex){
+            pthread_mutex_unlock( &trajectory_mutex );
+        }
+    }
+    
+    void initMutex();
+   
+    void updateGradient();
 
     void clearConstraints();
 
+    //prepares chomp to be run at a resolution level
     void prepareChomp();    
+
+    //prepare a run of standard chomp, as opposed to goal set chomp.
+    //  this is called by the function 'prepareChomp'
+    void prepareStandardChomp();
 
     // precondition: prepareChomp was called for this resolution level
     void prepareChompIter();
@@ -247,7 +305,7 @@ namespace chomp {
 
     // single iteration of chomp
     void chompGlobal();
-
+    
     // single iteration of local smoothing
     //
     // precondition: prepareChompIter has been called since the last
@@ -274,7 +332,20 @@ namespace chomp {
                double lastObjective,
                double constraintViolation) const;
 
+
+    //Give a goal set in the form of a constraint for chomp to use on the
+    //  first resolution level.
+    void useGoalSet( Constraint * goalset );
+    
+    //call before running goal set chomp;
+    void prepareGoalSet();
+
+    //call after running goal set chomp.
+    void finishGoalSet(); 
   };
+
+
+
 
 }
 

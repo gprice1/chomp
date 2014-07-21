@@ -35,9 +35,12 @@
 #define _CONSTRAINT_H_
 
 #include "chomputil.h"
+#include "../mzcommon/Transform3.h"
 #include <vector>
 
 namespace chomp {
+
+  typedef Transform3_t< double > Transform;
 
   class Constraint {
   public:
@@ -92,12 +95,14 @@ namespace chomp {
     //    _pose_0_w : the origin to TSR transform
     //    _BW       : the constraint matrix
     //    _pose_w_e : the TSR to end-effector transform
-    MatX _pose_0_w;
+    const Transform _pose_0_w;
     MatX _Bw;
-    MatX _pose_w_e;
+    const Transform _pose_w_e;
 
-    MatX _pose_w_0, _pose_e_w;
+    const Transform _pose_w_0, _pose_e_w;
     
+    bool _getRotationJacobian, _getTranslationJacobian;
+
     //dimensionality of different features:
     // Dimensionality of the volume defined by the TSR,
     // Dimensionality of constraint surface. 
@@ -107,13 +112,10 @@ namespace chomp {
                                    //   (in Bw) that correspond to
                                    //   constrained dimensions
 
-    TSRConstraint( MatX & pose_0_w, MatX & Bw, MatX & pose_w_e ); 
+    TSRConstraint( Transform & pose_0_w, 
+                   MatX & Bw, 
+                   Transform & pose_w_e ); 
     
-    //these are useful helper functions that determine various things.
-    // They should not be overwritten.
-    void calculateDimensionality();
-    void calculateInverses();
-    void endeffectorToTSRFrame( const MatX & qt, MatX & xyzrpy);
 
     virtual ~TSRConstraint(){};
   
@@ -123,18 +125,24 @@ namespace chomp {
                                      MatX& h, 
                                      MatX& H);
     
+  private:  
+    //these are useful helper functions that determine various things.
+    // They should not be overwritten.
+    inline void calculateDimensionality();
+    inline void endeffectorToTSRFrame( const Transform & pose_ee,
+                                       double xyzrpy[]);
+
     //this function takes in a robot state, qt, and returns the position of
     // the relevant end-effector in the world frame. This is equivalent
     //  to the transformation from the end-effector frame to the world
     //  frame.
-    // This is the only function that needs to be redefined for each
-    //  implementation.
-    virtual void forwardKinematics( const MatX& qt, MatX& pos ) = 0;
-
-    virtual void computeJacobian( const MatX& qt, 
-                                  const std::vector<int> & dimension_id,
-                                  const MatX& pose_S_e,
-                                  MatX & jacobian
+    virtual void forwardKinematics( const MatX& qt, Transform & pos ) = 0;
+    
+    //this takes in a state and it gets the jacobian 
+    virtual void computeJacobian( const MatX& qt,
+                                  const Transform & pose_world_ee,
+                                  MatX & jacobian,
+                                  std::vector< int > & active_dims
                                   ) = 0;
 
 

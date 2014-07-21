@@ -68,6 +68,24 @@ public:
                              _cellSize*_dims[2]);
     return rval;
   }
+  
+  bool isInside( real x, real y, real z ){
+    if( _box.p0[0] > x || _box.p1[0] < x ){ return false; }
+    if( _box.p0[1] > x || _box.p1[1] < x ){ return false; }
+    if( _box.p0[2] > x || _box.p1[2] < x ){ return false; }
+
+    return true;
+  }
+
+  bool isInside( const vec3 & point ){
+    for ( int i = 0; i < 3; i ++ ){
+      if ( _box.p0[i] > point[i] || _box.p1[i] < point[i] ){
+        return false;
+      }
+    }
+    return true;
+  }
+
 
   vec3 center() const {
     real c = real(0.5)*_cellSize;
@@ -200,6 +218,7 @@ protected:
     _dims = dims;
     _cellSize = cellSize;
     _origin = origin;
+    _box = bbox(); 
   }
 
   void _resize(size_t nx, size_t ny, size_t nz,
@@ -234,6 +253,7 @@ protected:
   size_t _size;
   vec3   _origin;
   real   _cellSize;
+  Box3   _box;
 
 };
 

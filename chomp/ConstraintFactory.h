@@ -48,7 +48,7 @@ namespace chomp {
 
     void getAll(size_t total, std::vector<Constraint*>& constraints);
 
-    static void evaluate(const std::vector<Constraint*>& constraints, 
+    virtual void evaluate(const std::vector<Constraint*>& constraints, 
                          const MatX& xi, 
                          MatX& h_tot, 
                          MatX& H_tot, 

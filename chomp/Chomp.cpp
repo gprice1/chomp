@@ -34,6 +34,7 @@
 #include "Chomp.h"
 #include "ConstraintFactory.h"
 #include "Constraint.h"
+#include "HMC.h"
 #include <float.h>
 #include <cmath>
 #include <iomanip>
@@ -61,6 +62,7 @@ namespace chomp {
     case CHOMP_LOCAL_ITER: return "CHOMP_LOCAL_ITER";
     case CHOMP_FINISH: return "CHOMP_FINISH";
     case CHOMP_TIMEOUT: return "CHOMP_TIMEOUT";
+    case CHOMP_GOALSET_ITER: return "CHOMP_GOALSET_ITER";
     default: return "[INVALID]";
     }
   }
@@ -138,10 +140,9 @@ namespace chomp {
 
           wkspace_vel = dx_dq * cspace_vel;
 
-          //this prevents nans from propagating.
-          if (wkspace_vel.isZero()){
-              continue;
-          }
+          //this prevents nans from propagating. Several lines below, 
+          //    wkspace_vel /= wv_norm if wv_norm is zero, nans propogate.
+          if (wkspace_vel.isZero()){ continue; }
 
           wkspace_accel = dx_dq * cspace_accel;
           
@@ -165,9 +166,7 @@ namespace chomp {
          
 
         }
-        
       }
-
     }
     return total;
 
@@ -183,7 +182,8 @@ namespace chomp {
                size_t mg,
                size_t ml,
                double tt,
-               double timeout_seconds):
+               double timeout_seconds,
+               bool use_momentum):
     factory(f),
     observer(0),
     ghelper(0),
@@ -202,7 +202,10 @@ namespace chomp {
     t_total(tt),
     timeout_seconds( timeout_seconds ),
     didTimeout( false ),
-    using_mutex( false )
+    use_mutex( false ),
+    use_goalset( false ),
+    use_momentum( use_momentum ),
+    hmc( NULL )
   {
 
     N = xi.rows();
@@ -219,9 +222,10 @@ namespace chomp {
   }
  
   void Chomp::initMutex(){
-      using_mutex = true;
+      use_mutex = true;
       pthread_mutex_init( &trajectory_mutex, NULL );
   }
+
 
   void Chomp::clearConstraints() {
 
@@ -231,9 +235,22 @@ namespace chomp {
     }
 
   }
+  
+  //this sets up an iteration of 'normal' chomp, as opposed to
+  //    goal set chomp.
+  void Chomp::prepareStandardChomp(){
+    skylineChol(N, coeffs, L);
+
+    b.resize(N,M);
+    b.setZero();
+
+    c = createBMatrix(N, coeffs, q0, q1, b, dt);
+
+    g.resize(N,M);
+  }
 
   void Chomp::prepareChomp() {
-
+    
     if (objective_type == MINIMIZE_VELOCITY) {
 
       coeffs.resize(1,2);
@@ -252,38 +269,6 @@ namespace chomp {
 
     }
     
-    clearConstraints();
-
-
-
-    if (factory) {
-      factory->getAll(N, constraints);
-    }
-
-    skylineChol(N, coeffs, L);
-
-    b.resize(N,M);
-    b.setZero();
-
-    c = createBMatrix(N, coeffs, q0, q1, b, dt);
-
-    g.resize(N,M);
-
-    // decide whether base case or not
-    bool subsample = (N > minN);
-    if (full_global_at_final && N >= maxN) {
-      subsample = false;
-    }
-
-    if (!subsample) {
-      N_sub = 0;
-    } else {
-      N_sub = (N+1)/2;
-      g_sub.resize(N_sub, M);
-      xi_sub.resize(N_sub, M);
-      skylineChol((N+1)/2, coeffs_sub, L_sub); 
-    }
-
     dt = t_total / (N+1);
     inv_dt = (N+1) / t_total;
 
@@ -296,28 +281,71 @@ namespace chomp {
     cur_global_iter = 0;
     cur_local_iter = 0;
 
+    clearConstraints();
+
+    if (factory) {
+      factory->getAll(N, constraints);
+    }
+    
+
+    if( use_goalset ){ prepareGoalSet(); }
+    else { prepareStandardChomp(); }
+
+
+    // decide whether base case or not
+    bool subsample = ( N > minN && !use_goalset );
+    if (full_global_at_final && N >= maxN) {
+      subsample = false;
+    }
+
+    if (!subsample) {
+      N_sub = 0;
+      if ( use_momentum ){
+        momentum.resize( N, M );
+        momentum.setZero();
+      }
+      if( hmc ){ hmc->setupRun(); }
+
+    } else {
+      N_sub = (N+1)/2;
+      g_sub.resize(N_sub, M);
+      xi_sub.resize(N_sub, M);
+      skylineChol(N_sub , coeffs_sub, L_sub); 
+    }
+
+
   }
+  
+  void Chomp::updateGradient() { 
+
+    Ax.resize(xi.rows(), xi.cols());
+
+    if( use_goalset ){ diagMul(coeffs, goalset_coeffs, xi, Ax); }
+    else { diagMul(coeffs, xi, Ax); }
+
+    g = Ax + b;
+    if (ghelper) {
+        fextra = ghelper->addToGradient(*this, g);
+    } else {
+        fextra = 0;
+    }
+  }
+
 
   // precondition: prepareChomp was called for this resolution level
   void Chomp::prepareChompIter() {
-
+    
+    if (hmc && !N_sub ) {
+      hmc->iteration( cur_global_iter, xi, momentum, L, lastObjective );
+    }
+    
     // compute gradient, constraint & Jacobian and subsample them if
     // needed
 
     // get the gradient
-    Ax.conservativeResize(xi.rows(), xi.cols());
-
-    diagMul(coeffs, xi, Ax);
-    g = Ax + b;
-
-    if (ghelper) {
-      fextra = ghelper->addToGradient(*this, g);
-    } else {
-      fextra = 0;
-    }
+    updateGradient();
 
     if (N_sub) {
-      
       // we want even rows of xi and g
       // q0 q1 q2 q3 q4 q5 q6  with n = 7
       // q0    q2    q4    q6  
@@ -334,7 +362,6 @@ namespace chomp {
       }
 
     } else {
-
       // should we instead grab relevant blocks from this for local
       // smoothing?
       if (factory) {
@@ -361,7 +388,7 @@ namespace chomp {
   void Chomp::runChomp(bool global, bool local) {
     
     prepareChompIter();
-    double lastObjective = evaluateObjective();
+    lastObjective = evaluateObjective();
     //std::cout << "initial objective is " << lastObjective << "\n";
 
     if (notify(CHOMP_INIT, 0, lastObjective, -1, hmag)) { 
@@ -396,6 +423,10 @@ namespace chomp {
       lastObjective = curObjective;
     }
 
+    if (use_goalset){ finishGoalSet(); }
+
+    cur_global_iter = 0;
+
     if (full_global_at_final && N >= maxN) {
       local = false;
     }
@@ -426,6 +457,8 @@ namespace chomp {
       }
       lastObjective = curObjective;
     }
+    
+    std::cout << "\nDone with global chomp" << std::endl;
 
     if (factory && N_sub) {
       factory->evaluate(constraints, xi, h, H);
@@ -451,6 +484,11 @@ namespace chomp {
         canTimeout = true;
         stop_time = TimeStamp::now() +
                     Duration::fromDouble( timeout_seconds );
+    }
+    
+    if ( hmc ){ 
+        use_momentum = true;
+        hmc->setupHMC( objective_type, alpha );
     }
 
     total_global_iter = 0;
@@ -568,18 +606,20 @@ namespace chomp {
 
   // single iteration of chomp
   void Chomp::chompGlobal() { 
-
+    
     assert(xi.rows() == N && xi.cols() == M);
     assert(Ax.rows() == N && Ax.cols() == M);
+    
 
     // see if we're in our base case (not subsampling)
     bool subsample = N_sub != 0;
-
+    
     const MatX& H_which = subsample ? H_sub : H;
     const MatX& g_which = subsample ? g_sub : g;
     const MatX& L_which = subsample ? L_sub : L;
     const MatX& h_which = subsample ? h_sub : h;
     const int  N_which = subsample ? N_sub : N;
+    
 
     if (H_which.rows() == 0) {
 
@@ -588,19 +628,23 @@ namespace chomp {
       } else {
         assert( g_which.rows() == xi.rows() );
       }
-
-      delta = alpha * g_which;
-      skylineCholSolveMulti(L_which, delta);
+      
+      skylineCholSolve(L_which, g_which);
       
       lockTrajectory();
       if (subsample) {
         for (int t=0; t<N_sub; ++t) {
-          xi.row(2*t) -= delta.row(t);
+          xi.row(2*t) -= g_which.row(t) * alpha;
         }
+      } else if ( use_momentum ) {
+        momentum += g_which * alpha;
+        xi -= momentum;
       } else {
-        xi -= delta;
+        xi -= g_which * alpha;
       }
       unlockTrajectory();
+    
+    //chomp update with constraints
     } else {
 
       P = H_which.transpose();
@@ -626,27 +670,32 @@ namespace chomp {
       assert(newsize == N_which * M);
 
       assert(g_which.rows() == N_which && g_which.cols() == M);
-    
-      Eigen::Map<const Eigen::MatrixXd> g_flat(g_which.data(), newsize, 1);
-
-      assert(g_flat.rows() == newsize && g_flat.cols() == 1);
-
-      debug << "g = \n" << g_which << "\n";
-      debug << "g_flat = \n" << g_flat << "\n";
-
-      W = (MatX::Identity(newsize,newsize) - H_which.transpose() * Y)*g_flat;
       
+
+      Eigen::Map<const Eigen::MatrixXd> g_flat(g_which.data(),
+                                                 newsize, 1);
+      W = (MatX::Identity(newsize,newsize) - H_which.transpose() * Y)
+          * g_flat * alpha;
       skylineCholSolveMulti(L_which, W);
 
       Y = cholSolver.solve(h_which);
 
       debug_assert( h_which.isApprox(HP*Y) );
+      
+      //handle momentum if we need to.
+      if (!subsample && use_momentum){
+        Eigen::Map<Eigen::MatrixXd> momentum_flat(
+                            momentum.data(), newsize, 1);
+        momentum_flat += W;
+        delta = momentum_flat + P * Y;
+      }else {
+        delta = W + P * Y;
+      }
 
-      delta = alpha * W + P * Y;
       assert(delta.rows() == newsize && delta.cols() == 1);
 
-
-      Eigen::Map<const Eigen::MatrixXd> delta_rect(delta.data(), N_which, M);
+      Eigen::Map<const Eigen::MatrixXd> delta_rect(delta.data(),
+                                                   N_which, M);
       
       debug << "delta = \n" << delta << "\n";
       debug << "delta_rect = \n" << delta_rect << "\n";
@@ -752,8 +801,22 @@ namespace chomp {
       ||Kx + e||^2 = 
        
     */
+    
+    if ( false ){
+        const double xi_Ax = 0.5 * mydot( xi, Ax );
+        const double xi_b = mydot( xi, b );
+        const double smoothness = ( xi_Ax + xi_b + c ) * fscl;
+        std::cout <<  "xi * Ax    = " << xi_Ax << std::endl;
+        std::cout <<  "xi * b     = " << xi_b << std::endl;
+        std::cout <<  "c          = " << c << std::endl;
+        std::cout <<  "fextra     = " << fextra << std::endl;
+        std::cout <<  "fscale     = " << fscl << std::endl;
+        std::cout <<  "smoothness = " << smoothness << std::endl;
 
-    return ( 0.5*mydot(xi, Ax) + mydot(xi, b) + c ) * fscl + fextra;
+        return smoothness + fextra;
+    }
+
+    return (0.5 * mydot( xi, Ax ) + mydot( xi, b ) + c ) + fextra;
 
   }
 
@@ -824,4 +887,67 @@ namespace chomp {
 
   }
 
-}
+  ////////////////GOAL SET FUNCTIONS//////////////////////////////////
+
+  void Chomp::useGoalSet( Constraint * goalset ){
+      this->goalset = goalset;
+      use_goalset = true;
+  }
+
+
+  void Chomp::prepareGoalSet(){
+    
+    //resize xi, and add q1 into it.
+    xi.conservativeResize( xi.rows() + 1, xi.cols() );
+    xi.row( xi.rows() - 1 ) = q1;
+    int n = xi.rows();
+
+    if (objective_type == MINIMIZE_VELOCITY) {
+      goalset_coeffs.resize(1,1);
+      goalset_coeffs << 1;
+
+    } else {
+      goalset_coeffs.resize(2,2);
+      goalset_coeffs << 6, -3,
+                       -3,  2 ;
+    }
+    
+    constraints.push_back( goalset );
+
+    skylineChol( n, coeffs, goalset_coeffs, L);
+
+    b.resize(n,M);
+    b.setZero();
+
+    c = createBMatrix(n, coeffs, q0, b, dt);
+
+    g.resize(n,M);
+
+    //if we are doing goal set chomp, we should not subsample
+    N_sub = 0;
+
+    N = n;
+  }
+
+  void Chomp::finishGoalSet(){
+    
+    std::cout << "Finishing goal set" << std::endl;
+
+    use_goalset = false;
+
+    q1 = xi.row( xi.rows() - 1 );
+    xi.conservativeResize( xi.rows() -1, xi.cols() );
+    
+    N = xi.rows();
+
+    //remove the goal constraint, so that it is not deleted along
+    //  with the other constraints.
+    constraints.pop_back();
+    
+    std::cout << "Preparing chomp" <<std::endl;
+
+    prepareChomp();
+    std::cout << "Done Preparing chomp" <<std::endl;
+  }
+}// namespace
+

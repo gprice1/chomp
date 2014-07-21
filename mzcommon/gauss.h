@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 double gauss_ziggurat(double sigma);
+double gauss_ziggurat_standard();
 
 #ifdef __cplusplus
 }
