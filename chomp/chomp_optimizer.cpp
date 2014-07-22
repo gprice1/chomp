@@ -534,7 +534,7 @@ namespace chomp {
     } else if (tick >= xi.rows()) {
       return getPos(q1, (tick-xi.rows())*dt);
     } else {
-      return xi.row( tick );
+      return xi.block(tick, 0, 1, M);
     }
   }
 
