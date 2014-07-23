@@ -41,6 +41,14 @@
 namespace chomp {
 
   typedef Eigen::MatrixXd MatX;
+  typedef Eigen::Map<MatX>  MatMap;
+  //this matrix map is used for subsampling a matrix. 
+  typedef Eigen::Map<MatX, 0, Eigen::InnerStride<2> > SubMatMap; 
+
+  typedef Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, 
+                         Eigen::RowMajor> MatXR;
+  typedef Eigen::Map<MatXR> MatMapR;
+  typedef Eigen::Map<MatXR, 0, Eigen::OuterStride<> > SubMatMapR; 
 
   template <class Derived>
   static inline double mydot(const Eigen::MatrixBase<Derived>& a,
@@ -425,7 +433,16 @@ template <class Derived1, class Derived2>
 
   }
 }
-
+bool isnan( MatX & mat ){
+      for ( int i = 0; i < mat.rows() ; i ++ ){
+          for ( int j = 0; j < mat.cols(); j ++ ){
+              if ( mat(i,j) != mat(i,j) ){
+                  return true;
+              }
+          }
+      }
+      return false;
+}
 
   //////////////////////////////////////////////////////////////////////
 

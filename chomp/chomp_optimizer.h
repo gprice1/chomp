@@ -31,8 +31,8 @@
 *
 */
 
-#ifndef _CHOMP_H_
-#define _CHOMP_H_
+#ifndef _CHOMP_OPTIMIZER_H_
+#define _CHOMP_OPTIMIZER_H_
 
 #include "chomputil.h"
 
@@ -40,6 +40,7 @@
 #include <vector>
 #include <pthread.h>
 #include "../mzcommon/TimeUtil.h"
+#include "chomp_gradient.h"
 
 namespace chomp {
 
@@ -48,104 +49,15 @@ namespace chomp {
   class HMC;
   class Chomp;
 
-  enum ChompEventType { 
-    CHOMP_INIT,
-    CHOMP_GLOBAL_ITER,
-    CHOMP_LOCAL_ITER,
-    CHOMP_FINISH,
-    CHOMP_TIMEOUT,
-    CHOMP_GOALSET_ITER,
-  };
 
-  const char* eventTypeString(int eventtype);
-
-  class ChompObserver {
-  public:
-    virtual ~ChompObserver();
-    virtual int notify(const Chomp& c, 
-                       ChompEventType event,
-                       size_t iter,
-                       double curObjective,
-                       double lastObjective,
-                       double constraintViolation);
-  };
-
-  class DebugChompObserver: public ChompObserver {
-  public:
-    virtual ~DebugChompObserver();
-    virtual int notify(const Chomp& c, 
-                       ChompEventType event,
-                       size_t iter,
-                       double curObjective,
-                       double lastObjective,
-                       double constraintViolation);
-  };
-
-  class ChompGradientHelper {
-  public:
-    virtual ~ChompGradientHelper();
-    virtual double addToGradient(const Chomp& c, MatX& g) =0;
-  };
-
-  class ChompCollisionHelper {
-  public:
-
-    // nbodies = number of bodies considered in gradient term
-    // nwkspace = workspace dimension (2 or 3 probably)
-    // ncspace = config. space dimension
-
-    ChompCollisionHelper(size_t ncspace, size_t nwkspace, size_t nbodies);
-
-    virtual ~ChompCollisionHelper();
-
-    // return the cost for a given configuration/body, along with jacobians
-    virtual double getCost(const MatX& q,         // configuration
-                           size_t body_index,     // which body
-                           MatX& dx_dq, // Jacobian of workspace pos (nwkspace-by-ncspace)
-                           MatX& cgrad) =0; // gradient (Jacobian transpose) of cost wrt workspace pos (ncspace-by-1)
-    
-    
-    size_t ncspace;
-    size_t nwkspace;
-    size_t nbodies;
-
-  };
-
-  class ChompCollGradHelper: public ChompGradientHelper {
-  public:
-
-    ChompCollGradHelper(ChompCollisionHelper* h, double gamma=0.1);
-    virtual ~ChompCollGradHelper();
-
-    virtual double addToGradient(const Chomp& c, MatX& g);
-
-    ChompCollisionHelper* chelper;
-    double gamma;
-
-    MatX dx_dq;
-    MatX cgrad;
-
-    MatX q0, q1, q2;
-    MatX cspace_vel, cspace_accel;
-    MatX wkspace_vel, wkspace_accel;
-    MatX P;
-    MatX K; 
-    
-  };
-
-  enum ChompObjectiveType {
-    MINIMIZE_VELOCITY = 0,
-    MINIMIZE_ACCELERATION = 1,
-  };
-
-  class Chomp {
+  class ChompOptimizer {
   public:
 
     ConstraintFactory* factory;        
 
     ChompObserver* observer;
 
-    ChompGradientHelper* ghelper;
+    ChompGradient* gradient;
 
     ChompObjectiveType objective_type;
     
@@ -159,23 +71,11 @@ namespace chomp {
 
     int N; // number of timesteps
     int N_sub; // number of timesteps for subsampled trajectory
-
-    MatX xi; // current trajectory of size N-by-M
-    MatX xi_sub; // current trajectory of size N_sub-by-M
-
-    MatX Ax; // A*x of size N-by-M
-  
-    MatX coeffs; // coeffs for A e.g. [1, -4, 6] of size D-by-1 for accel
-    MatX coeffs_sub; // coeffs for downsampled A e.g. [1, 6] for accel
-    double fscl; // dynamic scaling factor for f, e.g. (N+1)*(N+2) for accel
-
-    double fextra; // extra objective function from gradient helper
-
-    MatX L; // skyline Cholesky coeffs of A of size N-by-D
-    MatX L_sub; // skyline Cholesky coeffs of size N_sub-by-D
-
-    MatX g; // gradient terms (Ax + b) of size N-by-M
-    MatX g_sub; // gradient terms (Ax + b) of size N_sub-by-M
+    
+    // current trajectory of size N-by-M
+    // Stored in RowMajor format
+    MatXR xi;
+    SubMatMapR xi_sub; // current trajectory of size N_sub-by-M
 
     MatX h; // constraint function of size k-by-1
     MatX h_sub; // constraint function of size k_sub-by-1
@@ -188,21 +88,13 @@ namespace chomp {
     // working variables
     MatX H_trans, P, P_trans, HP, Y, W, g_trans, delta, delta_trans; 
 
-    MatX b; // endpoint vectors for this problem of size N-by-M
-
-    MatX q0; // initial point of size M
-    MatX q1; // end point of size M
-
-    double c; // c value for objective function
-
-    size_t cur_global_iter;
-    size_t cur_local_iter;
-    size_t total_global_iter;
-    size_t total_local_iter;
-
     double alpha;
     double objRelErrTol;
+    // last_objective : save the last objective, for use with rejection.
+    double lastObjective;
+    
 
+    size_t cur_iter
     size_t min_global_iter, max_global_iter;
     size_t min_local_iter, max_local_iter;
 
@@ -226,27 +118,14 @@ namespace chomp {
     //used for goal set chomp.
     Constraint * goalset;
     bool use_goalset;
-    MatX goalset_coeffs;
      
     bool use_momentum;
     MatX momentum;
 
     HMC * hmc;
 
-    // last_objective : save the last objective, for use with rejection.
-    double lastObjective;
-    
-    //TODO add cost scheduling
-    //cost scheduling values.
-    double cost_schedule_multiplier1, cost_schedule_multiplier2;
-    double smooth_start, smooth_end;
-    double obstacle_start, obstacle_end;
-    size_t cost_schedule_start_iter, cost_schedule_end_iter;
-
-    Chomp(ConstraintFactory* f,
+    ChompOptimizer(ConstraintFactory* f,
           const MatX& xi_init, // should be N-by-M
-          const MatX& pinit, // q0
-          const MatX& pgoal, // q1
           int nmax,
           double al = 0.1,
           double obstol = 0.01,
@@ -271,7 +150,11 @@ namespace chomp {
             pthread_mutex_unlock( &trajectory_mutex );
         }
     }
-    
+
+    template <class Derived>
+    void updateTrajectory( const Eigen::MatrixBase<Derived1> & delta,
+                       bool subsample )
+
     void initMutex();
    
     void updateGradient();
@@ -280,10 +163,6 @@ namespace chomp {
 
     //prepares chomp to be run at a resolution level
     void prepareChomp();    
-
-    //prepare a run of standard chomp, as opposed to goal set chomp.
-    //  this is called by the function 'prepareChomp'
-    void prepareStandardChomp();
 
     // precondition: prepareChomp was called for this resolution level
     void prepareChompIter();
@@ -312,12 +191,6 @@ namespace chomp {
     // time xi was modified
     void localSmooth();
 
-    // evaluates the objective function for cur. thing.
-    //
-    // only works if prepareChompIter has been called since last
-    // modification of xi.
-    double evaluateObjective();
-
     // upsamples trajectory, projecting onto constraint for each new
     // trajectory element.
     void constrainedUpsampleTo(int Nmax, double htol, double hstep=0.5);
@@ -332,13 +205,9 @@ namespace chomp {
                double lastObjective,
                double constraintViolation) const;
 
-
     //Give a goal set in the form of a constraint for chomp to use on the
     //  first resolution level.
     void useGoalSet( Constraint * goalset );
-    
-    //call before running goal set chomp;
-    void prepareGoalSet();
 
     //call after running goal set chomp.
     void finishGoalSet(); 
