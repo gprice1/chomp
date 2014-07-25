@@ -35,25 +35,21 @@
 #define _CHOMP_GRADIENT_H_
 
 #include "chomputil.h"
-
-#include <iostream>
 #include <vector>
-#include <pthread.h>
-#include "../mzcommon/TimeUtil.h"
-#include "Chomp.h"
 
 namespace chomp {
 
 
 class ChompGradient {
 public:
+    
+    Chomp * chomper; // this is for sending to the gradient helper
 
     ChompGradientHelper* ghelper;
 
     ChompObjectiveType objective_type;
     
     int M; // degrees of freedom
-
     int N; // number of timesteps
 
     MatX Ax; // A*x of size N-by-M
@@ -69,6 +65,7 @@ public:
     MatX L; // skyline Cholesky coeffs of A of size N-by-D
 
     MatX g; // gradient terms (Ax + b) of size N-by-M
+    SubMatMap g_sub;
 
     // working variables
     MatX H_trans, P, P_trans, HP, Y, W, g_trans, delta, delta_trans; 
@@ -83,7 +80,8 @@ public:
     bool use_goalset;
     
     ChompGradient( const MatX& pinit,const MatX& pgoal, 
-                    ChompObjectiveType objective_type);
+                   ChompObjectiveType objective_type, 
+                   Chomp * chomp);
 
     ~ChompGradient(){}
     
@@ -92,6 +90,8 @@ public:
                      bool subsample=false,
                      bool usingGoalSet=false);
 
+    MatX& ChompGradient::getInvAMatrix( bool subsample=false);
+    
     MatX& getGradient( const MatX& trajectory );
     MatX& getGradientThroughLMatrix( const MatX& trajectory);
     MatX& getSmoothnessGradient( const MatX& trajectory );
@@ -107,7 +107,7 @@ public:
 
 };
 
-}
+}//namespace chomp
 
 
 #endif

@@ -31,10 +31,6 @@
 *
 */
 
-#include "Chomp.h"
-#include "ConstraintFactory.h"
-#include "Constraint.h"
-#include "HMC.h"
 #include <float.h>
 #include <cmath>
 #include <iomanip>
@@ -43,7 +39,6 @@
 #define debug_assert if (0) assert
 
 namespace chomp {
-
 
 ChompGradient::ChompGradient( const MatX& pinit, 
                               const MatX& pgoal, 
@@ -71,8 +66,6 @@ ChompGradient::ChompGradient( const MatX& pinit,
         coeffs_goalset << 6, -3,
                          -3,  2 ;
     }
-
-
 }
 
 void ChompGradient::prepareRun(int N,
@@ -100,25 +93,44 @@ void ChompGradient::prepareRun(int N,
     
     //resize the g and ax matrices.
     g.resize(N,M);
-    Ax.resize( N,M);
+    Ax.resize(N,M);
 
     if (subsample) {
         int N_sub = (N+1)/2;
-        g_sub.resize(N_sub, M);
         skylineChol(N_sub, coeffs_sub, L_sub); 
     }
 }
 
-MatX& ChompGradient::getGradient( const MatX& xi );
+
+MatX& ChompGradient::getInvAMatrix( bool subsample){
+    return (subsample ? L_sub : L );
+}
+
+template <class Derived>
+MatX& ChompGradient::getCollisionGradient( 
+                    const Eigen::MatrixBase<Derived>& xi )
+{
+        //If there is a gradient helper, add in the contribution from
+    //  that source, and set the fextra variable to the cost
+    //  associated with the additional gradient.
+    g.setZero();
+
+    if (ghelper) {
+        fextra = ghelper->addToGradient(*this, g);
+    } else {
+        fextra = 0;
+    }
+    return g;
+
+}
+
+
+template <class Derived>
+MatX& ChompGradient::getGradient( 
+                           const Eigen::MatrixBase<Derived>& xi )
+{
     
-    //Performs the operation: A * x.
-    //  (fill the matrix Ax, with the results.
-    if( use_goalset ){ diagMul(coeffs, coeffs_goalset, xi, Ax); }
-    else { diagMul(coeffs, xi, Ax); }
-    
-    //add in the b matrix to get the contribution from the
-    //  endpoints, and set this equal to the gradient.
-    g = Ax + b;
+    getSmoothnessGradient( xi );
 
     //If there is a gradient helper, add in the contribution from
     //  that source, and set the fextra variable to the cost
@@ -130,6 +142,50 @@ MatX& ChompGradient::getGradient( const MatX& xi );
     }
 
     return g;
+
+}
+
+template <class Derived>
+MatX& ChompGradient::getSmoothnessGradient( 
+                     const Eigen::MatrixBase<Derived>& xi )
+{
+    
+    //Performs the operation: A * x.
+    //  (fill the matrix Ax, with the results.
+    if( use_goalset ){ diagMul(coeffs, coeffs_goalset, xi, Ax); }
+    else { diagMul(coeffs, xi, Ax); }
+    
+    //add in the b matrix to get the contribution from the
+    //  endpoints, and set this equal to the gradient.
+    g = Ax + b;
+
+    return g;
+}
+
+template <class Derived>
+SubMatMap& ChompGradient::getSubsampledGradient( 
+                          const Eigen::MatrixBase<Derived>& xi,
+                          int N_sub)
+{
+    
+    //get the contribution from the smoothness.
+    getSmoothnessGradient( xi );
+
+    //If there is a gradient helper, add in the contribution from
+    //  that source, and set the fextra variable to the cost
+    //  associated with the additional gradient.
+    if (ghelper) {
+        fextra = ghelper->addToGradient(*this, g );
+        
+        //TODO make this line below possible
+        //fextra = ghelper->addToGradient(*this, g, sub_factor );
+    } else {
+        fextra = 0;
+    }
+    
+    g_sub = SubMatMap( g.data(), N_sub, M );
+
+    return g_sub;
 
 }
 

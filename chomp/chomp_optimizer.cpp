@@ -92,13 +92,26 @@ ChompOptimizer::Chomp(ConstraintFactory* f,
     assert(maxN >= minN);
 
 }
- 
+ //delete the mutex if one was used.
+ChompOptimizer::~ChompOptimizer(){
+    if( use_mutex ){
+        pthread_mutex_destroy( &trajectory_mutex );
+    }
+}
+void ChompOptimizer::lockTrajectory(){
+    if (use_mutex){
+        pthread_mutex_lock( &trajectory_mutex );
+    }
+}
+void ChompOptimizer::unlockTrajectory(){
+    if (use_mutex){
+        pthread_mutex_unlock( &trajectory_mutex );
+    }
+}
 void ChompOptimizer::initMutex(){
     use_mutex = true;
     pthread_mutex_init( &trajectory_mutex, NULL );
 }
-
-
 void ChompOptimizer::clearConstraints() {
 
     while (!constraints.empty()) {
@@ -155,6 +168,13 @@ void ChompOptimizer::prepareChompIter() {
         hmc->iteration( cur_global_iter, xi, momentum, L, lastObjective );
     }
     
+    if ( N_sub ){ gradient->getSubsampledGradient( xi, N_sub ); }
+    else { gradient->getGradient( xi ) }
+}
+
+
+void ChompOptimizer::prepareConstraintMatrix(){
+
     // compute gradient, constraint & Jacobian and subsample them if
     // needed
     if ( factory )
@@ -183,7 +203,7 @@ void ChompOptimizer::prepareChompIter() {
 void ChompOptimizer::runChomp(bool global, bool local) {
     
     prepareChompIter();
-    lastObjective = evaluateObjective();
+    lastObjective = gradient->evaluateObjective();
 
     if (notify(CHOMP_INIT, 0, lastObjective, -1, hmag)) { 
         global = false;
@@ -219,23 +239,30 @@ bool iterateChomp( bool local ){
 
     ChompEvenType event;
     bool not_finished = true;
-    
+    double curObjective;
+
     //run local or global chomp
     if ( local ){
         localSmooth();
         event = CHOMP_LOCAL_ITER;
+
+        //get the next gradient
+        gradient->getGradient( xi );
     }else{
         chompGlobal();
         event = CHOMP_GLOBAL_ITER;
+        
+        //get the next gradient
+        if (N_sub){ gradient->getSubsampledGradient( xi, N_sub ); }
+        else { gradient->getGradient( xi ); }
+
+        prepareChompIter();
     }
     
     cur_iter ++;
 
-    //prepare for the next iteration of chomp.
-    prepareChompIter();
-    
     //test for termination conditions
-    double curObjective = evaluateObjective();
+    double curObjective = gradient->evaluateObjective();
     bool greater_than_min = cur_iter >
                             (local ? min_local_iter : min_global_iter);
     bool greater_than_max = cur_iter > 
@@ -384,8 +411,8 @@ void ChompOptimizer::chompGlobal() {
     // see if we're in our base case (not subsampling)
     bool subsample = N_sub != 0;
     
+    const MatX& g = chomp_gradient->getGradient( xi );
     const MatX& H_which = subsample ? H_sub : H;
-    const MatX& g_which = subsample ? g_sub : g;
     const MatX& L_which = subsample ? L_sub : L;
     const MatX& h_which = subsample ? h_sub : h;
     const int   N_which = subsample ? N_sub : N;
@@ -394,17 +421,17 @@ void ChompOptimizer::chompGlobal() {
     //  run the update without constraints.
     if (H_which.rows() == 0) {
 
-        assert( g_which.rows() == N_which ); 
+        assert( g.rows() == N_which ); 
       
-        skylineCholSolve(L_which, g_which);
+        skylineCholSolve(L_which, g);
       
         //if we are using momentum, add the gradient into the
         //  momentum.
         if (!subsample && use_momentum ) {
-            momentum += g_which * alpha;
+            momentum += g * alpha;
             updateTrajectory( momentum, false );
         }else {
-            updateTrajectory( g_which * alpha, subsample );
+            updateTrajectory( g * alpha, subsample );
         }
 
     //chomp update with constraints
@@ -432,9 +459,9 @@ void ChompOptimizer::chompGlobal() {
       int newsize = H_which.cols();
       assert(newsize == N_which * M);
 
-      assert(g_which.rows() == N_which && g_which.cols() == M);
+      assert(g.rows() == N_which && g.cols() == M);
       
-      Eigen::Map<const MatX> g_flat(g_which.data(), newsize, 1);
+      Eigen::Map<const MatX> g_flat(g.data(), newsize, 1);
       W = (MatX::Identity(newsize,newsize) - H_which.transpose() * Y)
           * g_flat * alpha;
       skylineCholSolveMulti(L_which, W);
@@ -465,20 +492,9 @@ void ChompOptimizer::chompGlobal() {
       
       updateTrajectory( delta_rect, subsample );
     }
-    
-
 }
 
-template <class Derived>
-void ChompOptimizer::updateTrajectory(
-                       const Eigen::MatrixBase<Derived1> & delta,
-                       bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub -= delta; }
-    else{ xi -= delta; }
-    unlockTrajectory();
-}
+
 
 // single iteration of local smoothing
 //
@@ -489,6 +505,8 @@ void ChompOptimizer::localSmooth() {
     MatX h_t, H_t, P_t, P_t_inv, delta_t;
 
     hmag = 0;
+    
+    const MatX & g = gradient->getGradient( xi );
 
     for (int t=0; t<N; ++t){
 
@@ -514,20 +532,17 @@ void ChompOptimizer::localSmooth() {
             P_t_inv = P_t.inverse();
 
             // transpose g to be a column vector
-            delta_t = ( -alpha*(MatX::Identity(M,M)
-                        -H_t.transpose()*P_t_inv*H_t)*g.row(t).transpose()
-                        -H_t.transpose()*P_t_inv*h_t ).transpose();
+            delta_t = ( (MatX::Identity(M,M) - H_t.transpose()*P_t_inv*H_t)
+                        * g.row(t).transpose() * alpha
+                        + H_t.transpose()*P_t_inv*h_t 
+                      ).transpose();
         
         }
         //there are no constraints, so just add the negative gradient
         //  into the trajectory (multiplied by the step size, of course.
-        else { delta_t = -alpha * g.row(t); }
-      
-        lockTrajectory();
-        // transpose delta to be a row vector
-        xi.row(t) += delta_t;
-        unlockTrajectory();
-
+        else { delta_t = alpha * g.row(t); }
+        
+        updateTrajectory( delta_t, t, false );
     }
 
 }
@@ -550,10 +565,10 @@ void ChompOptimizer::constrainedUpsampleTo(int Nmax,
 
       upsample();
       prepareChomp();
+      prepareChompIter();
 
       double hinit = 0, hfinal = 0;
       
-      lockTrajectory();
       for (int i=0; i<N; i+=2) {
 
         Constraint* c = constraints.empty() ? 0 : constraints[i];
@@ -567,14 +582,12 @@ void ChompOptimizer::constrainedUpsampleTo(int Nmax,
             if (iter == 0) { hinit = std::max(hn, hinit); }
             if (hn < htol) { hfinal = std::max(hn, hfinal); break; }
             delta = H.colPivHouseholderQr().solve(h);
-            xi.row(i) -= hstep * delta.transpose();
+            updateTrajectory( hstep * delta.transpose();
           }
         }
       
       }
-      unlockTrajectory();
 
-      prepareChompIter();
     }
 
 }
@@ -595,7 +608,31 @@ int ChompOptimizer::notify(ChompEventType event,
 
 }
 
-  ////////////////GOAL SET FUNCTIONS//////////////////////////////////
+
+template <class Derived>
+void ChompOptimizer::updateTrajectory(
+                       const Eigen::MatrixBase<Derived1> & delta,
+                       bool subsample )
+{
+    lockTrajectory();
+    if ( subsample ){ xi_sub -= delta; }
+    else{ xi -= delta; }
+    unlockTrajectory();
+}
+
+template <class Derived>
+void ChompOptimizer::updateTrajectory(
+                       const Eigen::MatrixBase<Derived1> & delta,
+                       int index, bool subsample )
+{
+    lockTrajectory();
+    if ( subsample ){ xi_sub.row( index ) -= delta; }
+    else{ xi.row( index ) -= delta; }
+    unlockTrajectory();
+}
+
+
+////////////////GOAL SET FUNCTIONS//////////////////////////////////
 
 void ChompOptimizer::useGoalSet( Constraint * goalset ){
       this->goalset = goalset;

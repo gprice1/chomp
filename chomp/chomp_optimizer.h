@@ -36,7 +36,6 @@
 
 #include "chomputil.h"
 
-#include <iostream>
 #include <vector>
 #include <pthread.h>
 #include "../mzcommon/TimeUtil.h"
@@ -73,9 +72,8 @@ namespace chomp {
     int N_sub; // number of timesteps for subsampled trajectory
     
     // current trajectory of size N-by-M
-    // Stored in RowMajor format
-    MatXR xi;
-    SubMatMapR xi_sub; // current trajectory of size N_sub-by-M
+    MatX xi;
+    SubMatMap xi_sub; // current trajectory of size N_sub-by-M
 
     MatX h; // constraint function of size k-by-1
     MatX h_sub; // constraint function of size k_sub-by-1
@@ -86,31 +84,49 @@ namespace chomp {
     double hmag; // inf. norm magnitude of constraint violation
 
     // working variables
-    MatX H_trans, P, P_trans, HP, Y, W, g_trans, delta, delta_trans; 
+    MatX P, HP, Y, W, delta, delta_trans; 
+    
+    double alpha;       // the gradient step size
+    double objRelErrTol; //Objective function value relative to the
+                         //previous value
 
-    double alpha;
-    double objRelErrTol;
     // last_objective : save the last objective, for use with rejection.
     double lastObjective;
     
-
-    size_t cur_iter
+    
+    size_t cur_iter; // the number of the current iteration of chomp
+    //chomp will not stop global chomp until it has exceeded 
+    //  min_global_iter, and must terminate the run at the current 
+    //  resolution if the number of iterations reaches max_global_iter
     size_t min_global_iter, max_global_iter;
+    //chomp will not stop local chomp until it has exceeded 
+    //  min_local_iter, and must terminate the run at the current 
+    //  resolution if the number of iterations reaches max_local_iter
     size_t min_local_iter, max_local_iter;
 
-    bool full_global_at_final;
+    bool full_global_at_final; //perform an iteration of global chomp
+                               //on the whole trajectory at the end?
 
     double t_total; // total time for (N+1) timesteps
     double dt; // computed automatically from t_total and N
     double inv_dt; // computed automatically from t_total and N
     
+    //timeout_seconds : the amount of time from the start of chomp
+    //                  to a forced timeout.
+    //canTimeout : is timing out a possible termination condition?
+    // didTimeout : has chomp timed out ?
+    // stop_time : the time at which chomp will timeout.
     double timeout_seconds;
     bool canTimeout, didTimeout;
     TimeStamp stop_time;
 
+    //A mutex for locking the trajectory when updates are being made.
+    //  Only needed if a concurrent thread wants data out of 
+    //  chomp.
     pthread_mutex_t trajectory_mutex;
     bool use_mutex;
-
+    
+    //A cholesky solver for solving the constraint matrix.
     Eigen::LDLT<MatX> cholSolver;
 
     std::vector<Constraint*> constraints; // vector of size N
@@ -121,7 +137,8 @@ namespace chomp {
      
     bool use_momentum;
     MatX momentum;
-
+    
+    //an HMC object for performing the Hamiltonian Monte Carlo method
     HMC * hmc;
 
     ChompOptimizer(ConstraintFactory* f,
@@ -135,30 +152,15 @@ namespace chomp {
           double timeout_seconds=-1.0,
           bool use_momentum = false);
     
-    ~Chomp(){
-        if( use_mutex ){
-            pthread_mutex_destroy( &trajectory_mutex );
-        }
-    }
-    void lockTrajectory(){
-        if (use_mutex){
-            pthread_mutex_lock( &trajectory_mutex );
-        }
-    }
-    void unlockTrajectory(){
-        if (use_mutex){
-            pthread_mutex_unlock( &trajectory_mutex );
-        }
-    }
+    //delete the mutex if one was used.
+    ~Chomp();
 
-    template <class Derived>
-    void updateTrajectory( const Eigen::MatrixBase<Derived1> & delta,
-                       bool subsample )
-
+    //methods for using a mutex 
+    void lockTrajectory();
+    void unlockTrajectory();
     void initMutex();
-   
-    void updateGradient();
-
+    
+    //clear the constraint vector of constraints.
     void clearConstraints();
 
     //prepares chomp to be run at a resolution level
@@ -195,9 +197,6 @@ namespace chomp {
     // trajectory element.
     void constrainedUpsampleTo(int Nmax, double htol, double hstep=0.5);
 
-    // returns true if performance has converged
-    bool goodEnough(double oldObjective, double newObjective);
-
     // call the observer if there is one
     int notify(ChompEventType event,
                size_t iter,
@@ -211,7 +210,23 @@ namespace chomp {
 
     //call after running goal set chomp.
     void finishGoalSet(); 
-  };
+
+
+  private:
+    // returns true if performance has converged
+    bool goodEnough(double oldObjective, double newObjective);
+
+    //updates the trajectory 
+    template <class Derived>
+    virtual void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
+                                   bool subsample );
+
+    //updates the trajectory 
+    template <class Derived>
+    virtual void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
+                                   int row, bool subsample );
+
+};
 
 
 
