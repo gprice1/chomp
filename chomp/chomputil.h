@@ -215,19 +215,13 @@ void skylineCholSolveMulti(
                 const Eigen::MatrixBase<Derived1>& L, 
                 const Eigen::MatrixBase<Derived2>& xx_const);
 
-
-
-
 template <class Derived1, class Derived2, class Derived3>
 double createBMatrix(int n, 
-                              const Eigen::MatrixBase<Derived1>& coeffs,
-                              const Eigen::MatrixBase<Derived2>& x0,
-                              const Eigen::MatrixBase<Derived2>& x1,
-                              const Eigen::MatrixBase<Derived3>& b_const,
-                              double dt);
-
-
-
+                     const Eigen::MatrixBase<Derived1>& coeffs,
+                     const Eigen::MatrixBase<Derived2>& x0,
+                     const Eigen::MatrixBase<Derived2>& x1,
+                     const Eigen::MatrixBase<Derived3>& b_const,
+                     double dt);
 
 
 /////////////////////////////////////////////////////////////////////
@@ -236,9 +230,9 @@ double createBMatrix(int n,
 //this is a diag mul for goal set chomp
 template <class Derived1, class Derived2, class Derived3, class Derived4>
 void diagMul(const Eigen::MatrixBase<Derived1>& coeffs,
-                    const Eigen::MatrixBase<Derived2>& gs_coeffs,
-                    const Eigen::MatrixBase<Derived3>& x,
-                    const Eigen::MatrixBase<Derived4>& Ax_const );
+             const Eigen::MatrixBase<Derived2>& gs_coeffs,
+             const Eigen::MatrixBase<Derived3>& x,
+             const Eigen::MatrixBase<Derived4>& Ax_const );
 
 
 //this is a skyline chol for goal set chomp
@@ -264,10 +258,9 @@ double createBMatrix(int n,
 //this is a function to compute the dot product of matrices
 template <class Derived1, class Derived2>
 static inline double mydot(const Eigen::MatrixBase<Derived1>& a,
-                           const Eigen::MatrixBase<Derived2>& b) {
-
+                           const Eigen::MatrixBase<Derived2>& b)
+{
   return a.cwiseProduct(b).sum();
-
 }
 
 template <class Derived>
@@ -283,7 +276,7 @@ inline MatX getPos(const Eigen::MatrixBase<Derived>& x, double h){
     }
 
     return rval;
-    
 }
 
+} // Namespace
 #endif

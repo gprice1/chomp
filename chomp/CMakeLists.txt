@@ -1,13 +1,15 @@
 
 
 add_library(chomp SHARED
-    Constraint.cpp
-    ConstraintFactory.cpp
-    Chomp.cpp
-    HMC.cpp
     chomputil.cpp
-    chomp_optimizer.cpp
-    chomp_gradient.cpp
+    
+    ConstraintFactory.cpp
+    Constraint.cpp
+    
+    Chomp.cpp
+    ChompGradient.cpp
+    
+    HMC.cpp
     )
 
 target_link_libraries( chomp mzcommon )

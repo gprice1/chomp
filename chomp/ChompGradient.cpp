@@ -42,7 +42,7 @@ namespace chomp {
 
 ChompGradient::ChompGradient( const MatX& pinit, 
                               const MatX& pgoal, 
-                              ChompObjectiveType objective_type ){
+                              ChompObjectiveType objective_type ) :
     q0( pinit ), q1( pgoal ),
     objective_type( objective_type )
 {   
@@ -108,7 +108,7 @@ MatX& ChompGradient::getInvAMatrix( bool subsample){
 
 template <class Derived>
 MatX& ChompGradient::getCollisionGradient( 
-                    const Eigen::MatrixBase<Derived>& xi )
+                        const Eigen::MatrixBase<Derived>& xi )
 {
         //If there is a gradient helper, add in the contribution from
     //  that source, and set the fextra variable to the cost
@@ -126,8 +126,7 @@ MatX& ChompGradient::getCollisionGradient(
 
 
 template <class Derived>
-MatX& ChompGradient::getGradient( 
-                           const Eigen::MatrixBase<Derived>& xi )
+MatX& ChompGradient::getGradient(  const Eigen::MatrixBase<Derived>& xi )
 {
     
     getSmoothnessGradient( xi );
@@ -194,7 +193,10 @@ SubMatMap& ChompGradient::getSubsampledGradient(
 //
 // only works if prepareChompIter has been called since last
 // modification of xi.
-double Chomp::evaluateObjective( const MatX & xi ) const {
+template <class Derived>
+double Chomp::evaluateObjective(
+            const Eigen::MatrixBase<Derived>& xi ) const
+{
 
   /*
 
@@ -230,7 +232,6 @@ double Chomp::evaluateObjective( const MatX & xi ) const {
     }
 
     return (0.5 * mydot( xi, Ax ) + mydot( xi, b ) + c ) + fextra;
-
 }
 
 }// namespace

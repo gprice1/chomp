@@ -36,22 +36,21 @@
 
 #include "chomputil.h"
 
-#include <iostream>
 #include <vector>
 #include <pthread.h>
 #include "../mzcommon/TimeUtil.h"
+#include "ChompGradient.h"
 
 namespace chomp {
 
-
-  class Chomp {
+class Chomp {
   public:
 
     ConstraintFactory* factory;        
 
     ChompObserver* observer;
 
-    ChompGradientHelper* ghelper;
+    ChompGradient* gradient;
 
     ChompObjectiveType objective_type;
     
@@ -65,23 +64,10 @@ namespace chomp {
 
     int N; // number of timesteps
     int N_sub; // number of timesteps for subsampled trajectory
-
-    MatX xi; // current trajectory of size N-by-M
-    MatX xi_sub; // current trajectory of size N_sub-by-M
-
-    MatX Ax; // A*x of size N-by-M
-  
-    MatX coeffs; // coeffs for A e.g. [1, -4, 6] of size D-by-1 for accel
-    MatX coeffs_sub; // coeffs for downsampled A e.g. [1, 6] for accel
-    double fscl; // dynamic scaling factor for f, e.g. (N+1)*(N+2) for accel
-
-    double fextra; // extra objective function from gradient helper
-
-    MatX L; // skyline Cholesky coeffs of A of size N-by-D
-    MatX L_sub; // skyline Cholesky coeffs of size N_sub-by-D
-
-    MatX g; // gradient terms (Ax + b) of size N-by-M
-    MatX g_sub; // gradient terms (Ax + b) of size N_sub-by-M
+    
+    // current trajectory of size N-by-M
+    MatX xi;
+    SubMatMap xi_sub; // current trajectory of size N_sub-by-M
 
     MatX h; // constraint function of size k-by-1
     MatX h_sub; // constraint function of size k_sub-by-1
@@ -92,39 +78,48 @@ namespace chomp {
     double hmag; // inf. norm magnitude of constraint violation
 
     // working variables
-    MatX H_trans, P, P_trans, HP, Y, W, g_trans, delta, delta_trans; 
+    MatX P, HP, Y, W, delta, delta_trans; 
+    
+    double alpha;       // the gradient step size
+    double objRelErrTol; //Objective function value relative to the
+                         //previous value
 
-    MatX b; // endpoint vectors for this problem of size N-by-M
-
-    MatX q0; // initial point of size M
-    MatX q1; // end point of size M
-
-    double c; // c value for objective function
-
-    size_t cur_global_iter;
-    size_t cur_local_iter;
-    size_t total_global_iter;
-    size_t total_local_iter;
-
-    double alpha;
-    double objRelErrTol;
-
+    // last_objective : save the last objective, for use with rejection.
+    double lastObjective;
+    
+    size_t cur_iter; // the number of the current iteration of chomp
+    //chomp will not stop global chomp until it has exceeded 
+    //  min_global_iter, and must terminate the run at the current 
+    //  resolution if the number of iterations reaches max_global_iter
     size_t min_global_iter, max_global_iter;
+    //chomp will not stop local chomp until it has exceeded 
+    //  min_local_iter, and must terminate the run at the current 
+    //  resolution if the number of iterations reaches max_local_iter
     size_t min_local_iter, max_local_iter;
 
-    bool full_global_at_final;
+    bool full_global_at_final; //perform an iteration of global chomp
+                               //on the whole trajectory at the end?
 
     double t_total; // total time for (N+1) timesteps
     double dt; // computed automatically from t_total and N
     double inv_dt; // computed automatically from t_total and N
     
+    //timeout_seconds : the amount of time from the start of chomp
+    //                  to a forced timeout.
+    //canTimeout : is timing out a possible termination condition?
+    // didTimeout : has chomp timed out ?
+    // stop_time : the time at which chomp will timeout.
     double timeout_seconds;
     bool canTimeout, didTimeout;
     TimeStamp stop_time;
 
+    //A mutex for locking the trajectory when updates are being made.
+    //  Only needed if a concurrent thread wants data out of 
+    //  chomp.
     pthread_mutex_t trajectory_mutex;
     bool use_mutex;
-
+    
+    //A cholesky solver for solving the constraint matrix.
     Eigen::LDLT<MatX> cholSolver;
 
     std::vector<Constraint*> constraints; // vector of size N
@@ -132,27 +127,17 @@ namespace chomp {
     //used for goal set chomp.
     Constraint * goalset;
     bool use_goalset;
-    MatX goalset_coeffs;
      
     bool use_momentum;
     MatX momentum;
-
-    HMC * hmc;
-
-    // last_objective : save the last objective, for use with rejection.
-    double lastObjective;
     
-    //TODO add cost scheduling
-    //cost scheduling values.
-    double cost_schedule_multiplier1, cost_schedule_multiplier2;
-    double smooth_start, smooth_end;
-    double obstacle_start, obstacle_end;
-    size_t cost_schedule_start_iter, cost_schedule_end_iter;
+    //an HMC object for performing the Hamiltonian Monte Carlo method
+    HMC * hmc;
 
     Chomp(ConstraintFactory* f,
           const MatX& xi_init, // should be N-by-M
           const MatX& pinit, // q0
-          const MatX& pgoal, // q1
+          const MatX& pgoal, // q1onst MatX& xi_init, // should be N-by-M
           int nmax,
           double al = 0.1,
           double obstol = 0.01,
@@ -162,37 +147,28 @@ namespace chomp {
           double timeout_seconds=-1.0,
           bool use_momentum = false);
     
-    ~Chomp(){
-        if( use_mutex ){
-            pthread_mutex_destroy( &trajectory_mutex );
-        }
-    }
-    void lockTrajectory(){
-        if (use_mutex){
-            pthread_mutex_lock( &trajectory_mutex );
-        }
-    }
-    void unlockTrajectory(){
-        if (use_mutex){
-            pthread_mutex_unlock( &trajectory_mutex );
-        }
-    }
-    
-    void initMutex();
-   
-    void updateGradient();
+    //delete the mutex if one was used.
+    ~Chomp();
 
+    //methods for using a mutex 
+    void lockTrajectory();
+    void unlockTrajectory();
+    void initMutex();
+    
+    //clear the constraint vector of constraints.
     void clearConstraints();
 
     //prepares chomp to be run at a resolution level
     void prepareChomp();    
 
-    //prepare a run of standard chomp, as opposed to goal set chomp.
-    //  this is called by the function 'prepareChomp'
-    void prepareStandardChomp();
-
     // precondition: prepareChomp was called for this resolution level
     void prepareChompIter();
+    
+    //Prepare the constraint matrix 
+    void prepareChompConstraints();
+    
+    //Do one iteration of chomp, locally or globally
+    void iterateChomp( bool global );
 
     // precondition: prepareChomp was called for this resolution level
     // updates chomp equation until convergence at the current level
@@ -218,19 +194,10 @@ namespace chomp {
     // time xi was modified
     void localSmooth();
 
-    // evaluates the objective function for cur. thing.
-    //
-    // only works if prepareChompIter has been called since last
-    // modification of xi.
-    double evaluateObjective();
-
     // upsamples trajectory, projecting onto constraint for each new
     // trajectory element.
     void constrainedUpsampleTo(int Nmax, double htol, double hstep=0.5);
-
-    // returns true if performance has converged
-    bool goodEnough(double oldObjective, double newObjective);
-
+    
     // call the observer if there is one
     int notify(ChompEventType event,
                size_t iter,
@@ -238,22 +205,32 @@ namespace chomp {
                double lastObjective,
                double constraintViolation) const;
 
-
     //Give a goal set in the form of a constraint for chomp to use on the
     //  first resolution level.
     void useGoalSet( Constraint * goalset );
-    
-    //call before running goal set chomp;
-    void prepareGoalSet();
 
     //call after running goal set chomp.
     void finishGoalSet(); 
-  };
+
+    // returns true if performance has converged
+    bool goodEnough(double oldObjective, double newObjective);
+
+    //updates the trajectory 
+    template <class Derived>
+    void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
+                                   bool subsample );
+
+    //updates the trajectory 
+    template <class Derived>
+    void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
+                           int row, bool subsample );
+
+};
 
 
 
 
-}
+}//Namespace
 
 
 #endif

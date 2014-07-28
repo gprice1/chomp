@@ -90,20 +90,37 @@ public:
                      bool subsample=false,
                      bool usingGoalSet=false);
 
-    MatX& ChompGradient::getInvAMatrix( bool subsample=false);
-    
-    MatX& getGradient( const MatX& trajectory );
-    MatX& getGradientThroughLMatrix( const MatX& trajectory);
-    MatX& getSmoothnessGradient( const MatX& trajectory );
-    MatX& getCollisionGradient( const MatX& trajectory );
+    MatX& getInvAMatrix( bool subsample=false);
+   
+    template <class Derived>
+    MatX& getGradient( const Eigen::MatrixBase<Derived>& trajectory );
+
+    template <class Derived>
+    MatX& getGradientThroughLMatrix(
+                    const Eigen::MatrixBase<Derived>& trajectory);
+
+    template <class Derived>
+    MatX& getSmoothnessGradient(
+                    const Eigen::MatrixBase<Derived>& trajectory );
+
+    template <class Derived>
+    MatX& getCollisionGradient(
+                    const Eigen::MatrixBase<Derived>& trajectory );
 
     // get the tick, respecting endpoint repetition
     MatX getTickBorderRepeat(int tick) const;
 
+    template <class Derived>
+    SubMatMap& getSubsampledGradient( 
+                          const Eigen::MatrixBase<Derived>& xi,
+                          int N_sub);
+
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.
-    double evaluateObjective( const MatX & xi) const ;
+    template <class Derived>
+    double evaluateObjective(
+                    const Eigen::MatrixBase<Derived>& xi) const ;
 
 };
 
