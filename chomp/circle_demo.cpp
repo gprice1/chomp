@@ -56,10 +56,11 @@ public:
                                    MatX& h, 
                                    MatX& H){
 
-    assert((qt.cols()==1 && qt.rows()==2) || (qt.cols() == 2 && qt.rows() == 1));
+    assert((qt.cols()==1 && qt.rows()==2) || 
+           (qt.cols()==2 && qt.rows()==1));
 
-    h.conservativeResize(1,1);
-    H.conservativeResize(1,2);
+    h.resize(1,1);
+    H.resize(1,2);
     
     h(0) = mydot(qt,qt) - 4; 
     
@@ -163,9 +164,9 @@ public:
     for (int i=-1; i<=chomper.N; ++i) {
       MatX pi;
       if (i < 0) { 
-        pi = chomper.q0;
+        pi = chomper.gradient->q0;
       } else if (i >= chomper.N) {
-        pi = chomper.q1;
+        pi = chomper.gradient->q1;
       } else {
         pi = chomper.xi.row(i);
       }

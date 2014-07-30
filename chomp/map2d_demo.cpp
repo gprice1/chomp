@@ -333,8 +333,8 @@ public:
       cairo_fill(cr);
     }
 
-    const MatX& q0 = chomper.q0;
-    const MatX& q1 = chomper.q1;
+    const MatX& q0 = chomper.gradient->q0;
+    const MatX& q1 = chomper.gradient->q1;
 
     cairo_set_source_rgb(cr, 0.5, 0.0, 1.0);
     cairo_arc(cr, q0(0), q0(1), 4*cs, 0.0, 2*M_PI);
@@ -471,7 +471,7 @@ int main(int argc, char** argv) {
 
   Chomp chomper(NULL, xi, q0, q1, N, alpha, errorTol, max_iter);
   chomper.objective_type = otype;
-  chomper.ghelper = &cghelper;
+  chomper.gradient->ghelper = &cghelper;
 
   DebugChompObserver dobs;
   chomper.observer = &dobs;

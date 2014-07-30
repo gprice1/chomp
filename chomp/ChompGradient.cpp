@@ -35,17 +35,107 @@
 #include <cmath>
 #include <iomanip>
 
+#include "ChompGradient.h"
+
 #define debug if (0) std::cout
 #define debug_assert if (0) assert
 
 namespace chomp {
 
-ChompGradient::ChompGradient( const MatX& pinit, 
+ChompGradientHelper::~ChompGradientHelper() {}
+
+ChompCollisionHelper::ChompCollisionHelper(size_t nc,
+                                           size_t nw,
+                                           size_t nb):
+    ncspace(nc), nwkspace(nw), nbodies(nb) {}
+
+ChompCollisionHelper::~ChompCollisionHelper() {}
+
+ChompCollGradHelper::ChompCollGradHelper(ChompCollisionHelper* h,
+                                           double g):
+    chelper(h), gamma(g)
+{
+    dx_dq = MatX(h->nwkspace, h->ncspace);
+    cgrad = MatX(h->nwkspace, 1);
+}
+
+ChompCollGradHelper::~ChompCollGradHelper() {}
+
+double ChompCollGradHelper::addToGradient(const MatX& xi,
+                                          const MatX& pinit,
+                                          const MatX& pgoal,
+                                          double dt,
+                                          MatX& g) {
+
+    q1 = getTickBorderRepeat(-1, xi, pinit, pgoal, dt).transpose();
+    q2 = getTickBorderRepeat(0,  xi, pinit, pgoal, dt).transpose();
+    
+    const double inv_dt = 1/dt;
+    const double inv_dt_squared = inv_dt * inv_dt;
+
+    double total = 0.0;
+
+    for (int t=0; t < xi.rows() ; ++t) {
+
+      q0 = q1;
+      q1 = q2;
+      q2 = getTickBorderRepeat(t+1, xi, pinit, pgoal, dt).transpose();
+
+      cspace_vel = 0.5 * (q2 - q0) * inv_dt;        
+      cspace_accel = (q0 - 2.0*q1 + q2) * inv_dt_squared;
+
+      for (size_t u=0; u < chelper->nbodies; ++u) {
+
+        float cost = chelper->getCost(q1, u, dx_dq, cgrad);
+        if (cost > 0.0) {
+
+          wkspace_vel = dx_dq * cspace_vel;
+
+          //this prevents nans from propagating. Several lines below, 
+          //    wkspace_vel /= wv_norm if wv_norm is zero, nans propogate.
+          if (wkspace_vel.isZero()){ continue; }
+
+          wkspace_accel = dx_dq * cspace_accel;
+          
+          float wv_norm = wkspace_vel.norm();
+          wkspace_vel /= wv_norm;
+
+          // add to total
+          double scl = wv_norm * gamma / inv_dt;
+
+          total += cost * scl;
+          
+          P = MatX::Identity(chelper->nwkspace, chelper->nwkspace)
+              - (wkspace_vel * wkspace_vel.transpose());
+
+          K = (P * wkspace_accel) / (wv_norm * wv_norm);
+         
+
+          //          scalar * M-by-W        * (WxW * Wx1   - scalar * Wx1)
+          g.row(t) += (scl * (dx_dq.transpose() *
+                      (P * cgrad - cost * K)).transpose());
+         
+
+        }
+      }
+    }
+    return total;
+
+}
+
+
+ChompGradient::ChompGradient( const Chomp & chomper,
+                              const MatX& pinit, 
                               const MatX& pgoal, 
-                              ChompObjectiveType objective_type ) :
+                              ChompObjectiveType objective_type,
+                              double total_time) :
+    chomper( chomper ),
+    ghelper(NULL),
+    objective_type( objective_type ),
     q0( pinit ), q1( pgoal ),
-    objective_type( objective_type )
+    t_total( total_time )
 {   
+    M = q0.size();
 
     if (objective_type == MINIMIZE_VELOCITY) {
         coeffs.resize(1,2);
@@ -56,6 +146,7 @@ ChompGradient::ChompGradient( const MatX& pinit,
         coeffs_sub << 2;
         coeffs_goalset << 1;
 
+        fscl = inv_dt*inv_dt;
     } else {
         coeffs.resize(1,3);
         coeffs_sub.resize(1,2);
@@ -65,35 +156,41 @@ ChompGradient::ChompGradient( const MatX& pinit,
         coeffs_sub << 1, 6;
         coeffs_goalset << 6, -3,
                          -3,  2 ;
+        
+        fscl = inv_dt*inv_dt*inv_dt;
     }
+
 }
 
 void ChompGradient::prepareRun(int N,
-                               bool using_goalset,
+                               bool use_goalset,
                                bool subsample)
 {
     
-    //if we are using a goal set, increase the size of 
-    //  N by one.
-    if (using_goalset){ N++; }
-    
-    //resize, and set the b matrix to zero
-    b.resize(N,M);
-    b.setZero();
+    this->use_goalset = use_goalset;
 
-    //get the b matrix, and get their contribution to the
-    //  objective function
-    if (using_goalset){
-        skylineChol(N, coeffs, L);
-        c = createBMatrix(N, coeffs, q0, q1, b, dt);
-    }else {
-        prepareNonGoalSetRun();
-        c = createBMatrix(N, coeffs, q0, b, dt);
-    }
-    
-    //resize the g and ax matrices.
+    //resize the g, b, and ax matrices.
     g.resize(N,M);
     Ax.resize(N,M);
+    b.resize(N,M);
+    
+    //set b to zero to prepare for creating the b matrix
+    b.setZero();
+
+    //get the b matrix, and get its contribution to the
+    //  objective function
+    if (use_goalset){
+        dt = t_total/N; 
+        skylineChol(N, coeffs, coeffs_goalset, L);
+        c = createBMatrix(N, coeffs, q0, b, dt);
+
+    } else{
+        dt = t_total/(N+1);
+        skylineChol(N, coeffs, L);
+        c = createBMatrix(N, coeffs, q0, q1, b, dt);
+    }
+    
+    inv_dt = 1/dt;
 
     if (subsample) {
         int N_sub = (N+1)/2;
@@ -106,47 +203,30 @@ MatX& ChompGradient::getInvAMatrix( bool subsample){
     return (subsample ? L_sub : L );
 }
 
-template <class Derived>
-MatX& ChompGradient::getCollisionGradient( 
-                        const Eigen::MatrixBase<Derived>& xi )
+MatX& ChompGradient::getCollisionGradient( const MatX & xi )
 {
         //If there is a gradient helper, add in the contribution from
     //  that source, and set the fextra variable to the cost
     //  associated with the additional gradient.
     g.setZero();
 
-    if (ghelper) {
-        fextra = ghelper->addToGradient(*this, g);
-    } else {
-        fextra = 0;
-    }
+    addCollisionGradient( xi );
     return g;
 
 }
 
-
-template <class Derived>
-MatX& ChompGradient::getGradient(  const Eigen::MatrixBase<Derived>& xi )
+MatX& ChompGradient::getGradient( const MatX & xi )
 {
     
     getSmoothnessGradient( xi );
-
-    //If there is a gradient helper, add in the contribution from
-    //  that source, and set the fextra variable to the cost
-    //  associated with the additional gradient.
-    if (ghelper) {
-        fextra = ghelper->addToGradient(*this, g);
-    } else {
-        fextra = 0;
-    }
+    
+    addCollisionGradient( xi );
 
     return g;
 
 }
 
-template <class Derived>
-MatX& ChompGradient::getSmoothnessGradient( 
-                     const Eigen::MatrixBase<Derived>& xi )
+MatX& ChompGradient::getSmoothnessGradient( const MatX & xi )
 {
     
     //Performs the operation: A * x.
@@ -161,31 +241,15 @@ MatX& ChompGradient::getSmoothnessGradient(
     return g;
 }
 
-template <class Derived>
-SubMatMap& ChompGradient::getSubsampledGradient( 
-                          const Eigen::MatrixBase<Derived>& xi,
-                          int N_sub)
-{
-    
-    //get the contribution from the smoothness.
-    getSmoothnessGradient( xi );
+MatX& ChompGradient::getSubsampledGradient(int N_sub)
+{   
+    g_sub.resize( N_sub, M );
 
-    //If there is a gradient helper, add in the contribution from
-    //  that source, and set the fextra variable to the cost
-    //  associated with the additional gradient.
-    if (ghelper) {
-        fextra = ghelper->addToGradient(*this, g );
-        
-        //TODO make this line below possible
-        //fextra = ghelper->addToGradient(*this, g, sub_factor );
-    } else {
-        fextra = 0;
+    for ( int i = 0; i < g_sub.rows(); i ++ ){
+        g_sub.row( i ) = g.row( i * 2 );
     }
-    
-    g_sub = SubMatMap( g.data(), N_sub, M );
 
     return g_sub;
-
 }
 
 
@@ -193,9 +257,7 @@ SubMatMap& ChompGradient::getSubsampledGradient(
 //
 // only works if prepareChompIter has been called since last
 // modification of xi.
-template <class Derived>
-double Chomp::evaluateObjective(
-            const Eigen::MatrixBase<Derived>& xi ) const
+double ChompGradient::evaluateObjective(const MatX & xi) const
 {
 
   /*

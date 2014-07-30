@@ -69,6 +69,8 @@ public:
     return rval;
   }
   
+  real getLength( int axis ) const { return _cellSize * _dims[axis]; }
+
   bool isInside( real x, real y, real z ){
     if( _box.p0[0] > x || _box.p1[0] < x ){ return false; }
     if( _box.p0[1] > x || _box.p1[1] < x ){ return false; }

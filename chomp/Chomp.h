@@ -65,6 +65,8 @@ class Chomp {
     int N; // number of timesteps
     int N_sub; // number of timesteps for subsampled trajectory
     
+
+
     // current trajectory of size N-by-M
     MatX xi;
     SubMatMap xi_sub; // current trajectory of size N_sub-by-M
@@ -100,9 +102,7 @@ class Chomp {
     bool full_global_at_final; //perform an iteration of global chomp
                                //on the whole trajectory at the end?
 
-    double t_total; // total time for (N+1) timesteps
-    double dt; // computed automatically from t_total and N
-    double inv_dt; // computed automatically from t_total and N
+
     
     //timeout_seconds : the amount of time from the start of chomp
     //                  to a forced timeout.
@@ -168,7 +168,7 @@ class Chomp {
     void prepareChompConstraints();
     
     //Do one iteration of chomp, locally or globally
-    void iterateChomp( bool global );
+    bool iterateChomp( bool global );
 
     // precondition: prepareChomp was called for this resolution level
     // updates chomp equation until convergence at the current level
@@ -208,6 +208,9 @@ class Chomp {
     //Give a goal set in the form of a constraint for chomp to use on the
     //  first resolution level.
     void useGoalSet( Constraint * goalset );
+    
+    //Call before running goal set chomp
+    void prepareGoalSet();
 
     //call after running goal set chomp.
     void finishGoalSet(); 
@@ -215,18 +218,42 @@ class Chomp {
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective);
 
-    //updates the trajectory 
+    //updates the trajectory via a matrix delta. Delta
+    // must be the same size and shape as the trajectory,
+    //  or the subsampled trajectory
     template <class Derived>
     void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
-                                   bool subsample );
+                           bool subsample );
 
-    //updates the trajectory 
+    //updates the trajectory at the given row, by the vector delta,
+    //  delta should have the same number of columns as the trajectory.
     template <class Derived>
     void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
                            int row, bool subsample );
 
 };
 
+template <class Derived>
+inline void Chomp::updateTrajectory( 
+                              const Eigen::MatrixBase<Derived> & delta,
+                              bool subsample )
+{
+    lockTrajectory();
+    if ( subsample ){ xi_sub -= delta; }
+    else{ xi -= delta; }
+    unlockTrajectory();
+}
+
+template <class Derived>
+inline void Chomp::updateTrajectory( 
+                              const Eigen::MatrixBase<Derived> & delta,
+                              int index, bool subsample )
+{
+    lockTrajectory();
+    if ( subsample ){ xi_sub.row( index ) -= delta; }
+    else{ xi.row( index ) -= delta; }
+    unlockTrajectory();
+}
 
 
 

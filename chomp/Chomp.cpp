@@ -38,10 +38,17 @@
 #include <float.h>
 #include <cmath>
 
-#define debug if (0) std::cout
-#define debug_assert if (0) assert
+#define DEBUG_PRINTING 0 
+#if DEBUG_PRINTING
+    #define debug std::cout
+    #define debug_assert assert
+#else
+    #define debug if (0) std::cout
+    #define debug_assert if (0) assert
+#endif
 
 namespace chomp {
+
 
 Chomp::Chomp(ConstraintFactory* f,
                const MatX& xi_init, // should be N-by-M
@@ -60,7 +67,7 @@ Chomp::Chomp(ConstraintFactory* f,
     objective_type(MINIMIZE_ACCELERATION),
     maxN(nmax),
     xi(xi_init),
-    xi_sub( NULL, 0, 0),
+    xi_sub( NULL, 0, 0, SubMatMapStride(0,2) ),
     alpha(al),
     objRelErrTol(obstol),
     min_global_iter(0),
@@ -68,7 +75,6 @@ Chomp::Chomp(ConstraintFactory* f,
     min_local_iter(0),
     max_local_iter(ml),
     full_global_at_final(false),
-    t_total(tt),
     timeout_seconds( timeout_seconds ),
     didTimeout( false ),
     use_mutex( false ),
@@ -88,7 +94,7 @@ Chomp::Chomp(ConstraintFactory* f,
     minN = N;
     assert(maxN >= minN);
 
-    gradient = new ChompGradient( pinit, pgoal, objective_type, this );
+    gradient = new ChompGradient( *this, pinit, pgoal, objective_type, tt);
 }
 
  //delete the mutex if one was used.
@@ -125,41 +131,38 @@ void Chomp::clearConstraints() {
   
 
 void Chomp::prepareChomp() {
-    //TODO prepare goal sets
-
-    dt = t_total / (N+1);
-    inv_dt = (N+1) / t_total;
-
-    clearConstraints();
-
-    if (factory) {
-        factory->getAll(N, constraints);
-    }
     
-    // decide whether base case or not
-    bool subsample = ( N > minN && !use_goalset );
+    debug << "Preparing Chomp" << std::endl;
 
-    if (full_global_at_final && N >= maxN) { subsample = false; }
+    // Subsample
+    bool subsample = N > minN && !use_goalset &&
+                     !(full_global_at_final && N >= maxN);
+    
 
-    if (!subsample) {
+    
+    //reset the constraints.
+    clearConstraints();
+    if (factory) { factory->getAll(N, constraints);}
+
+    //If we are doing goalset chomp, prepare for it.
+    if (use_goalset ){ prepareGoalSet(); }
+
+    gradient->prepareRun( N, use_goalset, subsample );
+
+    if( subsample ){
+        N_sub = (N+1)/2;
+        new (&xi_sub) SubMatMap( xi.data(), N_sub, M,
+                                 SubMatMapStride(N,2) );
+    }else {
         N_sub = 0;
         if ( use_momentum ){
             momentum.resize( N, M );
             momentum.setZero();
         }
         if( hmc ){ hmc->setupRun(); }
+    } 
 
-    } else {
-        N_sub = (N+1)/2;
-        xi_sub = SubMatMap( xi.data(), N_sub, M );
-
-        //TODO remove this assert
-        for ( int i = 0; i < N_sub; i ++){
-            for ( int j = 0; j < M; j ++ ){
-                assert( xi_sub( i, j ) == xi(i*2, j) );
-            }
-        }
-    }
+    debug << "Done Preparing Chomp" << std::endl;
 }
   
 
@@ -174,9 +177,14 @@ void Chomp::prepareChompIter() {
                         lastObjective );
     }
     
-    if ( N_sub ){ gradient->getSubsampledGradient( xi, N_sub ); }
-    else { gradient->getGradient( xi ); }
+    debug << "Getting chomp Constraints" << std::endl;
+    prepareChompConstraints();
+    std::cout << "Done Getting chomp Constraints" << std::endl;
+    
+    gradient->getGradient( xi );
+    if ( N_sub ){ gradient->getSubsampledGradient( N_sub ); }
 }
+
 
 //TODO make user that this goes in the correct place
 void Chomp::prepareChompConstraints(){
@@ -186,7 +194,7 @@ void Chomp::prepareChompConstraints(){
     if ( factory ){
         //If we are subsampling, get constraints corresponding
         //  to the subsampled trajectory
-        if (N_sub) { factory->evaluate(constraints, xi_sub, h_sub, H_sub);}
+        if (N_sub) { factory->evaluate(constraints, xi, h_sub, H_sub, 2); }
         //else, get constraints corresponding to the standard trajectory.
         else { factory->evaluate(constraints, xi, h, H); }
     }
@@ -243,11 +251,12 @@ void Chomp::runChomp(bool global, bool local) {
 
 } 
     
-bool iterateChomp( bool local ){
+bool Chomp::iterateChomp( bool local ){
+    
+    debug << "Starting Iteration" << std::endl;
 
     ChompEventType event;
     bool not_finished = true;
-    double curObjective;
 
     //run local or global chomp
     if ( local ){
@@ -260,17 +269,13 @@ bool iterateChomp( bool local ){
         chompGlobal();
         event = CHOMP_GLOBAL_ITER;
         
-        //get the next gradient
-        if (N_sub){ gradient->getSubsampledGradient( xi, N_sub ); }
-        else { gradient->getGradient( xi ); }
-
         prepareChompIter();
     }
     
     cur_iter ++;
 
     //test for termination conditions
-    double curObjective = gradient->evaluateObjective();
+    double curObjective = gradient->evaluateObjective( xi );
     bool greater_than_min = cur_iter >
                             (local ? min_local_iter : min_global_iter);
     bool greater_than_max = cur_iter > 
@@ -290,6 +295,8 @@ bool iterateChomp( bool local ){
     }
 
     lastObjective = curObjective;
+
+    debug << "Ending Iteration" << std::endl;
     return not_finished;
 
 }
@@ -316,7 +323,7 @@ void Chomp::solve(bool doGlobalSmoothing, bool doLocalSmoothing) {
     //Run Chomp at the current iteration, then upsample, repeat 
     //  until the current trajectory is at the max resolution
     while (1) {
-        
+        prepareChomp();
         //run chomp at the current resolution
         runChomp(doGlobalSmoothing, doLocalSmoothing); 
 
@@ -326,22 +333,6 @@ void Chomp::solve(bool doGlobalSmoothing, bool doLocalSmoothing) {
         if (N >= maxN) { break; }
         else { upsample(); }
     }
-}
-
-MatX Chomp::getTickBorderRepeat(int tick) const {
-
-    //if the tick is negative, get a state that falls off the
-    //  the edge of the trajectory
-    if (tick < 0) { return getPos(q0, (tick+1)*dt); }
-
-    //if the tick is larger than the number of states,
-    //  get a state that falls off the positive edge of the
-    //  trajectory
-    else if (tick >= xi.rows()) { return getPos(q1, (tick-xi.rows())*dt);}
-
-    //if the tick corresponds to a state in the trajectory,
-    //  return the corresponding state.
-    else { return xi.row( tick ); }
 }
 
 // upsamples the trajectory by 2x
@@ -371,16 +362,16 @@ void Chomp::upsample() {
 
       if (objective_type == MINIMIZE_VELOCITY) {
 
-        MatX qneg1 = getTickBorderRepeat(t/2-1);
-        MatX qpos1 = getTickBorderRepeat(t/2);
+        MatX qneg1 = gradient->getTick(t/2-1, xi);
+        MatX qpos1 = gradient->getTick(t/2,   xi);
         xi_up.row(t) = 0.5 * (qneg1 + qpos1);
 
       } else { 
 
-        MatX qneg3 = getTickBorderRepeat(t/2-2);
-        MatX qneg1 = getTickBorderRepeat(t/2-1);
-        MatX qpos1 = getTickBorderRepeat(t/2);
-        MatX qpos3 = getTickBorderRepeat(t/2+1);
+        MatX qneg3 = gradient->getTick(t/2-2, xi);
+        MatX qneg1 = gradient->getTick(t/2-1, xi);
+        MatX qpos1 = gradient->getTick(t/2,   xi);
+        MatX qpos3 = gradient->getTick(t/2+1, xi);
 
         const double c3 = -1.0/160;
         const double c1 = 81.0/160;
@@ -402,8 +393,7 @@ void Chomp::upsample() {
   xi = xi_up;
   unlockTrajectory();
 
-  L = L_sub = g = g_sub = h = h_sub = H = H_sub = 
-    P = HP = Y = W = Ax = delta = MatX();
+  h = h_sub = H = H_sub = P = HP = Y = W = delta = MatX();
 
   N_sub = 0;
 
@@ -413,15 +403,14 @@ void Chomp::upsample() {
 void Chomp::chompGlobal() { 
     
     assert(xi.rows() == N && xi.cols() == M);
-    assert(Ax.rows() == N && Ax.cols() == M);
-    
 
     // see if we're in our base case (not subsampling)
     bool subsample = N_sub != 0;
     
-    const MatX& g = chomp_gradient->getGradient( xi );
+    const MatX& g = (subsample ? gradient->g_sub : gradient->g );
+    const MatX& L = gradient->getInvAMatrix( subsample );
+
     const MatX& H_which = subsample ? H_sub : H;
-    const MatX& L_which = subsample ? L_sub : L;
     const MatX& h_which = subsample ? h_sub : h;
     const int   N_which = subsample ? N_sub : N;
     
@@ -431,7 +420,7 @@ void Chomp::chompGlobal() {
 
         assert( g.rows() == N_which ); 
       
-        skylineCholSolve(L_which, g);
+        skylineCholSolve(L, g);
       
         //if we are using momentum, add the gradient into the
         //  momentum.
@@ -449,7 +438,7 @@ void Chomp::chompGlobal() {
       
       // TODO: see if we can make this more efficient?
       for (int i=0; i<P.cols(); i++){
-        skylineCholSolveMulti(L_which, P.col(i));
+        skylineCholSolveMulti(L, P.col(i));
       }
 
       debug << "H = \n" << H << "\n";
@@ -462,7 +451,7 @@ void Chomp::chompGlobal() {
 
       debug << "HP*Y = \n" << HP*Y << "\n";
       debug << "P.transpose() = \n" << P.transpose() << "\n";
-      debug_assert( P.transpose().isApprox( HP*Y ) );
+      debug_assert( P.transpose().isApprox( HP*Y ));
 
       int newsize = H_which.cols();
       assert(newsize == N_which * M);
@@ -472,11 +461,11 @@ void Chomp::chompGlobal() {
       Eigen::Map<const MatX> g_flat(g.data(), newsize, 1);
       W = (MatX::Identity(newsize,newsize) - H_which.transpose() * Y)
           * g_flat * alpha;
-      skylineCholSolveMulti(L_which, W);
+      skylineCholSolveMulti(L, W);
 
       Y = cholSolver.solve(h_which);
 
-      debug_assert( h_which.isApprox(HP*Y) );
+      //debug_assert( h_which.isApprox(HP*Y) );
       
       //handle momentum if we need to.
       if (!subsample && use_momentum){
@@ -510,27 +499,36 @@ void Chomp::chompGlobal() {
 // time xi was modified
 void Chomp::localSmooth() {
 
+    debug << "Starting localSmooth" << std::endl;
+
     MatX h_t, H_t, P_t, P_t_inv, delta_t;
 
     hmag = 0;
     
-    const MatX & g = gradient->getGradient( xi );
+    const MatX & g = gradient->g;
 
     for (int t=0; t<N; ++t){
 
-        Constraint* c = constraints.empty() ? 0 : constraints[t];
-      
+        Constraint* c = constraints.empty() ? NULL : constraints[t];
+        
+        bool is_constrained = (c && c->numOutputs() > 0);
+
         //if this timestep could be constrained,
         //  evaluate the constraints
-        if (c && c->numOutputs() > 0){
+        if (is_constrained) {
             c->evaluateConstraints(xi.row(t), h_t, H_t);
+            is_constrained = h_t.rows() > 0;
         }
         
         //if there are active constraints this timestep.
-        if (h_t.rows() > 0 ) {
+        if ( is_constrained ) {
 
             hmag = std::max(hmag, h_t.lpNorm<Eigen::Infinity>());
-
+            
+            debug << "ROWS: " << H_t.rows() << " " <<
+                      constraints[t]->numOutputs() << "\n";
+            debug << "ROWS: " << h_t.rows() << " " <<
+                      constraints[t]->numOutputs() << "\n";
             assert(size_t(H_t.rows()) == constraints[t]->numOutputs());
             assert(H_t.cols() == M);
             assert(size_t(h_t.rows()) == constraints[t]->numOutputs());
@@ -552,7 +550,8 @@ void Chomp::localSmooth() {
         
         updateTrajectory( delta_t, t, false );
     }
-
+    
+    debug << "Done with localSmooth" << std::endl;
 }
 
 
@@ -590,7 +589,7 @@ void Chomp::constrainedUpsampleTo(int Nmax,
             if (iter == 0) { hinit = std::max(hn, hinit); }
             if (hn < htol) { hfinal = std::max(hn, hfinal); break; }
             delta = H.colPivHouseholderQr().solve(h);
-            updateTrajectory( hstep * delta.transpose();
+            updateTrajectory( hstep * delta.transpose(), i );
           }
         }
       
@@ -617,27 +616,7 @@ int Chomp::notify(ChompEventType event,
 }
 
 
-template <class Derived>
-void Chomp::updateTrajectory(
-                       const Eigen::MatrixBase<Derived1> & delta,
-                       bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub -= delta; }
-    else{ xi -= delta; }
-    unlockTrajectory();
-}
 
-template <class Derived>
-void Chomp::updateTrajectory(
-                       const Eigen::MatrixBase<Derived1> & delta,
-                       int index, bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub.row( index ) -= delta; }
-    else{ xi.row( index ) -= delta; }
-    unlockTrajectory();
-}
 
 
 ////////////////GOAL SET FUNCTIONS//////////////////////////////////
@@ -647,10 +626,25 @@ void Chomp::useGoalSet( Constraint * goalset ){
       use_goalset = true;
 }
 
+void Chomp::prepareGoalSet(){
+    
+    //do not subsample if doing goalset run.
+    N_sub = 0;
+
+    //resize xi, and add q1 into it.
+    xi.conservativeResize( xi.rows() + 1, xi.cols() );
+    xi.row( xi.rows() - 1 ) = gradient->q1;
+    
+    //set N to the current size of xi.
+    N = xi.rows();
+
+    //add the goal constraint to the constraints vector.
+    constraints.push_back( goalset );
+}
 
 void Chomp::finishGoalSet(){
     
-    std::cout << "Finishing goal set" << std::endl;
+    debug << "Finishing goal set" << std::endl;
 
     use_goalset = false;
     
