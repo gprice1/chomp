@@ -12,6 +12,8 @@ add_library(chomp SHARED
     HMC.cpp
     )
 
+
+
 target_link_libraries( chomp mzcommon )
 
 add_executable(testmatops testmatops.cpp)
@@ -31,6 +33,5 @@ endif()
 target_link_libraries(circle_goalset_demo ${demo_libs})
 target_link_libraries(circle_demo ${demo_libs})
 target_link_libraries(map2d_demo ${demo_libs})
-
 
 
