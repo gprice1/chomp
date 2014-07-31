@@ -16,7 +16,10 @@ class ChompNLopt{
     double obstol, objective_value;
 
     ChompGradient * gradient;
+    ChompObserver* observer;
+    
     nlopt::opt * optimizer;
+
     MatX xi;
     nlopt::algorithm algorithm;
 

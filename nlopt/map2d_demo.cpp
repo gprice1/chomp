@@ -470,11 +470,8 @@ int main(int argc, char** argv) {
   generateInitialTraj(N, map, p0, p1, xi, q0, q1);
 
   ChompNLopt chomper(xi, q0, q1);
-  chomper.objective_type = otype;
   chomper.gradient->ghelper = &cghelper;
 
-  DebugChompObserver dobs;
-  chomper.observer = &dobs;
 
 #ifdef MZ_HAVE_CAIRO
 

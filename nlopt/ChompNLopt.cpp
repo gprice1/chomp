@@ -17,6 +17,7 @@ ChompNLopt::ChompNLopt(
     N( xi_init.rows() ), M(xi_init.cols()),
     N_max( N_max ),
     max_iter( max_iter ),
+    observer( NULL ),
     xi( xi_init ),
     lower( lower ), upper( upper )
 
