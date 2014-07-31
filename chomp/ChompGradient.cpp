@@ -61,11 +61,18 @@ ChompCollGradHelper::ChompCollGradHelper(ChompCollisionHelper* h,
 
 ChompCollGradHelper::~ChompCollGradHelper() {}
 
-double ChompCollGradHelper::addToGradient(const MatX& xi,
-                                          const MatX& pinit,
-                                          const MatX& pgoal,
-                                          double dt,
-                                          MatX& g) {
+
+template< class Derived1, class Derived2, class Derived3>
+inline double ChompCollGradHelper::computeGradient(
+                    const Eigen::MatrixBase<Derived1> & xi,
+                    const Eigen::MatrixBase<Derived2> & pinit,
+                    const Eigen::MatrixBase<Derived2> & pgoal,
+                    double dt,
+                    const Eigen::MatrixBase<Derived3> & g_const)
+{
+    //cast away the const-ness of g_const
+    Eigen::MatrixBase<Derived3>& g = 
+        const_cast<Eigen::MatrixBase<Derived3>&>(g_const);
 
     q1 = getTickBorderRepeat(-1, xi, pinit, pgoal, dt).transpose();
     q2 = getTickBorderRepeat(0,  xi, pinit, pgoal, dt).transpose();
@@ -122,14 +129,28 @@ double ChompCollGradHelper::addToGradient(const MatX& xi,
     return total;
 
 }
+double ChompCollGradHelper::addToGradient(const MatX& xi,
+                                          const MatX& pinit,
+                                          const MatX& pgoal,
+                                          double dt,
+                                          MatX& g)
+{
+    return computeGradient( xi, pinit, pgoal, dt, g );
+}
 
+double ChompCollGradHelper::addToGradient(ConstMatMap& xi,
+                                          const MatX& pinit,
+                                          const MatX& pgoal,
+                                          double dt,
+                                          MatMap& g)
+{
+    return computeGradient( xi, pinit, pgoal, dt, g );
+}
 
-ChompGradient::ChompGradient( const Chomp & chomper,
-                              const MatX& pinit, 
+ChompGradient::ChompGradient(const MatX& pinit, 
                               const MatX& pgoal, 
                               ChompObjectiveType objective_type,
                               double total_time) :
-    chomper( chomper ),
     ghelper(NULL),
     objective_type( objective_type ),
     q0( pinit ), q1( pgoal ),
@@ -205,12 +226,8 @@ MatX& ChompGradient::getInvAMatrix( bool subsample){
 
 MatX& ChompGradient::getCollisionGradient( const MatX & xi )
 {
-        //If there is a gradient helper, add in the contribution from
-    //  that source, and set the fextra variable to the cost
-    //  associated with the additional gradient.
     g.setZero();
-
-    addCollisionGradient( xi );
+    computeCollisionGradient( xi, g );
     return g;
 
 }
@@ -218,9 +235,8 @@ MatX& ChompGradient::getCollisionGradient( const MatX & xi )
 MatX& ChompGradient::getGradient( const MatX & xi )
 {
     
-    getSmoothnessGradient( xi );
-    
-    addCollisionGradient( xi );
+    computeSmoothnessGradient( xi, g );
+    computeCollisionGradient( xi, g );
 
     return g;
 
@@ -229,15 +245,7 @@ MatX& ChompGradient::getGradient( const MatX & xi )
 MatX& ChompGradient::getSmoothnessGradient( const MatX & xi )
 {
     
-    //Performs the operation: A * x.
-    //  (fill the matrix Ax, with the results.
-    if( use_goalset ){ diagMul(coeffs, coeffs_goalset, xi, Ax); }
-    else { diagMul(coeffs, xi, Ax); }
-    
-    //add in the b matrix to get the contribution from the
-    //  endpoints, and set this equal to the gradient.
-    g = Ax + b;
-
+    computeSmoothnessGradient( xi, g );
     return g;
 }
 
@@ -252,49 +260,76 @@ MatX& ChompGradient::getSubsampledGradient(int N_sub)
     return g_sub;
 }
 
-
-// evaluates the objective function for cur. thing.
-//
-// only works if prepareChompIter has been called since last
-// modification of xi.
-double ChompGradient::evaluateObjective(const MatX & xi) const
+double ChompGradient::getGradient( unsigned n_by_m,
+                                   const double * xi,
+                                   double * grad)
 {
+    ConstMatMap xi_mat( xi, N, M );
+    
+    if ( grad != NULL ){
+        assert( unsigned(N*M) == n_by_m );
 
-  /*
+        MatMap g_mat( grad, N, M);
 
-    K is (n+1)-by-n
-
-    K = [  1  0  0  0 ... 0  0  0
-    -2  1  0  0 ... 0  0  0 
-    1 -2  1  0 ... 0  0  0
-    0  1 -2  1 ... 0  0  0
-    ...
-    0  0  0  0 ... 1 -2  1 
-    0  0  0  0 ... 0  1 -2 
-    0  0  0  0 ... 0  0  1 ]
-
-    e = [ -x0  x0   0 ... 0  x1 -x1 ]^T
-
-    ||Kx + e||^2 = 
-     
-  */
-  
-    if ( false ){
-        const double xi_Ax = 0.5 * mydot( xi, Ax );
-        const double xi_b = mydot( xi, b );
-        const double smoothness = ( xi_Ax + xi_b + c ) * fscl;
-        std::cout <<  "xi * Ax    = " << xi_Ax << std::endl;
-        std::cout <<  "xi * b     = " << xi_b << std::endl;
-        std::cout <<  "c          = " << c << std::endl;
-        std::cout <<  "fextra     = " << fextra << std::endl;
-        std::cout <<  "fscale     = " << fscl << std::endl;
-        std::cout <<  "smoothness = " << smoothness << std::endl;
-
-        return smoothness + fextra;
+        computeSmoothnessGradient( xi_mat, g_mat );
+        computeCollisionGradient(  xi_mat, g_mat );
+        
+        skylineCholSolve( L, g_mat );
     }
 
-    return (0.5 * mydot( xi, Ax ) + mydot( xi, b ) + c ) + fextra;
+    return evaluateObjective( xi_mat );
+    
 }
+
+
+template <class Derived1, class Derived2>
+inline void ChompGradient::computeSmoothnessGradient(
+                    const Eigen::MatrixBase<Derived1> & xi,
+                    const Eigen::MatrixBase<Derived2> & g_const)
+{
+    //cast away the const-ness of g_const
+    Eigen::MatrixBase<Derived2>& grad = 
+        const_cast<Eigen::MatrixBase<Derived2>&>(g_const);
+
+    //Performs the operation: A * x.
+    //  (fill the matrix Ax, with the results.
+    if( use_goalset ){ diagMul(coeffs, coeffs_goalset, xi, Ax); }
+    else { diagMul(coeffs, xi, Ax); }
+    
+    //add in the b matrix to get the contribution from the
+    //  endpoints, and set this equal to the gradient.
+    grad = Ax + b;
+}
+
+void ChompGradient::computeCollisionGradient(ConstMatMap & xi,
+                                             MatMap & grad)
+{
+
+    //If there is a gradient helper, add in the contribution from
+    //  that source, and set the fextra variable to the cost
+    //  associated with the additional gradient.
+    if (ghelper) {
+        fextra = ghelper->addToGradient(xi, q0, q1, dt, grad);
+    } else {
+        fextra = 0;
+    }
+    std::cout << "\nUSING MATMAP\n";
+}
+
+void ChompGradient::computeCollisionGradient(const MatX & xi,
+                                             MatX & grad)
+{
+
+    //If there is a gradient helper, add in the contribution from
+    //  that source, and set the fextra variable to the cost
+    //  associated with the additional gradient.
+    if (ghelper) {
+        fextra = ghelper->addToGradient(xi, q0, q1, dt, grad);
+    } else {
+        fextra = 0;
+    }
+}
+
 
 }// namespace
 

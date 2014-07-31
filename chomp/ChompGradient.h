@@ -46,6 +46,9 @@ class ChompGradientHelper {
     virtual double addToGradient(const MatX& xi, const MatX& pinit,
                                  const MatX& pgoal, double dt,
                                  MatX& g) =0;
+    virtual double addToGradient(ConstMatMap& xi, const MatX& pinit,
+                                 const MatX& pgoal, double dt,
+                                 MatMap& g) =0;
 };
 
 class ChompCollisionHelper {
@@ -84,7 +87,20 @@ class ChompCollGradHelper: public ChompGradientHelper {
     virtual double addToGradient(const MatX& xi, const MatX& pinit,
                                  const MatX& pgoal, double dt,
                                  MatX& g);
+    virtual double addToGradient(ConstMatMap& xi, const MatX& pinit,
+                                 const MatX& pgoal, double dt,
+                                 MatMap& g);
 
+  private:
+    //this function does all of the actual work.
+    template< class Derived1, class Derived2, class Derived3>
+    double computeGradient(const Eigen::MatrixBase<Derived1> & xi,
+                           const Eigen::MatrixBase<Derived2> & pinit,
+                           const Eigen::MatrixBase<Derived2> & pgoal,
+                           double dt,
+                           const Eigen::MatrixBase<Derived3> & g_const);
+
+  public:
     ChompCollisionHelper* chelper;
     double gamma;
 
@@ -100,8 +116,6 @@ class ChompCollGradHelper: public ChompGradientHelper {
 class ChompGradient {
 public:
     
-    const Chomp & chomper; // this is for sending to the gradient helper
-
     ChompGradientHelper* ghelper;
 
     ChompObjectiveType objective_type;
@@ -140,10 +154,9 @@ public:
 
     bool use_goalset;
     
-    ChompGradient( const Chomp & chomper,
-                   const MatX& pinit, const MatX& pgoal, 
-                   ChompObjectiveType objective_type ,
-                   double total_time );
+    ChompGradient( const MatX& pinit, const MatX& pgoal, 
+                   ChompObjectiveType objective_type=MINIMIZE_ACCELERATION,
+                   double total_time=1.0);
 
     ~ChompGradient(){}
     
@@ -156,38 +169,49 @@ public:
    
     MatX& getGradient( const MatX & xi);
 
-    MatX& getGradientThroughLMatrix(const MatX & xi );
-
     MatX& getSmoothnessGradient(const MatX & xi);
 
     MatX& getCollisionGradient( const MatX & xi);
 
     MatX& getSubsampledGradient(int N_sub);
 
+    double getGradient( unsigned n_by_m, const double * xi, double * grad);
+
+
+    static double NLoptFunction(unsigned n_by_m, const double* x,
+                                double* grad, void *data) 
+    {
+        return reinterpret_cast<ChompGradient*>(data)
+                            ->getGradient(n_by_m, x, grad);
+    }
+    
+    template<class Derived>
+    inline MatX getTick( int tick,
+                         const Eigen::MatrixBase<Derived> & xi) const
+    {
+        return getTickBorderRepeat( tick, xi, q0, q1, dt );
+    }
+
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.
-    double evaluateObjective( const MatX & xi) const ;
-
-    inline void addCollisionGradient(const MatX & xi){
-
-        //If there is a gradient helper, add in the contribution from
-        //  that source, and set the fextra variable to the cost
-        //  associated with the additional gradient.
-        if (ghelper) {
-            fextra = ghelper->addToGradient(xi, q0, q1, dt, g);
-        } else {
-            fextra = 0;
-        }
-
+    template<class Derived>
+    inline double evaluateObjective(
+                    const Eigen::MatrixBase<Derived> & xi) const
+    {
+        return (0.5 * mydot( xi, Ax ) + mydot( xi, b ) + c ) + fextra;
     }
 
-    inline MatX getTick( int tick, const MatX & xi ){
-        return getTickBorderRepeat( tick, xi, q0, q1, dt );
-    }
+  private:
+    template <class Derived1, class Derived2>
+    void computeSmoothnessGradient( const Eigen::MatrixBase<Derived1> & xi,
+                                const Eigen::MatrixBase<Derived2> & g );
     
+    void computeCollisionGradient(const MatX & xi, MatX & grad);
+    void computeCollisionGradient(ConstMatMap & xi, MatMap & grad);
 
 };
+
 
 }//namespace chomp
 

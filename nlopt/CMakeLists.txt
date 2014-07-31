@@ -9,9 +9,11 @@ set(nlopt_libs ${NLOPT_LIBRARIES})
 
 
 if ( NLOPT_FOUND )
+    
+    add_library( nlopt_chomp SHARED ChompNLopt.cpp )
 
     add_executable(nlopt_test nlopt_test.cpp)
-    target_link_libraries( nlopt_test ${nlopt_libs} )
+    target_link_libraries( nlopt_test ${nlopt_libs} nlopt_chomp chomp )
 
 endif()
 

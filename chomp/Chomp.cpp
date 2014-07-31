@@ -94,7 +94,7 @@ Chomp::Chomp(ConstraintFactory* f,
     minN = N;
     assert(maxN >= minN);
 
-    gradient = new ChompGradient( *this, pinit, pgoal, objective_type, tt);
+    gradient = new ChompGradient( pinit, pgoal, objective_type, tt);
 }
 
  //delete the mutex if one was used.
@@ -337,57 +337,13 @@ void Chomp::solve(bool doGlobalSmoothing, bool doLocalSmoothing) {
 
 // upsamples the trajectory by 2x
 void Chomp::upsample() {
-
-  int N_up = 2*N+1; // e.g. size 3 goes to size 7
+  MatX xi_up;
   
-  MatX xi_up(N_up, M);
+  //calls the upsample function from chomputil
+  upsampleTrajectory( xi, gradient->q0, gradient->q1, gradient->dt,
+            gradient->objective_type, xi_up );
 
-  // q0    d0    d1    d2    q1   with n = 3
-  // q0 u0 u1 u2 u3 u4 u5 u6 q1   with n = 7
-  //
-  // u0 = 0.5*(q0 + d0)
-  // u1 = d0
-  // u2 = 0.5*(d0 + d1)
-  // u3 = d1 
-  // u4 = 0.5*(d1 + d2)
-  // u5 = d2
-  // u6 = 0.5*(d2 + q1)
-
-  for (int t=0; t<N_up; ++t) { // t is timestep in new (upsampled) regime
-
-    if (t % 2 == 0) {
-
-      assert(t == N_up-1 || (t/2) < xi.rows());
-      assert(t < xi_up.rows());
-
-      if (objective_type == MINIMIZE_VELOCITY) {
-
-        MatX qneg1 = gradient->getTick(t/2-1, xi);
-        MatX qpos1 = gradient->getTick(t/2,   xi);
-        xi_up.row(t) = 0.5 * (qneg1 + qpos1);
-
-      } else { 
-
-        MatX qneg3 = gradient->getTick(t/2-2, xi);
-        MatX qneg1 = gradient->getTick(t/2-1, xi);
-        MatX qpos1 = gradient->getTick(t/2,   xi);
-        MatX qpos3 = gradient->getTick(t/2+1, xi);
-
-        const double c3 = -1.0/160;
-        const double c1 = 81.0/160;
-
-        xi_up.row(t) = c3*qneg3 + c1*qneg1 + c1*qpos1 + c3*qpos3;
-
-      }
-
-
-    } else {
-      xi_up.row(t) = xi.row(t/2);
-    }
-
-  }
-
-  N = N_up;
+  N = xi_up.rows();
 
   lockTrajectory();
   xi = xi_up;
@@ -396,7 +352,6 @@ void Chomp::upsample() {
   h = h_sub = H = H_sub = P = HP = Y = W = delta = MatX();
 
   N_sub = 0;
-
 }
 
 // single iteration of chomp

@@ -37,6 +37,7 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <iostream>
+#include <vector>
 
 namespace chomp {
 
@@ -44,6 +45,7 @@ namespace chomp {
 
 typedef Eigen::MatrixXd MatX;
 typedef Eigen::Map<MatX>  MatMap;
+typedef Eigen::Map< const MatX>  ConstMatMap;
 
 //this matrix map is used for subsampling a matrix. 
 typedef Eigen::Stride<Eigen::Dynamic,2> SubMatMapStride;
@@ -73,10 +75,11 @@ enum ChompEventType {
     CHOMP_GOALSET_ITER,
 };
 
+
+///////////////UTILITY functions/////////////////////////
 //prints out a string that corresponds to the variable name
 //  of the event type.
 const char* eventTypeString(int eventtype);
-
 
 /////////////////Utility types /////////////////////////
 // These classes interface with chomp, to do something useful
@@ -107,8 +110,53 @@ enum ChompObjectiveType {
     MINIMIZE_ACCELERATION = 1,
 };
 
+
+//upsamples a trajectory by 2x
+//  takes a trajectory of n waypoints, with endpoints q0, q1,
+//  and returns a trajectory with 2n+1 waypoints.
+void upsampleTrajectory(const MatX & xi,
+                        const MatX & q0,
+                        const MatX & q1,
+                        double dt,
+                        ChompObjectiveType objective_type,
+                        MatX & xi_up);
+
+virtual void createInitialTraj( const MatX & q0, const MatX & q1, 
+                                int N, ChompObjectiveType objective_type,
+                                MatX & xi);
+
+virtual void createInitialTraj( const MatX & q0, const MatX & q1, 
+                                ChompObjectiveType objective_type,
+                                MatX & xi);
+
 ///////////////////////////////////////////////////////////
 /////////////////////Inline Functions//////////////////////
+
+//Copy a MatX into a std::vector of doubles
+inline void matToVec( const MatX & mat, std::vector<double> & vec ){
+    const double * data = mat.data();
+    vec = std::vector<double>(data, data + mat.size());
+}
+
+//Copy a vector of doubles into a MatX.
+inline void vecToMat( const std::vector<double> & vec, MatX & mat )
+{
+    if ( mat.size() == int(vec.size()) ){
+        mat = ConstMatMap( vec.data(), mat.rows(), mat.cols() );
+    }
+    else {
+        mat = ConstMatMap( vec.data(), 1, vec.size());
+    }
+}
+
+//Copy a vector of doubles into a MatX.
+inline void vecToMat( const std::vector<double> & vec,
+                      int N, int M, MatX & mat)
+{
+    assert( int( vec.size() ) == N * M );
+    mat = ConstMatMap( vec.data(), N, M );
+}
+
 
 //this is a function to compute the dot product of matrices
 template <class Derived1, class Derived2>
