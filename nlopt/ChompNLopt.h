@@ -3,29 +3,24 @@
 #ifndef _CHOMP_NLOPT_H_
 #define _CHOMP_NLOPT_H_
 
-#include "ChompGradient.h"
 #include <nlopt.hpp>
+
+#include "ChompOptimizerBase.h"
 
 namespace chomp {
 
-class ChompNLopt{
+class ChompNLopt : public ChompOptimizerBase{
   
   public:
-    int N, M, N_max;
-    int max_iter;
+    int N_max, max_iter;
     double obstol, objective_value;
-
-    ChompGradient * gradient;
-    ChompObserver* observer;
     
     nlopt::opt * optimizer;
-
-    MatX xi;
     nlopt::algorithm algorithm;
-
+    nlopt::result result;
+    
     std::vector< double > lower, upper;
 
-    nlopt::result result;
     
 
     ChompNLopt(const MatX& xi_init,
@@ -39,13 +34,16 @@ class ChompNLopt{
     
     ~ChompNLopt();
 
-    void solve();
+    void solve(bool global=true, bool local=true);
+
+    void setLowerBounds( const std::vector<double> & lower );
+    void setUpperBounds( const std::vector<double> & upper );
 
   private:
     double optimize();
 
-    void setLowerBounds( const std::vector<double> & lower );
-    void setUpperBounds( const std::vector<double> & upper );
+    void giveBoundsToNLopt();
+
 
     void copyNRows( const std::vector<double> & original, 
                     std::vector<double> & result);

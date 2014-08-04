@@ -62,11 +62,8 @@ Chomp::Chomp(ConstraintFactory* f,
                double tt,
                double timeout_seconds,
                bool use_momentum):
-    factory(f),
-    observer(NULL),
-    objective_type(MINIMIZE_ACCELERATION),
+    ChompOptimizerBase(f, xi_init, pinit, pgoal, MINIMIZE_ACCELERATION, tt),
     maxN(nmax),
-    xi(xi_init),
     xi_sub( NULL, 0, 0, SubMatMapStride(0,2) ),
     alpha(al),
     objRelErrTol(obstol),
@@ -83,18 +80,10 @@ Chomp::Chomp(ConstraintFactory* f,
     hmc( NULL )
 {
 
-    N = xi.rows();
     N_sub = 0;
-
-    M = xi.cols();
-
-    assert(pinit.rows() >= 1 && pinit.cols() == xi.cols());
-    assert(pgoal.rows() >= 1 && pgoal.cols() == xi.cols());
-
     minN = N;
     assert(maxN >= minN);
 
-    gradient = new ChompGradient( pinit, pgoal, objective_type, tt);
 }
 
  //delete the mutex if one was used.
@@ -102,9 +91,6 @@ Chomp::~Chomp(){
     if( use_mutex ){
         pthread_mutex_destroy( &trajectory_mutex );
     }
-    
-    //delete the gradient object
-    delete gradient;
 }
 void Chomp::lockTrajectory(){
     if (use_mutex){
@@ -553,24 +539,6 @@ void Chomp::constrainedUpsampleTo(int Nmax,
     }
 
 }
-
-int Chomp::notify(ChompEventType event,
-                    size_t iter,
-                    double curObjective,
-                    double lastObjective,
-                    double constraintViolation) const {
-
-    if (observer) {
-        return observer->notify(*this, event, iter, 
-                                curObjective, lastObjective,
-                                constraintViolation);
-    } else {
-        return 0;
-    }
-
-}
-
-
 
 
 

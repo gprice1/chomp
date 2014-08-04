@@ -32,7 +32,6 @@
 */
 
 #include "chomputil.h"
-#include "Chomp.h"
 #include <iomanip>
 
 namespace chomp {
@@ -51,7 +50,7 @@ const char* eventTypeString(int eventtype) {
 
 ChompObserver::~ChompObserver() {}
 
-int ChompObserver::notify(const Chomp&, 
+int ChompObserver::notify(const ChompOptimizerBase&, 
                             ChompEventType,
                             size_t,
                             double, double, double) { 
@@ -60,7 +59,7 @@ int ChompObserver::notify(const Chomp&,
 
 DebugChompObserver::~DebugChompObserver() {}
 
-int DebugChompObserver::notify(const Chomp& c, 
+int DebugChompObserver::notify(const ChompOptimizerBase& c, 
                                  ChompEventType e,
                                  size_t iter,
                                  double curObjective, 
@@ -144,9 +143,9 @@ void upsampleTrajectory(const MatX & xi,
 
 }
 
-virtual void createInitialTraj( const MatX & q0, const MatX & q1, 
-                                int N, ChompObjectiveType objective_type,
-                                MatX & xi)
+void createInitialTraj( const MatX & q0, const MatX & q1, 
+                        int N, ChompObjectiveType objective_type,
+                        MatX & xi)
 {
     assert( q0.size() == q1.size() );
     xi.resize( N, q0.size() );
@@ -155,9 +154,9 @@ virtual void createInitialTraj( const MatX & q0, const MatX & q1,
 }
 
 
-virtual void createInitialTraj( const MatX & q0, const MatX & q1, 
-                                ChompObjectiveType objective_type,
-                                MatX & xi)
+void createInitialTraj( const MatX & q0, const MatX & q1, 
+                        ChompObjectiveType objective_type,
+                        MatX & xi)
 {
     assert( q0.size() == q1.size() );
     assert( xi.cols() == q0.size() );
@@ -165,22 +164,29 @@ virtual void createInitialTraj( const MatX & q0, const MatX & q1,
     int N = xi.rows();
 
     if ( objective_type == MINIMIZE_VELOCITY ){
+        //if the goal is Minimize Velocity, simply linearly interpolate
+        //  from the start to goal state.
         for ( int i=0; i < N; i ++ ){
 
             double t = double(i+1) / double(N+1);
-
-            xi.row( i ) = q0 + (q1-q0)*t
+            xi.row( i ) = q0 + (q1-q0)*t;
         }
     }
     //we are minimizing acceleration, so do some math to get
     //   a low acceleration initial traj.
     else{
+
         MatX q_mid = (q0 + q1)/2;
 
+        //apply a constant positive acceleration from 
+        //  the start to the midpoint.
         for ( int i=0; i < (N+1)/2; i ++ ){
             double t = double(i+1)/double(N/2 + 1);
             xi.row( i ) = q0 + (q_mid-q0)*t*t;
         }
+
+        //apply a constant negative acceleration from
+        //  the midpoint to the endpoint.
         for ( int i = N; i > N/2; i -- ){
             double t = double(N-i+1)/double(N/2 + 1);
             xi.row( i ) = q1 + (q_mid-q1)*t*t;

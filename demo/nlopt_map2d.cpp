@@ -34,7 +34,8 @@
 #include "Map2D.h"
 #include <png.h>
 #include <getopt.h>
-#include "Chomp.h"
+#include "ChompNLopt.h"
+#include "ChompGradient.h"
 
 using namespace chomp;
 
@@ -133,7 +134,7 @@ bool savePNG_RGB24(const std::string& filename,
 //////////////////////////////////////////////////////////////////////
 // class to help evaluate collisons for gradients
 
-class Map2DCHelper: public ChompCollisionHelper {
+class NLoptMap2DCHelper: public ChompCollisionHelper {
 public: 
 
   enum {
@@ -144,11 +145,11 @@ public:
 
   const Map2D& map;
 
-  Map2DCHelper(const Map2D& m): 
+  NLoptMap2DCHelper(const Map2D& m): 
     ChompCollisionHelper(NUM_CSPACE, NUM_WKSPACE, NUM_BODIES), 
     map(m) {}
 
-  virtual ~Map2DCHelper() {}
+  virtual ~NLoptMap2DCHelper() {}
 
   virtual double getCost(const MatX& q, 
                          size_t body_index,
@@ -286,7 +287,7 @@ public:
 
   }
 
-  virtual int notify(const Chomp& chomper, 
+  virtual int notify(const ChompOptimizerBase& chomper, 
                      ChompEventType event,
                      size_t iter,
                      double curObjective,
@@ -303,7 +304,7 @@ public:
     if (!dump_pdf) {
       return 0;
     }
-
+    
     if (count++) {
       cairo_show_page(cr);
     }
@@ -458,7 +459,7 @@ int main(int argc, char** argv) {
 
   MatX q0, q1, xi;
 
-  Map2DCHelper mhelper(map);
+  NLoptMap2DCHelper mhelper(map);
   ChompCollGradHelper cghelper(&mhelper, gamma);
 
   vec2f p0(x0, y0), p1(x1, y1);
@@ -468,13 +469,10 @@ int main(int argc, char** argv) {
   }
 
   generateInitialTraj(N, map, p0, p1, xi, q0, q1);
-
-  Chomp chomper(NULL, xi, q0, q1, N, alpha, errorTol, max_iter);
-  chomper.objective_type = otype;
+    
+  ChompNLopt chomper(xi, q0, q1, 0.1, 400);
   chomper.gradient->ghelper = &cghelper;
 
-  DebugChompObserver dobs;
-  chomper.observer = &dobs;
 
 #ifdef MZ_HAVE_CAIRO
 

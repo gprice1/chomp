@@ -31,10 +31,10 @@
 *
 */
 
-#include "../chomp/Map2D.h"
+#include "Map2D.h"
 #include <png.h>
 #include <getopt.h>
-#include "ChompNLopt.h"
+#include "Chomp.h"
 
 using namespace chomp;
 
@@ -286,7 +286,7 @@ public:
 
   }
 
-  virtual int notify(const Chomp& chomper, 
+  virtual int notify(const ChompOptimizerBase& chomper, 
                      ChompEventType event,
                      size_t iter,
                      double curObjective,
@@ -299,7 +299,7 @@ public:
     bool dump_pdf = (event == CHOMP_FINISH ||
                      dump_every == 0 || 
                      (iter % dump_every == 0));
-
+    
     if (!dump_pdf) {
       return 0;
     }
@@ -347,6 +347,7 @@ public:
       cairo_arc(cr, pi.x(), pi.y(), 2*cs, 0.0, 2*M_PI);
       cairo_fill(cr);
     }
+    
 
     return 0;
 
@@ -468,10 +469,15 @@ int main(int argc, char** argv) {
   }
 
   generateInitialTraj(N, map, p0, p1, xi, q0, q1);
+    
+  std::cout << "xi: \n" << xi << std::endl;
 
-  ChompNLopt chomper(xi, q0, q1);
+  Chomp chomper(NULL, xi, q0, q1, N, alpha, errorTol, max_iter);
+  chomper.objective_type = otype;
   chomper.gradient->ghelper = &cghelper;
 
+  DebugChompObserver dobs;
+  chomper.observer = &dobs;
 
 #ifdef MZ_HAVE_CAIRO
 
@@ -483,12 +489,14 @@ int main(int argc, char** argv) {
             N, gamma, alpha, errorTol, (int)max_iter,
             otype == MINIMIZE_VELOCITY ? "vel" : "accel",
             p0.x(), p0.y(), p1.x(), p1.y());
+
+
     pe = new PdfEmitter(map, xi, pdf, buf);
     chomper.observer = pe;
   }
 
 #endif
-  
+    
   chomper.solve(true, false);
 
 #ifdef MZ_HAVE_CAIRO

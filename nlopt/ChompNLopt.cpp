@@ -1,6 +1,6 @@
 
 #include "ChompNLopt.h"
-
+#include "ChompGradient.h"
 
 
 namespace chomp {
@@ -14,22 +14,20 @@ ChompNLopt::ChompNLopt(
               int N_max,
               const std::vector<double> & lower,
               const std::vector<double> & upper) :
-    N( xi_init.rows() ), M(xi_init.cols()),
+    ChompOptimizerBase( NULL, xi_init, pinit, pgoal ),
     N_max( N_max ),
     max_iter( max_iter ),
-    observer( NULL ),
-    xi( xi_init ),
+    optimizer( NULL ),
     lower( lower ), upper( upper )
 
 {
-    assert( M == pinit.size());
-    assert( M == pgoal.size());
-    
+    //either the bounds vector is equivalent to the number of
+    //  DOFs, or it is empty.
+    assert( lower.size() == 0 || lower.size() == size_t(M) ); 
+    assert( upper.size() == 0 || upper.size() == size_t(M) ); 
+
     //currently using the slsqp algorithm for optimization.
-    algorithm = nlopt::LD_SLSQP;
-
-    gradient = new ChompGradient( pinit, pgoal );
-
+    algorithm = nlopt::LD_LBFGS;
 }
 
 
@@ -37,10 +35,9 @@ ChompNLopt::ChompNLopt(
 ChompNLopt::~ChompNLopt()
 {
     if ( optimizer ){delete optimizer; }
-    if ( gradient ){delete gradient; }
 }
 
-void ChompNLopt::solve()
+void ChompNLopt::solve(bool global, bool local)
 {
     
     //optimize at the current resolution
@@ -67,14 +64,14 @@ void ChompNLopt::solve()
 
 double ChompNLopt::optimize(){
     
+    double previous_objective_value = objective_value;
+    notify(CHOMP_INIT, 0, objective_value, -1, 0);
+    
     //create the optimizer
     optimizer = new nlopt::opt( algorithm, xi.size() );
     
-    //If the lower and upper bounds vectors are of the correct size,
-    //  set the upper and lower bounds.
-    if (lower.size() == size_t(M)){ setLowerBounds( lower ); }
-    if (upper.size() == size_t(M)){ setUpperBounds( upper ); }
-    
+    giveBoundsToNLopt();
+
     //set the objective function and the termination conditions.
     optimizer->set_min_objective( ChompGradient::NLoptFunction, gradient );
     if ( obstol != 0 ){ optimizer->set_ftol_rel( obstol ); }
@@ -83,6 +80,7 @@ double ChompNLopt::optimize(){
     //prepare the gradient for the run.
     gradient->prepareRun( N );
     
+
     //call the optimization routine, get the result and the value
     //  of the objective function.
     std::vector<double> trajectory;
@@ -92,7 +90,12 @@ double ChompNLopt::optimize(){
 
     //clean up by deleting the optimizer.
     delete optimizer;
+    optimizer = NULL;
     
+    //notify the observer of the happenings.
+    notify( CHOMP_FINISH, 0, objective_value, 
+            previous_objective_value, 0);
+
     //return the final value of the objective function.
     return objective_value;
 }
@@ -115,24 +118,43 @@ void ChompNLopt::copyNRows( const std::vector<double> & original,
 void ChompNLopt::setLowerBounds( const std::vector<double> & lower)
 {
     assert( lower.size() == size_t(M) );
-
-    std::vector<double> lower_bounds;
-    copyNRows( lower, lower_bounds );
-    
-    optimizer->set_lower_bounds( lower_bounds );
+    this->lower = lower;
 }
 
 void ChompNLopt::setUpperBounds( const std::vector<double> & upper)
 {
     assert( upper.size() == size_t(M) );
-
-    std::vector<double> upper_bounds;
-    copyNRows( upper, upper_bounds );
-    
-    optimizer->set_upper_bounds( upper_bounds );
+    this->upper = upper;
 }
 
 
+void ChompNLopt::giveBoundsToNLopt()
+{
+    
+    assert( optimizer != NULL );
+
+    std::vector<double> upper_bounds, lower_bounds;
+    
+    //set the lower bounds if the lower vector is 
+    //  of the correct size.
+    if ( lower.size() == size_t( M ) ){
+        std::vector<double> lower_bounds;
+        copyNRows( lower, lower_bounds );
+        
+        optimizer->set_lower_bounds( lower_bounds );
+
+    }
+
+    //set the upper bounds if the upper matrix is of the 
+    //  correct size.
+    if ( upper.size() == size_t( M ) ){
+
+        std::vector<double> upper_bounds;
+        copyNRows( upper, upper_bounds );
+        
+        optimizer->set_upper_bounds( upper_bounds );
+    }
+}
 }//namespace
 
 

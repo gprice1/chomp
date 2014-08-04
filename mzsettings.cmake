@@ -17,6 +17,13 @@ find_library(PNG_LIBRARY png)
 find_library(EXPAT_LIBRARY expat)
 find_library(GLUT_LIBRARY glut)
 
+#use this to find the FindNLopt.cmake file.
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}")
+find_package(NLopt)
+if (NLOPT_FOUND)
+    include_directories(${NLOPT_INCLUDE_DIRS})
+endif()
+
 pkg_search_module(EIGEN3 REQUIRED eigen3>=3)
 pkg_search_module(CAIRO cairo)
 

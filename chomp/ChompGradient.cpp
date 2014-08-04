@@ -148,9 +148,9 @@ double ChompCollGradHelper::addToGradient(ConstMatMap& xi,
 }
 
 ChompGradient::ChompGradient(const MatX& pinit, 
-                              const MatX& pgoal, 
-                              ChompObjectiveType objective_type,
-                              double total_time) :
+                             const MatX& pgoal, 
+                             ChompObjectiveType objective_type,
+                             double total_time) :
     ghelper(NULL),
     objective_type( objective_type ),
     q0( pinit ), q1( pgoal ),
@@ -187,7 +187,7 @@ void ChompGradient::prepareRun(int N,
                                bool use_goalset,
                                bool subsample)
 {
-    
+    this->N = N;
     this->use_goalset = use_goalset;
 
     //resize the g, b, and ax matrices.
@@ -267,8 +267,8 @@ double ChompGradient::getGradient( unsigned n_by_m,
     ConstMatMap xi_mat( xi, N, M );
     
     if ( grad != NULL ){
-        assert( unsigned(N*M) == n_by_m );
 
+        assert( unsigned(N*M) == n_by_m );
         MatMap g_mat( grad, N, M);
 
         computeSmoothnessGradient( xi_mat, g_mat );
@@ -313,7 +313,6 @@ void ChompGradient::computeCollisionGradient(ConstMatMap & xi,
     } else {
         fextra = 0;
     }
-    std::cout << "\nUSING MATMAP\n";
 }
 
 void ChompGradient::computeCollisionGradient(const MatX & xi,
@@ -329,7 +328,6 @@ void ChompGradient::computeCollisionGradient(const MatX & xi,
         fextra = 0;
     }
 }
-
 
 }// namespace
 

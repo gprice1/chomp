@@ -60,7 +60,8 @@ typedef Eigen::Map<MatXR, 0, Eigen::OuterStride<> > SubMatMapR;
 
 
 /////////////////forward class declarations///////////////
-
+class ChompGradient;
+class ChompOptimizerBase;
 class ConstraintFactory;
 class Constraint;
 class HMC;
@@ -86,7 +87,7 @@ const char* eventTypeString(int eventtype);
 class ChompObserver {
   public:
     virtual ~ChompObserver();
-    virtual int notify(const Chomp& c, 
+    virtual int notify(const ChompOptimizerBase& c, 
                        ChompEventType event,
                        size_t iter,
                        double curObjective,
@@ -97,7 +98,7 @@ class ChompObserver {
 class DebugChompObserver: public ChompObserver {
   public:
     virtual ~DebugChompObserver();
-    virtual int notify(const Chomp& c, 
+    virtual int notify(const ChompOptimizerBase& c, 
                        ChompEventType event,
                        size_t iter,
                        double curObjective,
@@ -121,13 +122,13 @@ void upsampleTrajectory(const MatX & xi,
                         ChompObjectiveType objective_type,
                         MatX & xi_up);
 
-virtual void createInitialTraj( const MatX & q0, const MatX & q1, 
-                                int N, ChompObjectiveType objective_type,
-                                MatX & xi);
+void createInitialTraj( const MatX & q0, const MatX & q1, 
+                        int N, ChompObjectiveType objective_type,
+                        MatX & xi);
 
-virtual void createInitialTraj( const MatX & q0, const MatX & q1, 
-                                ChompObjectiveType objective_type,
-                                MatX & xi);
+void createInitialTraj( const MatX & q0, const MatX & q1, 
+                        ChompObjectiveType objective_type,
+                        MatX & xi);
 
 ///////////////////////////////////////////////////////////
 /////////////////////Inline Functions//////////////////////
