@@ -165,7 +165,7 @@ void Chomp::prepareChompIter() {
     
     debug << "Getting chomp Constraints" << std::endl;
     prepareChompConstraints();
-    std::cout << "Done Getting chomp Constraints" << std::endl;
+    debug << "Done Getting chomp Constraints" << std::endl;
     
     gradient->getGradient( xi );
     if ( N_sub ){ gradient->getSubsampledGradient( N_sub ); }
@@ -305,7 +305,7 @@ void Chomp::solve(bool doGlobalSmoothing, bool doLocalSmoothing) {
         use_momentum = true;
         hmc->setupHMC( objective_type, alpha );
     }
-
+    
     //Run Chomp at the current iteration, then upsample, repeat 
     //  until the current trajectory is at the max resolution
     while (1) {

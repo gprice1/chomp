@@ -122,6 +122,8 @@ public:
     
     int M; // degrees of freedom
     int N; // number of timesteps
+    
+    int iteration;
 
     MatX q0; // initial point of size M
     MatX q1; // end point of size M
@@ -199,7 +201,7 @@ public:
     inline double evaluateObjective(
                     const Eigen::MatrixBase<Derived> & xi) const
     {
-        return (0.5 * mydot( xi, Ax ) + mydot( xi, b ) + c ) + fextra;
+        return (0.5 * mydot(xi, Ax) + mydot(xi, b) + c) + fextra;
     }
 
   private:

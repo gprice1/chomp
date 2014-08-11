@@ -161,7 +161,7 @@ void createInitialTraj( const MatX & q0, const MatX & q1,
     assert( q0.size() == q1.size() );
     assert( xi.cols() == q0.size() );
     
-    int N = xi.rows();
+    const int N = xi.rows();
 
     if ( objective_type == MINIMIZE_VELOCITY ){
         //if the goal is Minimize Velocity, simply linearly interpolate
@@ -187,8 +187,8 @@ void createInitialTraj( const MatX & q0, const MatX & q1,
 
         //apply a constant negative acceleration from
         //  the midpoint to the endpoint.
-        for ( int i = N; i > N/2; i -- ){
-            double t = double(N-i+1)/double(N/2 + 1);
+        for ( int i = N-1; i > N/2; i -- ){
+            double t = double(N-i)/double(N/2 + 1);
             xi.row( i ) = q1 + (q_mid-q1)*t*t;
         }
     }

@@ -156,7 +156,7 @@ void testMaps() {
 }
 
 int primary( int argc, char ** argv ){
-  int n = 7;
+  int n = 200;
 
   if (argc > 1) { 
     int nn = atoi(argv[1]);
@@ -461,9 +461,9 @@ int tertiary( int argc, char ** argv ){
 
 }
 int main(int argc, char** argv) { 
-    //primary( argc, argv );
+    return primary( argc, argv );
     //secondary( argc, argv );
-    tertiary( argc, argv );
+    //tertiary( argc, argv );
 }
 
 

@@ -29,6 +29,7 @@ class ChompNLopt : public ChompOptimizerBase{
                double obstol = 0.01,
                int max_iter=0,
                int N_max = 0,
+               ChompObjectiveType obj_t = MINIMIZE_ACCELERATION,
                const std::vector<double> & upper=std::vector<double>(),
                const std::vector<double> & lower=std::vector<double>());
     

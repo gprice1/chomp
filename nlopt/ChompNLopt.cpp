@@ -5,6 +5,18 @@
 
 namespace chomp {
 
+
+const std::string getNLoptReturnString( nlopt::result & result ){
+    if ( result == nlopt::SUCCESS ){ return "SUCCESS"; }
+    if ( result == nlopt::STOPVAL_REACHED ){ return "STOPVAL_REACHED"; }
+    if ( result == nlopt:: FTOL_REACHED ){ return "FTOL_REACHED"; }
+    if ( result == nlopt::XTOL_REACHED  ){ return "XTOL_REACHED "; }
+    if ( result == nlopt::MAXEVAL_REACHED ){ return "MAXEVAL_REACHED"; }
+    if ( result == nlopt::MAXTIME_REACHED ){ return "MAXTIME_REACHED"; }
+    return "UNKNOWN_RESULT";
+}
+
+
 ChompNLopt::ChompNLopt(
               const MatX& xi_init,
               const MatX& pinit,
@@ -12,13 +24,14 @@ ChompNLopt::ChompNLopt(
               double obstol,
               int max_iter,
               int N_max,
-              const std::vector<double> & lower,
-              const std::vector<double> & upper) :
-    ChompOptimizerBase( NULL, xi_init, pinit, pgoal ),
+              ChompObjectiveType obj_t,
+              const std::vector<double> & lower_bounds,
+              const std::vector<double> & upper_bounds) :
+    ChompOptimizerBase( NULL, xi_init, pinit, pgoal, obj_t ),
     N_max( N_max ),
     max_iter( max_iter ),
     optimizer( NULL ),
-    lower( lower ), upper( upper )
+    lower( lower_bounds ), upper( upper_bounds )
 
 {
     //either the bounds vector is equivalent to the number of
@@ -27,9 +40,11 @@ ChompNLopt::ChompNLopt(
     assert( upper.size() == 0 || upper.size() == size_t(M) ); 
 
     //currently using the slsqp algorithm for optimization.
-    algorithm = nlopt::LD_LBFGS;
+    //LD_VAR2
+    //SLSQP
+    //MMA
+    algorithm = nlopt::LD_MMA;
 }
-
 
 
 ChompNLopt::~ChompNLopt()
@@ -62,12 +77,14 @@ void ChompNLopt::solve(bool global, bool local)
     }
 }
 
+
 double ChompNLopt::optimize(){
     
     double previous_objective_value = objective_value;
     notify(CHOMP_INIT, 0, objective_value, -1, 0);
     
     //create the optimizer
+    assert( xi.size() == N * M );
     optimizer = new nlopt::opt( algorithm, xi.size() );
     
     giveBoundsToNLopt();
@@ -85,16 +102,25 @@ double ChompNLopt::optimize(){
     //  of the objective function.
     std::vector<double> trajectory;
     matToVec( xi, trajectory );
-    result = optimizer->optimize( trajectory , objective_value );
+
+    try{
+        result = optimizer->optimize( trajectory , objective_value );
+    }catch( std::exception & e ){
+        std::cout << "Caught exception: " << e.what() << std::endl;
+    }
+
     vecToMat( trajectory, xi );
 
     //clean up by deleting the optimizer.
     delete optimizer;
     optimizer = NULL;
     
+  
     //notify the observer of the happenings.
     notify( CHOMP_FINISH, 0, objective_value, 
             previous_objective_value, 0);
+    std::cout << "Finished with exit code: "
+              << getNLoptReturnString(result) << "\n";
 
     //return the final value of the objective function.
     return objective_value;
@@ -113,6 +139,7 @@ void ChompNLopt::copyNRows( const std::vector<double> & original,
             result[i*N + j] = original[i];
         }
     }
+
 }
 
 void ChompNLopt::setLowerBounds( const std::vector<double> & lower)

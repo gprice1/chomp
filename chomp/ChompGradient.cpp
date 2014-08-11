@@ -37,8 +37,14 @@
 
 #include "ChompGradient.h"
 
-#define debug if (0) std::cout
-#define debug_assert if (0) assert
+#define DEBUG_PRINTING 1
+#if DEBUG_PRINTING 
+    #define debug std::cout
+    #define debug_assert assert
+#else
+    #define debug if (0) std::cout
+    #define debug_assert if (0) assert
+#endif
 
 namespace chomp {
 
@@ -108,7 +114,7 @@ inline double ChompCollGradHelper::computeGradient(
           wkspace_vel /= wv_norm;
 
           // add to total
-          double scl = wv_norm * gamma / inv_dt;
+          double scl = wv_norm * gamma * dt;
 
           total += cost * scl;
           
@@ -166,8 +172,6 @@ ChompGradient::ChompGradient(const MatX& pinit,
         coeffs << -1, 2;
         coeffs_sub << 2;
         coeffs_goalset << 1;
-
-        fscl = inv_dt*inv_dt;
     } else {
         coeffs.resize(1,3);
         coeffs_sub.resize(1,2);
@@ -177,8 +181,6 @@ ChompGradient::ChompGradient(const MatX& pinit,
         coeffs_sub << 1, 6;
         coeffs_goalset << 6, -3,
                          -3,  2 ;
-        
-        fscl = inv_dt*inv_dt*inv_dt;
     }
 
 }
@@ -187,6 +189,8 @@ void ChompGradient::prepareRun(int N,
                                bool use_goalset,
                                bool subsample)
 {
+    iteration = 0;
+    
     this->N = N;
     this->use_goalset = use_goalset;
 
@@ -212,6 +216,10 @@ void ChompGradient::prepareRun(int N,
     }
     
     inv_dt = 1/dt;
+
+    if ( objective_type == MINIMIZE_VELOCITY ){ fscl = inv_dt * inv_dt;}
+    else { fscl = inv_dt * inv_dt * inv_dt;  }
+
 
     if (subsample) {
         int N_sub = (N+1)/2;
@@ -264,21 +272,32 @@ double ChompGradient::getGradient( unsigned n_by_m,
                                    const double * xi,
                                    double * grad)
 {
+    iteration ++;
+
     ConstMatMap xi_mat( xi, N, M );
     
     if ( grad != NULL ){
 
         assert( unsigned(N*M) == n_by_m );
         MatMap g_mat( grad, N, M);
+        
+        g_mat.setZero();
 
         computeSmoothnessGradient( xi_mat, g_mat );
         computeCollisionGradient(  xi_mat, g_mat );
         
-        skylineCholSolve( L, g_mat );
+        //skylineCholSolve( L, g_mat );
+
+    }else{
+        computeSmoothnessGradient( xi_mat, g );
+        computeCollisionGradient(  xi_mat, g );
     }
 
-    return evaluateObjective( xi_mat );
+
+    const double cost = evaluateObjective( xi_mat );
     
+    debug << "Iteration[" << iteration << "] -- Cost: " << cost << "\n";
+    return cost;
 }
 
 

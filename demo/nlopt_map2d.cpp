@@ -187,7 +187,8 @@ void generateInitialTraj(int N,
                          const vec2f& p1,
                          MatX& xi,
                          MatX& q0,
-                         MatX& q1) {
+                         MatX& q1,
+                         ChompObjectiveType objective) {
   
   xi.resize(N, 2);
   q0.resize(1, 2);
@@ -196,13 +197,8 @@ void generateInitialTraj(int N,
   q0 << p0.x(), p0.y();
   q1 << p1.x(), p1.y();
 
-  for (int i=0; i<N; ++i) {
-    float u = float(i+1)/(N+1);
-    vec2f pi = p0 + u*(p1-p0);
-    xi(i,0) = pi.x();
-    xi(i,1) = pi.y();
-  }
-
+  //createInitialTraj( q0, q1, objective, xi );
+  createInitialTraj( q0, q1, MINIMIZE_VELOCITY, xi );
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -467,10 +463,26 @@ int main(int argc, char** argv) {
     p0 = map.grid.bbox().p0.trunc();
     p1 = map.grid.bbox().p1.trunc();
   }
+  
 
-  generateInitialTraj(N, map, p0, p1, xi, q0, q1);
-    
-  ChompNLopt chomper(xi, q0, q1, 0.1, 400);
+  generateInitialTraj(N, map, p0, p1, xi, q0, q1, otype);
+  
+  std::vector<double> lower, upper;
+
+  if ( true ){
+      lower.resize(2); upper.resize( 2 );
+      for ( int i = 0 ; i < 2; i ++ ){
+        if ( q0(i) > q1(i) ){
+            lower[i] = q1(i) - 0.05;
+            upper[i] = q0(i) + 0.05;
+        }else {
+            lower[i] = q0(i) - 0.05;
+            upper[i] = q1(i) + 0.05;
+        }
+      }
+  }
+  
+  ChompNLopt chomper(xi, q0, q1, errorTol, max_iter,0, otype, lower, upper);
   chomper.gradient->ghelper = &cghelper;
 
 

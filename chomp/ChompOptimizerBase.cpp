@@ -16,8 +16,6 @@ ChompOptimizerBase::ChompOptimizerBase( ConstraintFactory * f,
     N(xinit.rows()), M(xinit.cols()),
     xi( xinit )
 {
-    std::cout << "xi_init: N: " << xinit.rows()
-              << "\tM: " << xinit.cols() << "\n" << xinit <<std::endl;
 
     assert( pinit.size() == M );
     assert( pgoal.size() == M );
