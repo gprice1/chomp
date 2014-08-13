@@ -1,6 +1,7 @@
 
 #include "ChompNLopt.h"
 #include "ChompGradient.h"
+#include "ConstraintFactory.h"
 
 
 namespace chomp {
@@ -18,6 +19,7 @@ const std::string getNLoptReturnString( nlopt::result & result ){
 
 
 ChompNLopt::ChompNLopt(
+              ConstraintFactory * factory,
               const MatX& xi_init,
               const MatX& pinit,
               const MatX& pgoal,
@@ -25,19 +27,14 @@ ChompNLopt::ChompNLopt(
               int max_iter,
               int N_max,
               ChompObjectiveType obj_t,
-              const std::vector<double> & lower_bounds,
-              const std::vector<double> & upper_bounds) :
-    ChompOptimizerBase( NULL, xi_init, pinit, pgoal, obj_t ),
+              const MatX & lower_bounds,
+              const MatX & upper_bounds) :
+    ChompOptimizerBase( factory, xi_init, pinit, pgoal,
+                        lower_bounds, upper_bounds, obj_t),
     N_max( N_max ),
     max_iter( max_iter ),
-    optimizer( NULL ),
-    lower( lower_bounds ), upper( upper_bounds )
-
+    optimizer( NULL )
 {
-    //either the bounds vector is equivalent to the number of
-    //  DOFs, or it is empty.
-    assert( lower.size() == 0 || lower.size() == size_t(M) ); 
-    assert( upper.size() == 0 || upper.size() == size_t(M) ); 
 
     //currently using the slsqp algorithm for optimization.
     //LD_VAR2
@@ -78,6 +75,50 @@ void ChompNLopt::solve(bool global, bool local)
 }
 
 
+void ChompNLopt::prepareNLoptConstraints(){
+
+    //if there is no factory, do nothing
+    if ( !factory ){ return; }
+
+    //clear the old constraints and then get the new constraints.
+    factory->getAll( N );
+
+    //Get the dimensionality of the constraint, and fill the
+    //  constraint_tolerances vector with the appropriate number of
+    //  elements.
+    int constraint_dims = factory->numOutput();
+
+    if ( constraint_dims != 0 ){ 
+        constraint_tolerances.resize( constraint_dims, 1e-5 );
+        
+        //the algorithm must be one that can handle equality constraints,
+        //  if it is not one that can handle equality constraints,
+        //  use the AUGLAG algorithm, with the specified local optimizer.
+        if ( algorithm != nlopt::LD_SLSQP ){
+
+            //create the new optimizer, and set the local optimizer.
+            nlopt::opt * new_optimizer = new nlopt::opt( nlopt::AUGLAG, 
+                                                         xi.size() );
+            new_optimizer->set_local_optimizer( *optimizer );
+
+            //delete the old optimizer, and set the optimizer variable
+            //  to the new optimizer.
+            delete optimizer; 
+            optimizer = new_optimizer;
+            if ( obstol != 0 ){ optimizer->set_ftol_rel( obstol ); }
+            if ( max_iter != 0 ){ optimizer->set_maxeval( max_iter ); }
+
+        }
+
+        //pass the constraint function into nlopt.
+        optimizer->add_equality_mconstraint(
+                                ConstraintFactory::NLoptConstraint,
+                                factory, constraint_tolerances);
+    }
+
+}
+
+
 double ChompNLopt::optimize(){
     
     double previous_objective_value = objective_value;
@@ -86,18 +127,23 @@ double ChompNLopt::optimize(){
     //create the optimizer
     assert( xi.size() == N * M );
     optimizer = new nlopt::opt( algorithm, xi.size() );
-    
+    if ( obstol != 0 ){ optimizer->set_ftol_rel( obstol ); }
+    if ( max_iter != 0 ){ optimizer->set_maxeval( max_iter ); }
+
+    //prepare the gradient for the run.
+    gradient->prepareRun( N );
+
+    //prepare the constraints for optimization.
+    //  This MUST be called before set_min_objective and giveBoundsToNLopt,
+    //  because prepareNLoptConstraints can change the optimization
+    //  routine.
+    if ( factory ){  prepareNLoptConstraints(); }
     giveBoundsToNLopt();
 
     //set the objective function and the termination conditions.
     optimizer->set_min_objective( ChompGradient::NLoptFunction, gradient );
-    if ( obstol != 0 ){ optimizer->set_ftol_rel( obstol ); }
-    if ( max_iter != 0 ){ optimizer->set_maxeval( max_iter ); }
     
-    //prepare the gradient for the run.
-    gradient->prepareRun( N );
-    
-
+        
     //call the optimization routine, get the result and the value
     //  of the objective function.
     std::vector<double> trajectory;
@@ -128,7 +174,7 @@ double ChompNLopt::optimize(){
 
 
 
-void ChompNLopt::copyNRows( const std::vector<double> & original, 
+void ChompNLopt::copyNRows( const MatX & original_bounds, 
                             std::vector<double> & result)
 {
     result.resize(N*M);
@@ -136,52 +182,38 @@ void ChompNLopt::copyNRows( const std::vector<double> & original,
     //eigen matrices are stored in column major format
     for ( int i = 0; i < M; i ++ ){
         for ( int  j = 0; j < N; j ++ ){
-            result[i*N + j] = original[i];
+            result[i*N + j] = original_bounds(i);
         }
     }
-
 }
-
-void ChompNLopt::setLowerBounds( const std::vector<double> & lower)
-{
-    assert( lower.size() == size_t(M) );
-    this->lower = lower;
-}
-
-void ChompNLopt::setUpperBounds( const std::vector<double> & upper)
-{
-    assert( upper.size() == size_t(M) );
-    this->upper = upper;
-}
-
 
 void ChompNLopt::giveBoundsToNLopt()
 {
     
     assert( optimizer != NULL );
 
-    std::vector<double> upper_bounds, lower_bounds;
-    
     //set the lower bounds if the lower vector is 
     //  of the correct size.
-    if ( lower.size() == size_t( M ) ){
-        std::vector<double> lower_bounds;
-        copyNRows( lower, lower_bounds );
+    if ( lower_bounds.size() == size_t( M ) ){
+        std::vector<double> nlopt_lower_bounds;
+        copyNRows( lower_bounds, nlopt_lower_bounds );
         
-        optimizer->set_lower_bounds( lower_bounds );
+        optimizer->set_lower_bounds( nlopt_lower_bounds );
 
     }
 
     //set the upper bounds if the upper matrix is of the 
     //  correct size.
-    if ( upper.size() == size_t( M ) ){
+    if ( upper_bounds.size() == size_t( M ) ){
 
-        std::vector<double> upper_bounds;
-        copyNRows( upper, upper_bounds );
+        std::vector<double> nlopt_upper_bounds;
+        copyNRows( upper_bounds , nlopt_upper_bounds );
         
-        optimizer->set_upper_bounds( upper_bounds );
+        optimizer->set_upper_bounds( nlopt_upper_bounds );
     }
 }
+
+
 }//namespace
 
 

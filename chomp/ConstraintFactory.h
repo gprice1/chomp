@@ -40,20 +40,53 @@
 namespace chomp {
 
   class Constraint;
+  
 
   class ConstraintFactory {
   public:
-  
+    
+    std::vector<Constraint*> constraints;
+    
+    //base constructor, if constraints is non-empty, it deletes all
+    //  of the constraints which are non-NULL.
+    virtual ~ConstraintFactory(); 
+
+    void clearConstraints();
+
     virtual Constraint* getConstraint(size_t t, size_t total) =0;
+    
+    void getAll(size_t total);
+    
+    size_t numOutput();
 
-    void getAll(size_t total, std::vector<Constraint*>& constraints);
+    virtual void evaluate(const MatX& xi, 
+                          MatX& h_tot, 
+                          MatX& H_tot, 
+                          int step=1);
 
-    virtual void evaluate(const std::vector<Constraint*>& constraints, 
-                         const MatX& xi, 
-                         MatX& h_tot, 
-                         MatX& H_tot, 
-                         int step=1);
-  
+    virtual void evaluate(ConstMatMap& xi, 
+                          MatMap& h_tot, 
+                          MatMap& H_tot);
+    virtual void evaluate(ConstMatMap& xi, 
+                          MatMap& h_tot);
+    
+    virtual void evaluate( unsigned constraint_dim,
+                           double* result,
+                           unsigned n_by_m,
+                           const double * x,
+                           double* grad );
+
+    static void NLoptConstraint(unsigned constraint_dim,
+                                double* result,
+                                unsigned n_by_m,
+                                const double * x,
+                                double* grad,
+                                void *data) 
+    {
+        reinterpret_cast<ConstraintFactory*>(data) 
+            ->evaluate( constraint_dim, result, n_by_m, x, grad);
+    }
+
   };
 
 }

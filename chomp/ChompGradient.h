@@ -178,15 +178,15 @@ public:
     MatX& getSubsampledGradient(int N_sub);
 
     double getGradient( unsigned n_by_m, const double * xi, double * grad);
-
-
-    static double NLoptFunction(unsigned n_by_m, const double* x,
-                                double* grad, void *data) 
+    
+    //a wrapper function for passing the ChompGradient to NLopt.
+    static double NLoptFunction(unsigned n, const double * x,
+                                double* grad, void *data)
     {
         return reinterpret_cast<ChompGradient*>(data)
-                            ->getGradient(n_by_m, x, grad);
+                                                ->getGradient( n, x, grad);
     }
-    
+
     template<class Derived>
     inline MatX getTick( int tick,
                          const Eigen::MatrixBase<Derived> & xi) const

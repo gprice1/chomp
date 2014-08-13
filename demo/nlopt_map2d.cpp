@@ -467,22 +467,24 @@ int main(int argc, char** argv) {
 
   generateInitialTraj(N, map, p0, p1, xi, q0, q1, otype);
   
-  std::vector<double> lower, upper;
+  MatX lower, upper;
 
   if ( true ){
-      lower.resize(2); upper.resize( 2 );
+      lower.resize( 1,2);
+      upper.resize(1,2);
       for ( int i = 0 ; i < 2; i ++ ){
         if ( q0(i) > q1(i) ){
-            lower[i] = q1(i) - 0.05;
-            upper[i] = q0(i) + 0.05;
+            lower(i) = q1(i) - 0.05;
+            upper(i) = q0(i) + 0.05;
         }else {
-            lower[i] = q0(i) - 0.05;
-            upper[i] = q1(i) + 0.05;
+            lower(i) = q0(i) - 0.05;
+            upper(i) = q1(i) + 0.05;
         }
       }
   }
   
-  ChompNLopt chomper(xi, q0, q1, errorTol, max_iter,0, otype, lower, upper);
+  ChompNLopt chomper( NULL, xi, q0, q1, errorTol, max_iter,
+                      0, otype, lower, upper);
   chomper.gradient->ghelper = &cghelper;
 
 

@@ -36,20 +36,53 @@
 
 namespace chomp {
 
-
-  void ConstraintFactory::getAll(size_t total, std::vector<Constraint*>& constraints) {
-    constraints.clear(); 
-    for (size_t i=0; i<total; i++){
-      constraints.push_back(getConstraint(i, total));
-    }
-    assert(constraints.size() == total);
+  ConstraintFactory::~ConstraintFactory(){
+    clearConstraints();
   }
 
-  void ConstraintFactory::evaluate(const std::vector<Constraint*>& constraints, 
-                                   const MatX& xi, 
-                                   MatX& h_tot, 
-                                   MatX& H_tot, 
-                                   int step)
+  void ConstraintFactory::clearConstraints() {
+
+    for ( std::vector<Constraint*>::iterator it = constraints.begin(); 
+          it != constraints.end();
+          it ++ )
+    {
+        if (*it){ delete *it; }
+    }
+    constraints.clear();
+  }
+
+  void ConstraintFactory::getAll(size_t total) {
+    clearConstraints();
+    
+    //fill up the constraints vector.
+    constraints.resize( total );
+    for (size_t i=0; i<total; i++){
+      constraints[i] = getConstraint(i, total);
+    }
+  }
+  
+
+  size_t ConstraintFactory::numOutput()
+  {
+    //compute the total dimensionality of the constraints
+    int constraint_dims = 0;
+    for ( std::vector<Constraint*>::iterator it = constraints.begin();
+          it != constraints.end();
+          it ++ )
+    {
+        //if there is a constraint, get its dimensions.
+        if ( *it ) { constraint_dims += (*it)->numOutputs(); }
+    }
+
+    return constraint_dims;
+  }
+
+
+
+  void ConstraintFactory::evaluate( const MatX& xi, 
+                                    MatX& h_tot, 
+                                    MatX& H_tot, 
+                                    int step)
   {
 
     size_t DoF = xi.cols();
@@ -115,8 +148,8 @@ namespace chomp {
 
     assert( row <= (size_t)numCons );
     if ( row < numCons ) {
-      h_tot = MatX(h_tot.block(0, 0, row, 1));
-      H_tot = MatX(H_tot.block(0, 0, row, DoF*timesteps));
+      h_tot.conservativeResize(row, 1);
+      H_tot.conservativeResize(row, DoF*timesteps);
     }
 
     assert(h_tot.rows() == H_tot.rows());
@@ -125,4 +158,97 @@ namespace chomp {
 
   }
 
-}
+
+  void ConstraintFactory::evaluate( ConstMatMap& xi, 
+                                    MatMap& h_tot, 
+                                    MatMap& H_tot)
+
+  {
+    size_t DoF = xi.cols();
+    size_t N = xi.rows();
+    H_tot.setZero();    
+    
+    assert(N == constraints.size());
+
+    MatX h, H; // individual constraints at time t
+    size_t row = 0; // starting row for the current bundle o constraints
+    
+    for (size_t t=0, i=0; t<constraints.size(); t++, ++i) {
+
+      Constraint* c = constraints[t];
+
+      //get individual h and H from qt
+      if (!c || c->numOutputs()==0){ continue; }
+
+      c->evaluateConstraints(xi.row(t), h, H);
+
+      //stick all the h and H into h_tot and H_tot
+      assert(H.cols() == (int)DoF);
+      assert(h.cols() == 1);
+      assert(H.rows() == (int)constraints[t]->numOutputs());
+      assert(H.rows() == h.rows());
+      
+
+      for (size_t r = 0; r<(size_t)h.rows(); r++, row++){
+        h_tot(row) = h(r);
+
+        for (size_t j = 0; j<DoF; j++){
+          assert( H_tot.cols() > (int)row   );
+          assert( H_tot.rows() > (int)(j*N + i) );
+          
+          H_tot(j*N + i, row) = H(r,j);
+        }
+      }
+    }  
+  }
+
+  void ConstraintFactory::evaluate( ConstMatMap& xi, 
+                                    MatMap& h_tot)
+  {
+    
+    assert(size_t(xi.rows()) == constraints.size());
+
+    MatX h, H; // individual constraints at time t
+    size_t row = 0; // starting row for the current bundle o constraints
+    
+    for (size_t t=0, i=0; t<constraints.size(); t++, ++i) {
+
+      Constraint* c = constraints[t];
+
+      //get individual h and H from qt
+      if (!c || c->numOutputs()==0){ continue; }
+
+      c->evaluateConstraints(xi.row(t), h, H);
+      
+      for (size_t r = 0; r<(size_t)h.rows(); r++, row++){
+        h_tot(row) = h(r);
+      }
+    }  
+  }
+
+  void ConstraintFactory::evaluate( unsigned constraint_dim,
+                                    double* result,
+                                    unsigned n_by_m,
+                                    const double * x,
+                                    double* grad )
+  {
+    int N = constraints.size();
+    int M = n_by_m / N;
+
+    assert( constraint_dim == numOutput() );
+
+    //put the data into matrix maps.
+    ConstMatMap xi( x, N, M);
+    MatMap h_total(result, constraint_dim, 1);
+
+    if ( grad == NULL ){
+        evaluate( xi, h_total );
+    }else{
+        MatMap H_total( grad, n_by_m, constraint_dim);
+    
+        //evaluate the data.
+        evaluate( xi, h_total, H_total);
+    }
+  }
+
+} //namespace

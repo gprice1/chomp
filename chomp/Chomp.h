@@ -62,6 +62,8 @@ class Chomp : public ChompOptimizerBase {
 
     MatX H; // constraint Jacobian of size k-by-M*N
     MatX H_sub; // constraint Jacobian of size k_sub-by-1
+    
+    MatX bounds_violations;
 
     double hmag; // inf. norm magnitude of constraint violation
 
@@ -106,8 +108,6 @@ class Chomp : public ChompOptimizerBase {
     //A cholesky solver for solving the constraint matrix.
     Eigen::LDLT<MatX> cholSolver;
 
-    std::vector<Constraint*> constraints; // vector of size N
-    
     //used for goal set chomp.
     Constraint * goalset;
     bool use_goalset;
@@ -139,9 +139,6 @@ class Chomp : public ChompOptimizerBase {
     void unlockTrajectory();
     void initMutex();
     
-    //clear the constraint vector of constraints.
-    void clearConstraints();
-
     //prepares chomp to be run at a resolution level
     void prepareChomp();    
 
@@ -182,7 +179,13 @@ class Chomp : public ChompOptimizerBase {
     // upsamples trajectory, projecting onto constraint for each new
     // trajectory element.
     void constrainedUpsampleTo(int Nmax, double htol, double hstep=0.5);
-    
+
+    //Checks the bounds of the current trajectory, and correct them if
+    //  necessary.
+    template <class Derived>
+    void checkBounds( Eigen::MatrixBase<Derived> const & traj );
+
+
     //Give a goal set in the form of a constraint for chomp to use on the
     //  first resolution level.
     void useGoalSet( Constraint * goalset );

@@ -13,6 +13,7 @@ add_library(chomp SHARED
     HMC.cpp
     )
 
-
-
 target_link_libraries( chomp mzcommon )
+
+add_executable(testmatops testmatops.cpp)
+target_link_libraries(testmatops chomp)

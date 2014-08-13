@@ -62,7 +62,8 @@ Chomp::Chomp(ConstraintFactory* f,
                double tt,
                double timeout_seconds,
                bool use_momentum):
-    ChompOptimizerBase(f, xi_init, pinit, pgoal, MINIMIZE_ACCELERATION, tt),
+    ChompOptimizerBase(f, xi_init, pinit, pgoal, MatX(0,0), MatX(0,0),
+                       MINIMIZE_ACCELERATION, tt),
     maxN(nmax),
     xi_sub( NULL, 0, 0, SubMatMapStride(0,2) ),
     alpha(al),
@@ -106,14 +107,6 @@ void Chomp::initMutex(){
     use_mutex = true;
     pthread_mutex_init( &trajectory_mutex, NULL );
 }
-void Chomp::clearConstraints() {
-
-    while (!constraints.empty()) {
-        delete constraints.back();
-        constraints.pop_back();
-    }
-
-}
   
 
 void Chomp::prepareChomp() {
@@ -124,11 +117,7 @@ void Chomp::prepareChomp() {
     bool subsample = N > minN && !use_goalset &&
                      !(full_global_at_final && N >= maxN);
     
-
-    
-    //reset the constraints.
-    clearConstraints();
-    if (factory) { factory->getAll(N, constraints);}
+    if (factory) { factory->getAll( N );}
 
     //If we are doing goalset chomp, prepare for it.
     if (use_goalset ){ prepareGoalSet(); }
@@ -152,7 +141,7 @@ void Chomp::prepareChomp() {
 }
   
 
-  // precondition: prepareChomp was called for this resolution level
+// precondition: prepareChomp was called for this resolution level
 void Chomp::prepareChompIter() {
     
     if (hmc && !N_sub ) {
@@ -180,9 +169,9 @@ void Chomp::prepareChompConstraints(){
     if ( factory ){
         //If we are subsampling, get constraints corresponding
         //  to the subsampled trajectory
-        if (N_sub) { factory->evaluate(constraints, xi, h_sub, H_sub, 2); }
+        if (N_sub) { factory->evaluate(xi, h_sub, H_sub, 2); }
         //else, get constraints corresponding to the standard trajectory.
-        else { factory->evaluate(constraints, xi, h, H); }
+        else { factory->evaluate(xi, h, H); }
     }
 
     if (h.rows()) {
@@ -227,7 +216,7 @@ void Chomp::runChomp(bool global, bool local) {
     
     //handle subsampled constraint evaluation
     if (factory && N_sub) {
-        factory->evaluate(constraints, xi, h, H);
+        factory->evaluate(xi, h, H);
         if (h.rows()) {
             hmag = h.lpNorm<Eigen::Infinity>();
         }
@@ -247,14 +236,21 @@ bool Chomp::iterateChomp( bool local ){
     //run local or global chomp
     if ( local ){
         localSmooth();
+        checkBounds( xi );
         event = CHOMP_LOCAL_ITER;
 
         //get the next gradient
         gradient->getGradient( xi );
     }else{
         chompGlobal();
+
+        //check the bounds 
+        if (N_sub == 0 ){ checkBounds( xi ); }
+        else { checkBounds( xi_sub ); }
+
         event = CHOMP_GLOBAL_ITER;
-        
+
+        //prepare for the next iteration.
         prepareChompIter();
     }
     
@@ -450,7 +446,8 @@ void Chomp::localSmooth() {
 
     for (int t=0; t<N; ++t){
 
-        Constraint* c = constraints.empty() ? NULL : constraints[t];
+        Constraint* c = factory->constraints.empty() ? NULL :
+                                                  factory->constraints[t];
         
         bool is_constrained = (c && c->numOutputs() > 0);
 
@@ -467,13 +464,9 @@ void Chomp::localSmooth() {
             hmag = std::max(hmag, h_t.lpNorm<Eigen::Infinity>());
             
             debug << "ROWS: " << H_t.rows() << " " <<
-                      constraints[t]->numOutputs() << "\n";
+                      factory->constraints[t]->numOutputs() << "\n";
             debug << "ROWS: " << h_t.rows() << " " <<
-                      constraints[t]->numOutputs() << "\n";
-            assert(size_t(H_t.rows()) == constraints[t]->numOutputs());
-            assert(H_t.cols() == M);
-            assert(size_t(h_t.rows()) == constraints[t]->numOutputs());
-            assert(h_t.cols() == 1);
+                      factory->constraints[t]->numOutputs() << "\n";
     
             P_t = H_t*H_t.transpose();
             P_t_inv = P_t.inverse();
@@ -494,7 +487,6 @@ void Chomp::localSmooth() {
     
     debug << "Done with localSmooth" << std::endl;
 }
-
 
 // returns true if performance has converged
 bool Chomp::goodEnough(double oldObjective, double newObjective )
@@ -517,9 +509,13 @@ void Chomp::constrainedUpsampleTo(int Nmax,
 
       double hinit = 0, hfinal = 0;
       
-      for (int i=0; i<N; i+=2) {
+      //if there is no factory, or there are no constraints,
+      //    do not evaluate the constraints.
+      if ( !factory || factory->constraints.empty() ){ continue; }
 
-        Constraint* c = constraints.empty() ? 0 : constraints[i];
+      for (int i=0; i<N; i+=2) {
+    
+        Constraint* c = factory->constraints[i];
 
         if (!c || !c->numOutputs()) { continue; }
         
@@ -533,14 +529,96 @@ void Chomp::constrainedUpsampleTo(int Nmax,
             updateTrajectory( hstep * delta.transpose(), i );
           }
         }
-      
       }
-
     }
-
 }
 
 
+
+template <class Derived>
+void Chomp::checkBounds( Eigen::MatrixBase<Derived> const & traj ){
+
+    const bool check_upper = (upper_bounds.size() == M);
+    const bool check_lower = (lower_bounds.size() == M);
+
+    //if there are bounds to check, check for the violations.
+
+    if ( check_upper || check_lower ){
+        
+        bool violation;
+        bounds_violations.resize( traj.rows(), traj.cols() );
+
+        const int max_checks = 10;
+        int count = 0;
+
+        do{
+            count ++;
+            double max_violation = 0.0;
+            std::pair< int, int > max_index;
+
+            for ( int j = 0; j < traj.cols(); j ++ ) {
+                const double upper = (check_upper ? upper_bounds(j) : 0 );
+                const double lower = (check_upper ? lower_bounds(j) : 0 );
+                
+                for( int i = 0; i < traj.rows(); i ++ ){
+
+                    //is there a violation of a lower bound?
+                    if ( check_lower && traj(i,j) < lower ){
+                        const double magnitude = traj(i,j) - lower;
+                        bounds_violations(i,j) = magnitude; 
+                        
+                        //save the max magnitude, and its index.
+                        if ( -magnitude > max_violation ){
+                            max_violation = -magnitude;
+                            max_index.first = i;
+                            max_index.second = j;
+                        }
+                    //is there a violation of an upper bound?
+                    }else if ( check_upper && traj(i,j) > upper ){
+                        const double magnitude = traj(i,j) - upper; 
+                        bounds_violations(i,j) = magnitude; 
+
+                        //save the max magnitude, and its index.
+                        if ( magnitude > max_violation ){
+                            max_violation = magnitude;
+                            max_index.first = i;
+                            max_index.second = j;
+                        }
+                    }else {
+                        bounds_violations(i,j) = 0;
+                    }
+                }
+            }
+            
+
+            //There are violations in the largest violation does not
+            //  have a magnitude of zero.
+            violation = ( max_violation > 0.0 );
+            
+            if( violation ){
+                //smooth out the bounds violation matrix. With
+                //  the appropriate smoothing matrix.
+                if ( bounds_violations.rows() == traj.rows() ){
+                    skylineCholSolve( gradient->L, bounds_violations );
+                }else {
+                    assert( gradient->L_sub.rows() == traj.rows() );
+                    skylineCholSolve( gradient->L_sub, bounds_violations );
+                }
+
+                //scale the bounds_violation matrix so that it sets the
+                //  largest violation to zero.
+                double current_mag = bounds_violations( max_index.first,
+                                                        max_index.second );
+                const double scale = (current_mag > 0 ?
+                                      max_violation/current_mag :
+                                     -max_violation/current_mag  );
+                const_cast<Eigen::MatrixBase<Derived>&>(traj) -= 
+                                             bounds_violations * scale;
+            }
+        //continue to check and fix limit violations as long as they exist.
+        }while( violation && count < max_checks );
+    }
+}
 
 ////////////////GOAL SET FUNCTIONS//////////////////////////////////
 
@@ -562,7 +640,7 @@ void Chomp::prepareGoalSet(){
     N = xi.rows();
 
     //add the goal constraint to the constraints vector.
-    constraints.push_back( goalset );
+    factory->constraints.push_back( goalset );
 }
 
 void Chomp::finishGoalSet(){
@@ -581,7 +659,7 @@ void Chomp::finishGoalSet(){
 
     //remove the goal constraint, so that it is not deleted along
     //  with the other constraints.
-    constraints.pop_back();
+    factory->constraints.pop_back();
     
     //call prepare chomp to reset important stuff.
     prepareChomp();
