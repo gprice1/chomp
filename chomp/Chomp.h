@@ -19,13 +19,18 @@ class Chomp {
     
     //sets up the factory, gradient, and optimizer for the current
     //  resolution.
-    optimize();
+    optimize( bool global, bool local );
 
     //setbounds;
 
     //setTime.
 
     //setGoalSet
+    void setGoalset( Constraint * goalset );
+    void prepareGoalSet();
+    void finishGoalSet();
+    
+    void constrainedUpsampleTo(int Nmax, double htol, double hstep);
 
     //
 };

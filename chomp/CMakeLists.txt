@@ -1,4 +1,6 @@
 
+add_subdirectory( optimizer )
+include_directories( nlopt )
 
 add_library(chomp SHARED
     ChompOptimizerBase.cpp
@@ -9,14 +11,11 @@ add_library(chomp SHARED
     
     ChompOptimizer.cpp
     ChompGradient.cpp
-    
-    HMC.cpp
     )
 
-target_link_libraries( chomp mzcommon )
+target_link_libraries( chomp mzcommon optimizer )
 
 add_executable(testmatops testmatops.cpp)
 target_link_libraries(testmatops chomp)
 
 add_subdirectory(nlopt)
-include_directories( nlopt )

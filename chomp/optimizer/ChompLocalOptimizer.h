@@ -99,11 +99,6 @@ class ChompOptimizer : public ChompOptimizerBase {
     bool canTimeout, didTimeout;
     TimeStamp stop_time;
 
-    //A mutex for locking the trajectory when updates are being made.
-    //  Only needed if a concurrent thread wants data out of 
-    //  chomp.
-    pthread_mutex_t trajectory_mutex;
-    bool use_mutex;
     
     //A cholesky solver for solving the constraint matrix.
     Eigen::LDLT<MatX> cholSolver;
@@ -200,42 +195,9 @@ class ChompOptimizer : public ChompOptimizerBase {
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective);
 
-    //updates the trajectory via a matrix delta. Delta
-    // must be the same size and shape as the trajectory,
-    //  or the subsampled trajectory
-    template <class Derived>
-    void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
-                           bool subsample );
-
-    //updates the trajectory at the given row, by the vector delta,
-    //  delta should have the same number of columns as the trajectory.
-    template <class Derived>
-    void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
-                           int row, bool subsample );
-
 };
 
-template <class Derived>
-inline void ChompOptimizer::updateTrajectory( 
-                              const Eigen::MatrixBase<Derived> & delta,
-                              bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub -= delta; }
-    else{ xi -= delta; }
-    unlockTrajectory();
-}
 
-template <class Derived>
-inline void ChompOptimizer::updateTrajectory( 
-                              const Eigen::MatrixBase<Derived> & delta,
-                              int index, bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub.row( index ) -= delta; }
-    else{ xi.row( index ) -= delta; }
-    unlockTrajectory();
-}
 
 
 

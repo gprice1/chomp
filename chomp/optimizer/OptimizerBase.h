@@ -12,14 +12,16 @@ class ChompOptimizerBase{
     ChompGradient * gradient;
     ChompObserver * observer;
     ChompObjectiveType objective_type;
+
+    Trajectory & xi;
     
     //N: the current number of waypoints in the trajectory,
     //      not including the endpoints.
     //M: the degrees of freedom.
     int N, M;
-
+    
+    size_t max_iter;
     //the current trajectory of size N*M.
-    MatX xi;
     MatX lower_bounds, upper_bounds;
     
     ChompOptimizerBase( ConstraintFactory * f,
@@ -45,14 +47,17 @@ class ChompOptimizerBase{
     //Functions for setting the upper and lower bounds of chomp.
     virtual void setLowerBounds( const MatX & lower );
     virtual void setLowerBounds( const std::vector<double> & lower);
+    virtual void setLowerBounds( const double * lower);
 
     virtual void setUpperBounds(const MatX & upper );
     virtual void setUpperBounds(const std::vector<double> & upper );
+    virtual void setUpperBounds(const double * upper );
 
     virtual void setBounds( const MatX & lower, const MatX & upper );
     virtual void setBounds( const std::vector<double> & lower,
                             const std::vector<double> & upper );
-    
+    virtual void setBounds( const double * lower,
+                            const double * upper );
 
 };
 

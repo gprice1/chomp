@@ -51,7 +51,6 @@ int ChompOptimizerBase::notify(ChompEventType event,
     }
 }
 
-
 void ChompOptimizerBase::setLowerBounds( const MatX & lower )
 {
     assert( lower.size() == M );
@@ -62,6 +61,11 @@ void ChompOptimizerBase::setLowerBounds( const std::vector<double> & lower)
     assert( lower.size() == size_t(M) );
     lower_bounds = ConstMatMap(lower.data(), M, 1 );
 }
+void ChompOptimizerBase::setLowerBounds( const double * lower)
+{
+    lower_bounds = ConstMatMap(lower, M, 1 );
+}
+
 
 void ChompOptimizerBase::setUpperBounds(const MatX & upper )
 {
@@ -72,6 +76,10 @@ void ChompOptimizerBase::setUpperBounds( const std::vector<double> & upper)
 {
     assert( upper.size() == size_t(M) );
     upper_bounds = ConstMatMap(upper.data(), M, 1 );
+}
+void ChompOptimizerBase::setUpperBounds( const double * upper)
+{
+    upper_bounds = ConstMatMap(upper, M, 1 );
 }
 
 
@@ -85,6 +93,12 @@ void ChompOptimizerBase::setBounds( const std::vector<double> & lower,
     setLowerBounds( lower );
     setUpperBounds( upper );
 }
+void ChompOptimizerBase::setBounds( const double* lower, 
+                                    const double* upper){
+    setLowerBounds( lower );
+    setUpperBounds( upper );
+}
+
 
 
 

@@ -317,24 +317,6 @@ void ChompOptimizer::solve(bool doGlobalSmoothing, bool doLocalSmoothing) {
     }
 }
 
-// upsamples the trajectory by 2x
-void ChompOptimizer::upsample() {
-  MatX xi_up;
-  
-  //calls the upsample function from chomputil
-  upsampleTrajectory( xi, gradient->q0, gradient->q1, gradient->dt,
-            gradient->objective_type, xi_up );
-
-  N = xi_up.rows();
-
-  lockTrajectory();
-  xi = xi_up;
-  unlockTrajectory();
-
-  h = h_sub = H = H_sub = P = HP = Y = W = delta = MatX();
-
-  N_sub = 0;
-}
 
 // single iteration of chomp
 void ChompOptimizer::chompGlobal() { 
@@ -618,51 +600,6 @@ void ChompOptimizer::checkBounds( Eigen::MatrixBase<Derived> const & traj ){
         //continue to check and fix limit violations as long as they exist.
         }while( violation && count < max_checks );
     }
-}
-
-////////////////GOAL SET FUNCTIONS//////////////////////////////////
-
-void ChompOptimizer::useGoalSet( Constraint * goalset ){
-      this->goalset = goalset;
-      use_goalset = true;
-}
-
-void ChompOptimizer::prepareGoalSet(){
-    
-    //do not subsample if doing goalset run.
-    N_sub = 0;
-
-    //resize xi, and add q1 into it.
-    xi.conservativeResize( xi.rows() + 1, xi.cols() );
-    xi.row( xi.rows() - 1 ) = gradient->q1;
-    
-    //set N to the current size of xi.
-    N = xi.rows();
-
-    //add the goal constraint to the constraints vector.
-    factory->constraints.push_back( goalset );
-}
-
-void ChompOptimizer::finishGoalSet(){
-    
-    debug << "Finishing goal set" << std::endl;
-
-    use_goalset = false;
-    
-    //copy the last state in the trajectory back into q1
-    gradient->q1 = xi.row( xi.rows() - 1 );
-
-    //resize xi, keeping old values, and get rid of the 
-    //  final state. And set N to the correct trajectory size
-    xi.conservativeResize( xi.rows() -1, xi.cols() );
-    N = xi.rows();
-
-    //remove the goal constraint, so that it is not deleted along
-    //  with the other constraints.
-    factory->constraints.pop_back();
-    
-    //call prepare chomp to reset important stuff.
-    prepareChomp();
 }
 
 }// namespace
