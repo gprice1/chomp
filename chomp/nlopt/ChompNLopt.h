@@ -14,6 +14,7 @@ class ChompNLopt : public ChompOptimizerBase{
   public:
     int N_max, max_iter;
     double obstol, objective_value;
+    double timeout_seconds;
     
     //the object that does all of the optimization.
     nlopt::opt * optimizer;

@@ -24,9 +24,6 @@ include_directories(mzcommon)
 add_subdirectory(chomp)
 include_directories( chomp )
 
-add_subdirectory( nlopt )
-include_directories( nlopt )
-
 add_subdirectory( demo )
 
 link_directories ( ${CMAKE_CURRENT_SOURCE_DIR}/mzcommon

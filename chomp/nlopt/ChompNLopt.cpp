@@ -33,21 +33,13 @@ ChompNLopt::ChompNLopt(
                         lower_bounds, upper_bounds, obj_t),
     N_max( N_max ),
     max_iter( max_iter ),
-    optimizer( NULL )
+    optimizer( NULL ),
+    algorithm( nlopt::LD_MMA )
 {
-
-    //currently using the slsqp algorithm for optimization.
-    //LD_VAR2
-    //SLSQP
-    //MMA
-    algorithm = nlopt::LD_MMA;
 }
 
 
-ChompNLopt::~ChompNLopt()
-{
-    if ( optimizer ){delete optimizer; }
-}
+ChompNLopt::~ChompNLopt(){}
 
 void ChompNLopt::solve(bool global, bool local)
 {
@@ -127,8 +119,11 @@ double ChompNLopt::optimize(){
     //create the optimizer
     assert( xi.size() == N * M );
     optimizer = new nlopt::opt( algorithm, xi.size() );
-    if ( obstol != 0 ){ optimizer->set_ftol_rel( obstol ); }
-    if ( max_iter != 0 ){ optimizer->set_maxeval( max_iter ); }
+
+    //set termination conditions.
+    if ( timeout_seconds <= 0){optimizer->set_maxtime(timeout_seconds);}
+    if ( obstol <= 0 ){   optimizer->set_ftol_rel( obstol ); }
+    if ( max_iter <= 0 ){ optimizer->set_maxeval( max_iter ); }
 
     //prepare the gradient for the run.
     gradient->prepareRun( N );

@@ -66,6 +66,7 @@ class ConstraintFactory;
 class Constraint;
 class HMC;
 class Chomp;
+class ChompOptimizer;
 
 enum ChompEventType { 
     CHOMP_INIT,
@@ -139,7 +140,7 @@ inline void matToVec( const MatX & mat, std::vector<double> & vec ){
     vec = std::vector<double>(data, data + mat.size());
 }
 
-//Copy a vector of doubles into a MatX.
+//Copy a vector of doubles into a column-major Matrix.
 inline void vecToMat( const std::vector<double> & vec, MatX & mat )
 {
     if ( mat.size() == int(vec.size()) ){

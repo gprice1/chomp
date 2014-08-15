@@ -7,7 +7,7 @@ add_library(chomp SHARED
     ConstraintFactory.cpp
     Constraint.cpp
     
-    Chomp.cpp
+    ChompOptimizer.cpp
     ChompGradient.cpp
     
     HMC.cpp
@@ -17,3 +17,6 @@ target_link_libraries( chomp mzcommon )
 
 add_executable(testmatops testmatops.cpp)
 target_link_libraries(testmatops chomp)
+
+add_subdirectory(nlopt)
+include_directories( nlopt )
