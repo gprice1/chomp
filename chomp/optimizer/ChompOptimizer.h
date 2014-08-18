@@ -44,7 +44,6 @@ class ChompOptimizer : public ChompOptimizerBase {
     MatX h; // constraint function of size k-by-1
     MatX H; // constraint Jacobian of size k-by-M*N
     
-
     // working variables
     MatX P, HP, Y, W, delta, delta_trans; 
     
@@ -66,64 +65,18 @@ class ChompOptimizer : public ChompOptimizerBase {
           double timeout_seconds=-1.0,
           bool use_momentum = false);
     
-    //delete the mutex if one was used.
-    ~ChompOptimizer();
-
-    virtual void solve( MatX & xi );
-
-    virtual void solve( SubMatMap & xi );
+    ~ChompOptimizer(){};
     
-  private: 
+  protected: 
 
-    void optimize();
+    virtual bool iterate(Trajectory & xi);
 
-    bool iterate();
+    virtual void optimize(Trajectory & xi);
 
-    void checkBounds();
-
-    void prepareIter();
-    
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective);
 
-    //updates the trajectory via a matrix delta. Delta
-    // must be the same size and shape as the trajectory,
-    //  or the subsampled trajectory
-    template <class Derived>
-    void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
-                           bool subsample );
-
-    //updates the trajectory at the given row, by the vector delta,
-    //  delta should have the same number of columns as the trajectory.
-    template <class Derived>
-    void updateTrajectory( const Eigen::MatrixBase<Derived> & delta,
-                           int row, bool subsample );
-
 };
-
-template <class Derived>
-inline void ChompOptimizer::updateTrajectory( 
-                              const Eigen::MatrixBase<Derived> & delta,
-                              bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub -= delta; }
-    else{ xi -= delta; }
-    unlockTrajectory();
-}
-
-template <class Derived>
-inline void ChompOptimizer::updateTrajectory( 
-                              const Eigen::MatrixBase<Derived> & delta,
-                              int index, bool subsample )
-{
-    lockTrajectory();
-    if ( subsample ){ xi_sub.row( index ) -= delta; }
-    else{ xi.row( index ) -= delta; }
-    unlockTrajectory();
-}
-
-
 
 }//Namespace
 

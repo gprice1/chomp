@@ -13,13 +13,13 @@ class ChompOptimizerBase{
     ChompObserver * observer;
     ChompObjectiveType objective_type;
 
-    Trajectory & xi;
-    
     //N: the current number of waypoints in the trajectory,
     //      not including the endpoints.
     //M: the degrees of freedom.
     int N, M;
     
+    double obstol, timeout_seconds;
+    double last_objective, current_objective;
     size_t max_iter;
     //the current trajectory of size N*M.
     MatX lower_bounds, upper_bounds;
@@ -35,7 +35,7 @@ class ChompOptimizerBase{
 
     virtual ~ChompOptimizerBase();
 
-    virtual void solve( bool global=true, bool local=true)=0;
+    virtual void solve( Trajectory & traj )=0;
 
     //notify the observer
     int notify(ChompEventType event,

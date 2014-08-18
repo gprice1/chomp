@@ -88,26 +88,6 @@ ChompOptimizer::ChompOptimizer(
 
 }
 
- //delete the mutex if one was used.
-ChompOptimizer::~ChompOptimizer(){
-    if( use_mutex ){
-        pthread_mutex_destroy( &trajectory_mutex );
-    }
-}
-void ChompOptimizer::lockTrajectory(){
-    if (use_mutex){
-        pthread_mutex_lock( &trajectory_mutex );
-    }
-}
-void ChompOptimizer::unlockTrajectory(){
-    if (use_mutex){
-        pthread_mutex_unlock( &trajectory_mutex );
-    }
-}
-void ChompOptimizer::initMutex(){
-    use_mutex = true;
-    pthread_mutex_init( &trajectory_mutex, NULL );
-}
   
 void ChompOptimizer::prepareChomp() {
     
@@ -234,51 +214,14 @@ bool ChompOptimizer::iterateChomp( bool local ){
     bool not_finished = true;
 
     //run local or global chomp
-    if ( local ){
-        localSmooth();
-        checkBounds( xi );
-        event = CHOMP_LOCAL_ITER;
+    localSmooth();
+    checkBounds( xi );
+    event = CHOMP_LOCAL_ITER;
 
-        //get the next gradient
-        gradient->getGradient( xi );
-    }else{
-        chompGlobal();
+    //get the next gradient
+    gradient->getGradient( xi );
 
-        //check the bounds 
-        if (N_sub == 0 ){ checkBounds( xi ); }
-        else { checkBounds( xi_sub ); }
-
-        event = CHOMP_GLOBAL_ITER;
-
-        //prepare for the next iteration.
-        prepareChompIter();
-    }
     
-    cur_iter ++;
-
-    //test for termination conditions
-    double curObjective = gradient->evaluateObjective( xi );
-    bool greater_than_min = cur_iter >
-                            (local ? min_local_iter : min_global_iter);
-    bool greater_than_max = cur_iter > 
-                            (local ? max_local_iter : max_global_iter);
-    
-    if (greater_than_max || (
-        greater_than_min && goodEnough(lastObjective, curObjective)) ||
-        notify(event, cur_iter, curObjective, lastObjective, hmag) )
-    {
-        not_finished = false;
-    } 
-    else if ( canTimeout && stop_time < TimeStamp::now() ) {
-        not_finished = false;
-        
-        didTimeout = true;
-        notify(CHOMP_TIMEOUT, cur_iter, curObjective, lastObjective, hmag);
-    }
-
-    lastObjective = curObjective;
-
-    debug << "Ending Iteration" << std::endl;
     return not_finished;
 
 }
@@ -302,115 +245,7 @@ void ChompOptimizer::solve(bool doGlobalSmoothing, bool doLocalSmoothing) {
         hmc->setupHMC( objective_type, alpha );
     }
     
-    //Run Chomp at the current iteration, then upsample, repeat 
-    //  until the current trajectory is at the max resolution
-    while (1) {
-        prepareChomp();
-        //run chomp at the current resolution
-        runChomp(doGlobalSmoothing, doLocalSmoothing); 
-
-        // if N>=maxN, then we have already upsampled enough
-        //    else, we should perform upsampling then 
-        //    we will perform chomp on the unsampled trajectory.
-        if (N >= maxN) { break; }
-        else { upsample(); }
-    }
 }
-
-
-// single iteration of chomp
-void ChompOptimizer::chompGlobal() { 
-    
-    assert(xi.rows() == N && xi.cols() == M);
-
-    // see if we're in our base case (not subsampling)
-    bool subsample = N_sub != 0;
-    
-    const MatX& g = (subsample ? gradient->g_sub : gradient->g );
-    const MatX& L = gradient->getInvAMatrix( subsample );
-
-    const MatX& H_which = subsample ? H_sub : H;
-    const MatX& h_which = subsample ? h_sub : h;
-    const int   N_which = subsample ? N_sub : N;
-    
-    //If there are no constraints,
-    //  run the update without constraints.
-    if (H_which.rows() == 0) {
-
-        assert( g.rows() == N_which ); 
-      
-        skylineCholSolve(L, g);
-      
-        //if we are using momentum, add the gradient into the
-        //  momentum.
-        if (!subsample && use_momentum ) {
-            momentum += g * alpha;
-            updateTrajectory( momentum, false );
-        }else {
-            updateTrajectory( g * alpha, subsample );
-        }
-
-    //chomp update with constraints
-    } else {
-
-      P = H_which.transpose();
-      
-      // TODO: see if we can make this more efficient?
-      for (int i=0; i<P.cols(); i++){
-        skylineCholSolveMulti(L, P.col(i));
-      }
-
-      debug << "H = \n" << H << "\n";
-      debug << "P = \n" << P << "\n";
-  
-      HP = H_which*P;
-
-      cholSolver.compute(HP);
-      Y = cholSolver.solve(P.transpose());
-
-      debug << "HP*Y = \n" << HP*Y << "\n";
-      debug << "P.transpose() = \n" << P.transpose() << "\n";
-      debug_assert( P.transpose().isApprox( HP*Y ));
-
-      int newsize = H_which.cols();
-      assert(newsize == N_which * M);
-
-      assert(g.rows() == N_which && g.cols() == M);
-      
-      Eigen::Map<const MatX> g_flat(g.data(), newsize, 1);
-      W = (MatX::Identity(newsize,newsize) - H_which.transpose() * Y)
-          * g_flat * alpha;
-      skylineCholSolveMulti(L, W);
-
-      Y = cholSolver.solve(h_which);
-
-      //debug_assert( h_which.isApprox(HP*Y) );
-      
-      //handle momentum if we need to.
-      if (!subsample && use_momentum){
-        Eigen::Map<MatX> momentum_flat( momentum.data(), newsize, 1);
-        momentum_flat += W;
-        delta = momentum_flat + P * Y;
-      }else {
-        delta = W + P * Y;
-      }
-
-      assert(delta.rows() == newsize && delta.cols() == 1);
-
-      Eigen::Map<const Eigen::MatrixXd> delta_rect(delta.data(),
-                                                   N_which, M);
-      
-      debug << "delta = \n" << delta << "\n";
-      debug << "delta_rect = \n" << delta_rect << "\n";
-      
-      assert(delta_rect.rows() == N_which && 
-             delta_rect.cols() == M);
-      
-      updateTrajectory( delta_rect, subsample );
-    }
-}
-
-
 
 // single iteration of local smoothing
 //
@@ -464,143 +299,12 @@ void ChompOptimizer::localSmooth() {
         //  into the trajectory (multiplied by the step size, of course.
         else { delta_t = alpha * g.row(t); }
         
-        updateTrajectory( delta_t, t, false );
+        xi.updateTrajectory( delta_t, t, false );
     }
     
     debug << "Done with localSmooth" << std::endl;
 }
 
-// returns true if performance has converged
-bool ChompOptimizer::goodEnough(double oldObjective, double newObjective )
-{
-    return (fabs((oldObjective-newObjective)/newObjective)<objRelErrTol);
-}
-
-void ChompOptimizer::constrainedUpsampleTo(int Nmax,
-                                           double htol,
-                                           double hstep)
-{
-
-    MatX h, H, delta;
-  
-    while (N < Nmax) { 
-
-      upsample();
-      prepareChomp();
-      prepareChompIter();
-
-      double hinit = 0, hfinal = 0;
-      
-      //if there is no factory, or there are no constraints,
-      //    do not evaluate the constraints.
-      if ( !factory || factory->constraints.empty() ){ continue; }
-
-      for (int i=0; i<N; i+=2) {
-    
-        Constraint* c = factory->constraints[i];
-
-        if (!c || !c->numOutputs()) { continue; }
-        
-        for (int iter=0; ; ++iter) { 
-          c->evaluateConstraints(xi.row(i), h, H);
-          if (h.rows()) {
-            double hn = h.lpNorm<Eigen::Infinity>();
-            if (iter == 0) { hinit = std::max(hn, hinit); }
-            if (hn < htol) { hfinal = std::max(hn, hfinal); break; }
-            delta = H.colPivHouseholderQr().solve(h);
-            updateTrajectory( hstep * delta.transpose(), i );
-          }
-        }
-      }
-    }
-}
-
-
-
-template <class Derived>
-void ChompOptimizer::checkBounds( Eigen::MatrixBase<Derived> const & traj ){
-
-    const bool check_upper = (upper_bounds.size() == M);
-    const bool check_lower = (lower_bounds.size() == M);
-
-    //if there are bounds to check, check for the violations.
-
-    if ( check_upper || check_lower ){
-        
-        bool violation;
-        bounds_violations.resize( traj.rows(), traj.cols() );
-
-        const int max_checks = 10;
-        int count = 0;
-
-        do{
-            count ++;
-            double max_violation = 0.0;
-            std::pair< int, int > max_index;
-
-            for ( int j = 0; j < traj.cols(); j ++ ) {
-                const double upper = (check_upper ? upper_bounds(j) : 0 );
-                const double lower = (check_upper ? lower_bounds(j) : 0 );
-                
-                for( int i = 0; i < traj.rows(); i ++ ){
-
-                    //is there a violation of a lower bound?
-                    if ( check_lower && traj(i,j) < lower ){
-                        const double magnitude = traj(i,j) - lower;
-                        bounds_violations(i,j) = magnitude; 
-                        
-                        //save the max magnitude, and its index.
-                        if ( -magnitude > max_violation ){
-                            max_violation = -magnitude;
-                            max_index.first = i;
-                            max_index.second = j;
-                        }
-                    //is there a violation of an upper bound?
-                    }else if ( check_upper && traj(i,j) > upper ){
-                        const double magnitude = traj(i,j) - upper; 
-                        bounds_violations(i,j) = magnitude; 
-
-                        //save the max magnitude, and its index.
-                        if ( magnitude > max_violation ){
-                            max_violation = magnitude;
-                            max_index.first = i;
-                            max_index.second = j;
-                        }
-                    }else {
-                        bounds_violations(i,j) = 0;
-                    }
-                }
-            }
-            
-
-            //There are violations in the largest violation does not
-            //  have a magnitude of zero.
-            violation = ( max_violation > 0.0 );
-            
-            if( violation ){
-                //smooth out the bounds violation matrix. With
-                //  the appropriate smoothing matrix.
-                if ( bounds_violations.rows() == traj.rows() ){
-                    skylineCholSolve( gradient->L, bounds_violations );
-                }else {
-                    assert( gradient->L_sub.rows() == traj.rows() );
-                    skylineCholSolve( gradient->L_sub, bounds_violations );
-                }
-
-                //scale the bounds_violation matrix so that it sets the
-                //  largest violation to zero.
-                double current_mag = bounds_violations( max_index.first,
-                                                        max_index.second );
-                const double scale = (current_mag > 0 ?
-                                      max_violation/current_mag :
-                                     -max_violation/current_mag  );
-                const_cast<Eigen::MatrixBase<Derived>&>(traj) -= 
-                                             bounds_violations * scale;
-            }
-        //continue to check and fix limit violations as long as they exist.
-        }while( violation && count < max_checks );
-    }
-}
 
 }// namespace
 

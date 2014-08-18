@@ -34,6 +34,7 @@
 #include "ChompOptimizer.h"
 #include "ConstraintFactory.h"
 #include "Constraint.h"
+#include "Trajectory.h"
 #include "HMC.h"
 #include <float.h>
 #include <cmath>
@@ -77,21 +78,15 @@ ChompOptimizer::ChompOptimizer(
     timeout_seconds( timeout_seconds ),
     didTimeout( false ),
     use_momentum( use_momentum ),
-    hmc( NULL )
+    hmc( NULL ),
+    event( CHOMP_GLOBAL_ITER )
+
 {
 }
 
-virtual void ChompOptimizer::solve( MatX & xi ){
-    optimize( xi );
-}
-
-virtual void ChompOptimizer::solve( SubMatMap & xi ){
-    optimize( xi );
-}
 
 // precondition: prepareChomp was called for this resolution level
-template <class Derived> 
-void ChompOptimizer::prepareIter( Eigen::MatrixBase<Derived> const & xi)
+void ChompOptimizer::prepareIter( Trajectory & xi )
 {
 
     if ( hmc ) {
@@ -118,68 +113,9 @@ void ChompOptimizer::prepareIter( Eigen::MatrixBase<Derived> const & xi)
 }
 
 
-// precondition: prepareChomp was called for this resolution level
-// updates chomp equation until convergence at the current level
-template <class Derived>
-void ChompOptimizer::optimize( Eigen::MatrixBase<Derived> const & xi {
-    
-    if (notify(CHOMP_INIT, 0, lastObjective, -1, hmag)) { 
-        global = false;
-        local = false;
-    }
-
-    if ( timeout_seconds < 0 ){ canTimeout = false; }
-    else {
-        canTimeout = true;
-        stop_time = TimeStamp::now() +
-                    Duration::fromDouble( timeout_seconds );
-    }
-    
-    if ( hmc ){ 
-        use_momentum = true;
-        hmc->setupHMC( objective_type, alpha );
-        hmc->setupRun();
-    }
-
-    if ( use_momentum ){
-        momentum.resize( N, M );
-        momentum.setZero();
-    }
-    
-    bool not_finished = true;
-
-    //Do the optimization
-    prepareIter( xi );
-    lastObjective = gradient->evaluateObjective(xi);
-    while (not_finished) { not_finished = iterate( xi ); }
-    
-    notify(CHOMP_FINISH, 0, lastObjective, -1, hmag);
-} 
-    
-template <class Derived>
-bool ChompOptimizer::iterate(Eigen::MatrixBase<Derived> const & xi){
-    
-    debug << "Starting Iteration" << std::endl;
-
-    //perform optimization
-    chompGlobal( xi );
-
-    //check and correct the bounds 
-    checkBounds( xi );
-    
-    //increment the iteration.
-    cur_iter ++;
-    
-    //prepare for the next iteration.
-    prepareIter( xi );
-    
-    //check whether optimization is completed.
-    return checkFinished( CHOMP_GLOBAL_ITER );
-}
 
 // single iteration of chomp
-template <class Derived>
-void ChompOptimizer::chompGlobal(Eigen::MatrixBase<Derived> const & xi) { 
+void ChompOptimizer::chompGlobal( Trajectory & xi ) { 
     
     const MatX& g = gradient->g;
     const MatX& L = gradient->getInvAMatrix();
@@ -194,9 +130,9 @@ void ChompOptimizer::chompGlobal(Eigen::MatrixBase<Derived> const & xi) {
         //  momentum.
         if ( use_momentum ) {
             momentum += g * alpha;
-            const_cast< MatrixBase<Derived>&>(xi) -= momentum;
+            xi.update( momentum );
         }
-        else { const_cast< MatrixBase<Derived>&>(xi) -= g * alpha; }
+        else { xi.update( g * alpha ) ; }
 
     //chomp update with constraints
     } else {
@@ -249,7 +185,7 @@ void ChompOptimizer::chompGlobal(Eigen::MatrixBase<Derived> const & xi) {
       assert(delta_rect.rows() == N && 
              delta_rect.cols() == M);
       
-      const_cast< MatrixBase<Derived>&>(xi) -= delta_rect;
+      xi.updateTrajectory( delta_rect );
     }
 }
 

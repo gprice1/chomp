@@ -9,11 +9,6 @@ namespace chomp{
 class ChompOptimizerBase : public OptimizerBase{
     
   public:
-    ConstraintFactory * factory;
-    ChompGradient * gradient;
-    ChompObserver * observer;
-    ChompObjectiveType objective_type;
-
 
     double alpha;       // the gradient step size
     double objRelErrTol; //Objective function value relative to the
@@ -57,7 +52,11 @@ class ChompOptimizerBase : public OptimizerBase{
 
     virtual ~ChompOptimizerBase();
 
-    virtual void solve( bool global=true, bool local=true)=0;
+    virtual void solve( Trajectory & xi );
+
+  protected:
+    bool iterate( Trajectory & xi );
+    virtual void prepareIter( const Trajectory & xi)=0;
 
     //notify the observer
     int notify(ChompEventType event,
@@ -72,7 +71,6 @@ class ChompOptimizerBase : public OptimizerBase{
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective );
 
-    void checkBounds( );
 
 };
 

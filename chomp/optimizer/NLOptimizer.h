@@ -12,19 +12,11 @@ namespace chomp {
 class ChompNLopt : public ChompOptimizerBase{
   
   public:
-    int N_max, max_iter;
-    double obstol, objective_value;
-    double timeout_seconds;
     
-    //the object that does all of the optimization.
-    nlopt::opt * optimizer;
     //the type of algorithm that the optimizer uses.
     nlopt::algorithm algorithm;
     //the type of end that the optimizer comes to.
     nlopt::result result;
-    
-    //the tolerances on the constraints
-    std::vector<double> constraint_tolerances;
     
     ChompNLopt(ConstraintFactory * factory,
                const MatX& xi_init,
@@ -39,19 +31,17 @@ class ChompNLopt : public ChompOptimizerBase{
 
     ~ChompNLopt();
 
-
-    void solve(bool global=true, bool local=true);
+    void solve(Trajectory & xi);
 
   private:
-    double optimize();
 
-    void giveBoundsToNLopt();
+    void giveBoundsToNLopt( nlopt::opt & optimizer );
 
+    void prepareNLoptConstraints( nlopt::opt & optimizer );
+    
     void copyNRows( const MatX & original_bounds, 
                     std::vector<double> & result);
-
-    void prepareNLoptConstraints();
-    
+  
 };
 
 

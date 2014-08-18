@@ -13,12 +13,12 @@ ChompOptimizerBase::ChompOptimizerBase( ConstraintFactory * f,
                                         const MatX & upper_bounds,
                                         ChompObjectiveType object_type,
                                         double total_time ) :
-    factory( f ), 
-    observer( NULL ),
-    objective_type( object_type ),
-    N(xinit.rows()), M(xinit.cols()),
-    xi( xinit ),
-    lower_bounds( lower_bounds ), upper_bounds( upper_bounds )
+    hmag( 0 ), 
+    last_objective( HUGE_VAL ),
+    current_objective( HUGE_VAL ),
+    curr_iter( 0 ),
+    use_momentum( false ),
+    hmc( NULL )
 {
 
     if ( timeout_seconds < 0 ){ canTimeout = false; }
@@ -30,6 +30,60 @@ ChompOptimizerBase::ChompOptimizerBase( ConstraintFactory * f,
 
 }
 
+virtual void ChompOptimizer::solve( Trajectory & xi ){
+
+    if (notify(CHOMP_INIT, 0, lastObjective, -1, hmag)) { 
+        global = false;
+        local = false;
+    }
+
+    if ( timeout_seconds < 0 ){ canTimeout = false; }
+    else {
+        canTimeout = true;
+        stop_time = TimeStamp::now() +
+                    Duration::fromDouble( timeout_seconds );
+    }
+    
+    if ( hmc ){ 
+        use_momentum = true;
+        hmc->setupHMC( objective_type, alpha );
+        hmc->setupRun();
+    }
+
+    if ( use_momentum ){
+        momentum.resize( N, M );
+        momentum.setZero();
+    }
+    
+    bool not_finished = true;
+
+    //Do the optimization
+    prepareIter( xi );
+    lastObjective = gradient->evaluateObjective(xi);
+    while (not_finished) { not_finished = iterate( xi ); }
+    
+    notify(CHOMP_FINISH, 0, lastObjective, -1, hmag);
+} 
+
+bool ChompOptimizer::iterate( Trajectory & xi ){
+    
+    debug << "Starting Iteration" << std::endl;
+
+    //perform optimization
+    optimize( xi );
+
+    //check and correct the bounds 
+    checkBounds( xi );
+    
+    //increment the iteration.
+    cur_iter ++;
+    
+    //prepare for the next iteration.
+    prepareIter( xi );
+    
+    //check whether optimization is completed.
+    return checkFinished( event );
+}
 
 bool ChompOptimizerBase::checkFinished(ChompEventType event)
 {
@@ -72,7 +126,7 @@ bool ChompOptimizerBase::goodEnough(double oldObjective,
 }
 
 //since this is a templated function 
-void ChompOptimizerBase::checkBounds( )
+void ChompOptimizerBase::checkBounds( Trajectory & xi )
 {
 
     const bool check_upper = (upper_bounds.size() == M);
