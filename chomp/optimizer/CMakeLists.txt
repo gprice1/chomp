@@ -5,6 +5,7 @@ set( sources
      ChompOptimizerBase.cpp
      ChompOptimizer.cpp
      ChompLocalOptimizer.cpp
+
      HMC.cpp
      )
 
@@ -20,5 +21,5 @@ if ( NLOPT_FOUND )
 
 endif( NLOPT_FOUND )
 
-add_library( optimizer SHARED ${sources} ) 
+add_library( optimizer ${sources} ) 
 target_link_libraries( optimizer ${link_libs} )

@@ -1,5 +1,5 @@
 
-#include "ChompNLopt.h"
+#include "NLOptimizer.h"
 #include "ChompGradient.h"
 #include "ConstraintFactory.h"
 
@@ -18,33 +18,35 @@ const std::string getNLoptReturnString( nlopt::result & result ){
 }
 
 
-ChompNLopt::ChompNLopt(
-              ConstraintFactory * factory,
-              const MatX& xi_init,
-              double obstol,
-              int max_iter,
-              int N_max,
-              ChompObjectiveType obj_t,
-              const MatX & lower_bounds,
-              const MatX & upper_bounds) :
-    OptimizerBase( factory, xi_init, pinit, pgoal,
-                        lower_bounds, upper_bounds, obj_t),
-    optimizer( NULL ),
+NLOptimizer::NLOptimizer( ConstraintFactory * factory,
+                          ChompGradient * gradient,
+                          ChompObserver * observer,
+                          double obstol,
+                          double timeout_seconds,
+                          size_t max_iter,
+                          const MatX & lower_bounds,
+                          const MatX & upper_bounds) : 
+
+    OptimizerBase( factory, gradient, observer,
+                   obstol, timeout_seconds, max_iter,
+                   lower_bounds, upper_bounds ),
     algorithm( nlopt::LD_MMA )
 {
 }
 
 
-ChompNLopt::~ChompNLopt(){}
+NLOptimizer::~NLOptimizer(){}
 
-void ChompNLopt::solve( Trajectory & xi )
+void NLOptimizer::solve( Trajectory & xi )
 {
+    
+    N = xi.N();
+    M = xi.M();
 
     double previous_objective_value = objective_value;
     notify(CHOMP_INIT, 0, objective_value, -1, 0);
     
     //create the optimizer
-    assert( xi.size() == N * M );
     nlopt::opt optimizer( algorithm, xi.size() );
 
     //set termination conditions.
@@ -65,7 +67,6 @@ void ChompNLopt::solve( Trajectory & xi )
     //set the objective function and the termination conditions.
     optimizer.set_min_objective( ChompGradient::NLoptFunction, gradient );
     
-        
     //call the optimization routine, get the result and the value
     //  of the objective function.
     std::vector<double> trajectory;
@@ -82,7 +83,6 @@ void ChompNLopt::solve( Trajectory & xi )
 
     vecToMat( trajectory, xi.xi );
 
-
     //notify the observer of the happenings.
     notify( CHOMP_FINISH, 0, current_objective, 
             last_objective, 0);
@@ -92,14 +92,11 @@ void ChompNLopt::solve( Trajectory & xi )
 }
 
 
-void ChompNLopt::prepareNLoptConstraints( nlopt::opt & optimizer )
+void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
 {
 
     //if there is no factory, do nothing
     if ( !factory ){ return; }
-
-    //clear the old constraints and then get the new constraints.
-    factory->getAll( N );
 
     //Get the dimensionality of the constraint, and fill the
     //  constraint_tolerances vector with the appropriate number of
@@ -135,8 +132,8 @@ void ChompNLopt::prepareNLoptConstraints( nlopt::opt & optimizer )
 }
 
 
-void ChompNLopt::copyNRows( const MatX & original_bounds, 
-                            std::vector<double> & result)
+void NLOptimizer::copyNRows( const MatX & original_bounds, 
+                             std::vector<double> & result)
 {
     result.reserve(N*M);
     
@@ -146,7 +143,7 @@ void ChompNLopt::copyNRows( const MatX & original_bounds,
     }
 }
 
-void ChompNLopt::giveBoundsToNLopt( nlopt::opt & optimizer )
+void NLOptimizer::giveBoundsToNLopt( nlopt::opt & optimizer )
 {
     
     //set the lower bounds if the lower vector is 

@@ -1,41 +1,39 @@
-#ifndef _CHOMP_OPTIMIZER_BASE_H_
-#define _CHOMP_OPTIMIZER_BASE_H_
+#ifndef _OPTIMIZER_BASE_H_
+#define _OPTIMIZER_BASE_H_
 
 #include "chomputil.h"
 
 namespace chomp{
 
-class ChompOptimizerBase{
+class OptimizerBase{
     
   public:
+    Trajectory & xi;
+
     ConstraintFactory * factory;
     ChompGradient * gradient;
     ChompObserver * observer;
-    ChompObjectiveType objective_type;
 
-    //N: the current number of waypoints in the trajectory,
-    //      not including the endpoints.
-    //M: the degrees of freedom.
-    int N, M;
-    
     double obstol, timeout_seconds;
     double last_objective, current_objective;
     size_t max_iter;
+
     //the current trajectory of size N*M.
     MatX lower_bounds, upper_bounds;
     
-    ChompOptimizerBase( ConstraintFactory * f,
-                        const MatX & xi,
-                        const MatX & pinit,
-                        const MatX & pgoal,
-                        const MatX & lower_bounds=MatX(0,0),
-                        const MatX & upper_bounds=MatX(0,0),
-                      ChompObjectiveType object_type=MINIMIZE_ACCELERATION,
-                        double total_time=1.0);
+    OptimizerBase( Trajectory & xi,
+                   ConstraintFactory * factory,
+                   ChompGradient * gradient,
+                   ChompObserver * observer,
+                   double obstol = 1e-8,
+                   double timeout_seconds = 0,
+                   size_t max_iter = size_t(-1),
+                   const MatX & lower_bounds=MatX(0,0),
+                   const MatX & upper_bounds=MatX(0,0));
 
-    virtual ~ChompOptimizerBase();
+    virtual ~OptimizerBase();
 
-    virtual void solve( Trajectory & traj )=0;
+    virtual void solve()=0;
 
     //notify the observer
     int notify(ChompEventType event,
@@ -44,20 +42,7 @@ class ChompOptimizerBase{
                double lastObjective,
                double constraintViolation) const;
     
-    //Functions for setting the upper and lower bounds of chomp.
-    virtual void setLowerBounds( const MatX & lower );
-    virtual void setLowerBounds( const std::vector<double> & lower);
-    virtual void setLowerBounds( const double * lower);
 
-    virtual void setUpperBounds(const MatX & upper );
-    virtual void setUpperBounds(const std::vector<double> & upper );
-    virtual void setUpperBounds(const double * upper );
-
-    virtual void setBounds( const MatX & lower, const MatX & upper );
-    virtual void setBounds( const std::vector<double> & lower,
-                            const std::vector<double> & upper );
-    virtual void setBounds( const double * lower,
-                            const double * upper );
 
 };
 

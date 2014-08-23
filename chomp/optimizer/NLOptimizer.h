@@ -1,15 +1,15 @@
 
 
-#ifndef _CHOMP_NLOPT_H_
-#define _CHOMP_NLOPT_H_
+#ifndef _NLOPTIMIZER_H_
+#define _NLOPTIMIZER_H_
 
 #include <nlopt.hpp>
 
-#include "ChompOptimizerBase.h"
+#include "OptimizerBase.h"
 
 namespace chomp {
 
-class ChompNLopt : public ChompOptimizerBase{
+class NLOptimizer : public OptimizerBase{
   
   public:
     
@@ -17,19 +17,17 @@ class ChompNLopt : public ChompOptimizerBase{
     nlopt::algorithm algorithm;
     //the type of end that the optimizer comes to.
     nlopt::result result;
-    
-    ChompNLopt(ConstraintFactory * factory,
-               const MatX& xi_init,
-               const MatX& pinit,
-               const MatX& pgoal,
-               double obstol = 0.01,
-               int max_iter=0,
-               int N_max = 0,
-               ChompObjectiveType obj_t = MINIMIZE_ACCELERATION,
-               const MatX & lower_bounds = MatX(0,0),
-               const MatX & upper_bounds = MatX(0,0));
 
-    ~ChompNLopt();
+    NLOptimizer( ConstraintFactory * factory,
+                 ChompGradient * gradient,
+                 ChompObserver * observer,
+                 double obstol = 1e-8,
+                 double timeout_seconds = 0,
+                 size_t max_iter = size_t(-1),
+                 const MatX & lower_bounds=MatX(0,0),
+                 const MatX & upper_bounds=MatX(0,0)); 
+
+    ~NLOptimizer();
 
     void solve(Trajectory & xi);
 

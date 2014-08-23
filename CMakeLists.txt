@@ -1,7 +1,7 @@
 # CMakeLists.txt for hubomz
 cmake_minimum_required(VERSION 2.6)
 
-find_package( Threads )
+find_package(Threads)
 
 set(CMAKE_BUILD_TYPE Debug)
 project(CHOMP_MULTIGRID)
@@ -28,5 +28,4 @@ add_subdirectory( demo )
 
 link_directories ( ${CMAKE_CURRENT_SOURCE_DIR}/mzcommon
                    ${CMAKE_CURRENT_SOURCE_DIR}/chomp
-                   ${CMAKE_CURRENT_SOURCE_DIR}/nlopt
                    )

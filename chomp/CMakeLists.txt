@@ -1,21 +1,13 @@
+add_subdirectory( utils )
+include_directories( utils )
+
+add_subdirectory( constraint )
+include_directories( constraint )
 
 add_subdirectory( optimizer )
-include_directories( nlopt )
+include_directories( optimizer )
 
-add_library(chomp SHARED
-    ChompOptimizerBase.cpp
-    chomputil.cpp
+add_library(chomp SHARED Chomp.cpp )
+target_link_libraries( chomp optimizer constraint utils mzcommon )
 
-    ConstraintFactory.cpp
-    Constraint.cpp
-    
-    ChompOptimizer.cpp
-    ChompGradient.cpp
-    )
 
-target_link_libraries( chomp mzcommon optimizer )
-
-add_executable(testmatops testmatops.cpp)
-target_link_libraries(testmatops chomp)
-
-add_subdirectory(nlopt)

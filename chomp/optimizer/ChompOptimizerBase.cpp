@@ -1,22 +1,29 @@
 
 #include "ChompOptimizerBase.h"
 #include "ChompGradient.h"
-#include "Constraint.h"
+#include "Trajectory.h"
 
 namespace chomp {
 
-ChompOptimizerBase::ChompOptimizerBase( ConstraintFactory * f,
-                                        const MatX & xinit,
-                                        const MatX & pinit,
-                                        const MatX & pgoal,
+    
+ChompOptimizerBase::ChompOptimizerBase( Trajectory & traj,
+                                        ConstraintFactory * factory,
+                                        ChompGradient * gradient,
+                                        ChompObserver * observer,
+                                        double obstol,
+                                        double timeout_seconds,
+                                        size_t max_iter,
                                         const MatX & lower_bounds,
-                                        const MatX & upper_bounds,
-                                        ChompObjectiveType object_type,
-                                        double total_time ) :
+                                        const MatX & upper_bounds) : 
+    OptimizerBase( traj, factory, gradient, observer,
+                   obstol, timeout_seconds, max_iter,
+                   lower_bounds, upper_bounds ),
+    alpha( 0.1 ),
     hmag( 0 ), 
     last_objective( HUGE_VAL ),
     current_objective( HUGE_VAL ),
     curr_iter( 0 ),
+    min_iter( 0 ),
     use_momentum( false ),
     hmc( NULL )
 {
@@ -30,7 +37,7 @@ ChompOptimizerBase::ChompOptimizerBase( ConstraintFactory * f,
 
 }
 
-virtual void ChompOptimizer::solve( Trajectory & xi ){
+virtual void ChompOptimizer::solve(){
 
     if (notify(CHOMP_INIT, 0, lastObjective, -1, hmag)) { 
         global = false;
@@ -65,7 +72,7 @@ virtual void ChompOptimizer::solve( Trajectory & xi ){
     notify(CHOMP_FINISH, 0, lastObjective, -1, hmag);
 } 
 
-bool ChompOptimizer::iterate( Trajectory & xi ){
+bool ChompOptimizer::iterate(){
     
     debug << "Starting Iteration" << std::endl;
 
@@ -80,7 +87,17 @@ bool ChompOptimizer::iterate( Trajectory & xi ){
     
     //prepare for the next iteration.
     prepareIter( xi );
+
+    if ( hmc ) {
+        //TODO make sure that we are doing Global Chomp,
+        //  or add momentum into local chomp
+        hmc->iteration( cur_iter, xi, momentum,
+                        gradient->getInvAMatrix(),
+                        lastObjective );
+    }
     
+    gradient->getGradient( xi );
+
     //check whether optimization is completed.
     return checkFinished( event );
 }
@@ -122,11 +139,11 @@ bool ChompOptimizerBase::checkFinished(ChompEventType event)
 bool ChompOptimizerBase::goodEnough(double oldObjective,
                                     double newObjective )
 {
-    return (fabs((oldObjective-newObjective)/newObjective)<objRelErrTol);
+    return (fabs((oldObjective-newObjective)/newObjective)<obstol);
 }
 
 //since this is a templated function 
-void ChompOptimizerBase::checkBounds( Trajectory & xi )
+void ChompOptimizerBase::checkBounds()
 {
 
     const bool check_upper = (upper_bounds.size() == M);

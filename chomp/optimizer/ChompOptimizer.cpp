@@ -50,53 +50,26 @@
 
 namespace chomp {
 
-
-ChompOptimizer::ChompOptimizer(
-               ConstraintFactory* f,
-               const MatX& xi_init, // should be N-by-M
-               const MatX& pinit, // q0
-               const MatX& pgoal, // q1
-               int nmax,
-               double al,
-               double obstol,
-               size_t mg,
-               size_t ml,
-               double tt,
-               double timeout_seconds,
-               bool use_momentum):
-    ChompOptimizerBase(f, xi_init, pinit, pgoal, MatX(0,0), MatX(0,0),
-                       MINIMIZE_ACCELERATION, tt),
-    maxN(nmax),
-    xi_sub( NULL, 0, 0, SubMatMapStride(0,2) ),
-    alpha(al),
-    objRelErrTol(obstol),
-    min_global_iter(0),
-    max_global_iter(mg),
-    min_local_iter(0),
-    max_local_iter(ml),
-    full_global_at_final(false),
-    timeout_seconds( timeout_seconds ),
-    didTimeout( false ),
-    use_momentum( use_momentum ),
-    hmc( NULL ),
+ChompOptimizer::ChompOptimizer( ConstraintFactory * factory,
+                                        ChompGradient * gradient,
+                                        ChompObserver * observer,
+                                        double obstol,
+                                        double timeout_seconds,
+                                        size_t max_iter,
+                                        const MatX & lower_bounds,
+                                        const MatX & upper_bounds) : 
+    ChompOptimizer( factory, gradient, observer,
+                   obstol, timeout_seconds, max_iter,
+                   lower_bounds, upper_bounds ),
     event( CHOMP_GLOBAL_ITER )
+{}
 
-{
-}
-
-
-// precondition: prepareChomp was called for this resolution level
-void ChompOptimizer::prepareIter( Trajectory & xi )
-{
-
-    if ( hmc ) {
-        //TODO make sure that we are doing Global Chomp,
-        //  or add momentum into local chomp
-        hmc->iteration( cur_iter, xi, momentum,
-                        gradient->getInvAMatrix(),
-                        lastObjective );
-    }
+// single iteration of chomp
+void ChompOptimizer::optimize( Trajectory & xi ) { 
     
+    const MatX& g = gradient->g;
+    const MatX& L = gradient->getInvAMatrix();
+
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
     if ( factory ){
@@ -108,17 +81,6 @@ void ChompOptimizer::prepareIter( Trajectory & xi )
             hmag = 0;
         }
     }
-
-    gradient->getGradient();
-}
-
-
-
-// single iteration of chomp
-void ChompOptimizer::chompGlobal( Trajectory & xi ) { 
-    
-    const MatX& g = gradient->g;
-    const MatX& L = gradient->getInvAMatrix();
 
     //If there are no constraints,
     //  run the update without constraints.

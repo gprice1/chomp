@@ -49,32 +49,18 @@ class ChompOptimizer : public ChompOptimizerBase {
     
     //A cholesky solver for solving the constraint matrix.
     Eigen::LDLT<MatX> cholSolver;
+   
+    ChompLocalOptimizer( ConstraintFactory * factory,
+                         ChompGradient * gradient,
+                         ChompObserver * observer=NULL,
+                         double obstol = 1e-8,
+                         double timeout_seconds = 0,
+                         size_t max_iter = size_t(-1),
+                         const MatX & lower_bounds=MatX(0,0),
+                         const MatX & upper_bounds=MatX(0,0)); 
 
-
-    ChompOptimizer(
-          ConstraintFactory* f,
-          const MatX& xi_init, // should be N-by-M
-          const MatX& pinit, // q0
-          const MatX& pgoal, // q1onst MatX& xi_init, // should be N-by-M
-          int nmax,
-          double al = 0.1,
-          double obstol = 0.01,
-          size_t max_global_iter=size_t(-1),
-          size_t max_local_iter=size_t(-1),
-          double t_total=1.0,
-          double timeout_seconds=-1.0,
-          bool use_momentum = false);
-    
-    ~ChompOptimizer(){};
-    
   protected: 
-
-    virtual bool iterate(Trajectory & xi);
-
     virtual void optimize(Trajectory & xi);
-
-    // returns true if performance has converged
-    bool goodEnough(double oldObjective, double newObjective);
 
 };
 

@@ -3,6 +3,7 @@
 
 #include "chomputil.h"
 #include "TimeUtil.h"
+#include "OptimizerBase.h"
 
 namespace chomp{
 
@@ -11,8 +12,6 @@ class ChompOptimizerBase : public OptimizerBase{
   public:
 
     double alpha;       // the gradient step size
-    double objRelErrTol; //Objective function value relative to the
-                         //previous value
 
     MatX bounds_violations;
     
@@ -28,7 +27,6 @@ class ChompOptimizerBase : public OptimizerBase{
     //canTimeout : is timing out a possible termination condition?
     // didTimeout : has chomp timed out ?
     // stop_time : the time at which chomp will timeout.
-    double timeout_seconds;
     bool canTimeout, didTimeout;
     TimeStamp stop_time;
 
@@ -40,37 +38,42 @@ class ChompOptimizerBase : public OptimizerBase{
     
     //an HMC object for performing the Hamiltonian Monte Carlo method
     HMC * hmc;
+    
+    ChompEventType event; //either global or local iteration, depending
+                          //on the type of the optimization.
 
-    ChompOptimizerBase( ConstraintFactory * f,
-                        const MatX & xi,
-                        const MatX & pinit,
-                        const MatX & pgoal,
-                        const MatX & lower_bounds=MatX(0,0),
-                        const MatX & upper_bounds=MatX(0,0),
-                      ChompObjectiveType object_type=MINIMIZE_ACCELERATION,
-                        double total_time=1.0);
+    ChompOptimizerBase(  ConstraintFactory * factory,
+                         ChompGradient * gradient,
+                         ChompObserver * observer,
+                         double obstol = 1e-8,
+                         double timeout_seconds = 0,
+                         size_t max_iter = size_t(-1),
+                         const MatX & lower_bounds=MatX(0,0),
+                         const MatX & upper_bounds=MatX(0,0)); 
 
     virtual ~ChompOptimizerBase();
-
-    virtual void solve( Trajectory & xi );
+    
+    virtual void solve();
 
   protected:
-    bool iterate( Trajectory & xi );
-    virtual void prepareIter( const Trajectory & xi)=0;
 
-    //notify the observer
-    int notify(ChompEventType event,
-               size_t iter,
-               double curObjective,
-               double lastObjective,
-               double constraintViolation) const;
+    virtual void optimize()=0;
+
+  private:
     
+    //Checks the bounds of chomp, and smoothly pushes the trajectory
+    //  back into the bounds.
+    void checkBounds();
+    
+    //called for every interation. It returns true, if 
+    //  the optimization is not finished.
+    bool iterate();
+
     //check if chomp is finished.
     bool checkFinished(ChompEventType event);
     
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective );
-
 
 };
 

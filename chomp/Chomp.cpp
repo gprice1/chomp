@@ -4,10 +4,10 @@
 
 namespace chomp {
 
-void Chomp::solve( bool global = true, bool local = false ){
+void Chomp::solve(){
 
     //optimize at the current resolution
-    optimize(global, local);
+    optimize();
 
     //if the current resolution is not the final resolution,
     //  upsample and then optimize. Repeat until the final resolution
@@ -16,19 +16,15 @@ void Chomp::solve( bool global = true, bool local = false ){
 
         //upsample the trajectory and prepare for the next
         //  stage of optimization.
-        MatX xi_up;
-        upsampleTrajectory( xi, gradient->q0,
-                                gradient->q1,
-                                gradient->dt,
-                                gradient->objective_type, xi_up );
-        xi = xi_up;
+        xi.upsample( gradient->q0, gradient->q1, gradient->dt,
+                     gradient->objective_type );
 
-        optimize(global, local);
+        optimize();
     }
 }
 
 
-void ChompOptimizer::optimize( bool global, bool local ){
+void ChompOptimizer::optimize(){
     
     if ( use_goalset ){ prepareGoalSet(); }
     gradient->prepareRun( N, use_goalset, subsample );
@@ -36,20 +32,13 @@ void ChompOptimizer::optimize( bool global, bool local ){
     // Subsample
     bool subsample = N > minN && !use_goalset &&
                      !(full_global_at_final && N >= maxN);
-    if( subsample ){
-        N_sub = (N+1)/2;
-        new (&xi_sub) SubMatMap( xi.data(), N_sub, M,
-                                 SubMatMapStride(N,2) );
-    }
-
+    if( subsample ){ xi.subsample(); }
 
 }
+
 void ChompOptimizer::useGoalSet( Constraint * goalset ){
       this->goalset = goalset;
       use_goalset = true;
-
-
-
 }
 
 void ChompOptimizer::prepareGoalSet(){
@@ -85,42 +74,55 @@ void ChompOptimizer::finishGoalSet(){
 
 }
 
-void Chomp::constrainedUpsampleTo(int Nmax, double htol, double hstep)
+
+void ChompOptimizerBase::setLowerBounds( const MatX & lower )
 {
-
-    MatX h, H, delta;
-  
-    while (N < Nmax) { 
-
-      upsample();
-      prepareChomp();
-      prepareChompIter();
-
-      double hinit = 0, hfinal = 0;
-      
-      //if there is no factory, or there are no constraints,
-      //    do not evaluate the constraints.
-      if ( !factory || factory->constraints.empty() ){ continue; }
-
-      for (int i=0; i<N; i+=2) {
-    
-        Constraint* c = factory->constraints[i];
-
-        if (!c || !c->numOutputs()) { continue; }
-        
-        for (int iter=0; ; ++iter) { 
-          c->evaluateConstraints(xi.row(i), h, H);
-          if (h.rows()) {
-            double hn = h.lpNorm<Eigen::Infinity>();
-            if (iter == 0) { hinit = std::max(hn, hinit); }
-            if (hn < htol) { hfinal = std::max(hn, hfinal); break; }
-            delta = H.colPivHouseholderQr().solve(h);
-            updateTrajectory( hstep * delta.transpose(), i );
-          }
-        }
-      }
-    }
+    assert( lower.size() == M );
+    lower_bounds = lower;
 }
+void ChompOptimizerBase::setLowerBounds( const std::vector<double> & lower)
+{
+    assert( lower.size() == size_t(M) );
+    lower_bounds = ConstMatMap(lower.data(), M, 1 );
+}
+void ChompOptimizerBase::setLowerBounds( const double * lower)
+{
+    lower_bounds = ConstMatMap(lower, M, 1 );
+}
+
+
+void ChompOptimizerBase::setUpperBounds(const MatX & upper )
+{
+    assert( upper.size() == M );
+    upper_bounds = upper;
+}
+void ChompOptimizerBase::setUpperBounds( const std::vector<double> & upper)
+{
+    assert( upper.size() == size_t(M) );
+    upper_bounds = ConstMatMap(upper.data(), M, 1 );
+}
+void ChompOptimizerBase::setUpperBounds( const double * upper)
+{
+    upper_bounds = ConstMatMap(upper, M, 1 );
+}
+
+
+void ChompOptimizerBase::setBounds( const MatX & lower, const MatX & upper )
+{
+    setLowerBounds( lower );
+    setUpperBounds( upper );
+}
+void ChompOptimizerBase::setBounds( const std::vector<double> & lower, 
+                                    const std::vector<double> & upper){
+    setLowerBounds( lower );
+    setUpperBounds( upper );
+}
+void ChompOptimizerBase::setBounds( const double* lower, 
+                                    const double* upper){
+    setLowerBounds( lower );
+    setUpperBounds( upper );
+}
+
 
 
 
