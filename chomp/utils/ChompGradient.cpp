@@ -185,16 +185,17 @@ ChompGradient::ChompGradient(const MatX& pinit,
 
 }
 
-void ChompGradient::prepareRun(int N,
-                               bool use_goalset,
-                               bool subsample)
+void ChompGradient::prepareRun(const Trajectory & traj,
+                               bool use_goalset)
 {
     iteration = 0;
     
-    this->N = N;
     this->use_goalset = use_goalset;
 
     //resize the g, b, and ax matrices.
+    int N = traj.N();
+    int M = traj.M();
+
     g.resize(N,M);
     Ax.resize(N,M);
     b.resize(N,M);
@@ -204,56 +205,48 @@ void ChompGradient::prepareRun(int N,
 
     //get the b matrix, and get its contribution to the
     //  objective function
-    if (use_goalset){
-        dt = t_total/N; 
+    if ( traj.isSubsampled() ) {
+        skylineChol( traj.rows(), coeffs_sub, L); 
+        c = createBMatrix( N, coeffs, traj.q0, traj.q1, b, traj.dt);
+    } else if (use_goalset){
         skylineChol(N, coeffs, coeffs_goalset, L);
-        c = createBMatrix(N, coeffs, q0, b, dt);
-
+        c = createBMatrix( N, coeffs, traj.q0, b, traj.dt);
     } else{
-        dt = t_total/(N+1);
         skylineChol(N, coeffs, L);
-        c = createBMatrix(N, coeffs, q0, q1, b, dt);
+        c = createBMatrix(N, coeffs, traj.q0, traj.q1, b, traj.dt);
     }
     
-    inv_dt = 1/dt;
+    double inv_dt = 1/traj.dt;
 
     if ( objective_type == MINIMIZE_VELOCITY ){ fscl = inv_dt * inv_dt;}
     else { fscl = inv_dt * inv_dt * inv_dt;  }
 
-
-    if (subsample) {
-        int N_sub = (N+1)/2;
-        skylineChol(N_sub, coeffs_sub, L_sub); 
-    }
 }
 
+MatX& ChompGradient::getInvAMatrix(){ return L; }
 
-MatX& ChompGradient::getInvAMatrix( bool subsample){
-    return (subsample ? L_sub : L );
-}
-
-MatX& ChompGradient::getCollisionGradient( const MatX & xi )
+MatX& ChompGradient::getCollisionGradient( const Trajectory & traj )
 {
     g.setZero();
-    computeCollisionGradient( xi, g );
+    computeCollisionGradient( traj.xi , g );
+    return g;
+}
+
+MatX& ChompGradient::getGradient( const Trajectory & traj )
+{
+    
+    computeSmoothnessGradient( traj.xi, g );
+    computeCollisionGradient( traj.xi, g );
+    
+    if ( traj.isSubsampled() ){ return getSubsampledGradient(traj.rows());}
     return g;
 
 }
 
-MatX& ChompGradient::getGradient( const MatX & xi )
+MatX& ChompGradient::getSmoothnessGradient( const Trajectory & traj )
 {
     
-    computeSmoothnessGradient( xi, g );
-    computeCollisionGradient( xi, g );
-
-    return g;
-
-}
-
-MatX& ChompGradient::getSmoothnessGradient( const MatX & xi )
-{
-    
-    computeSmoothnessGradient( xi, g );
+    computeSmoothnessGradient( traj.xi, g );
     return g;
 }
 
@@ -317,7 +310,7 @@ inline void ChompGradient::computeSmoothnessGradient(
     
     //add in the b matrix to get the contribution from the
     //  endpoints, and set this equal to the gradient.
-    grad = Ax + b;
+    grad = Ax + b; 
 }
 
 void ChompGradient::computeCollisionGradient(ConstMatMap & xi,

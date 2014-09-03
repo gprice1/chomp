@@ -3,51 +3,110 @@
 
 namespace chomp {
 
-Trajectory::Trajectory( const MatX & q0, const MatX & q1, N ):
+Trajectory::Trajectory( const MatX & q0, const MatX & q1, int N,
+                        ChompObjectiveType o_type, 
+                        t_total ):
     xi_sub( NULL, 0, 0 ),
-    use_mutex(false),
+    objective_type( o_type ),
+    total_time( t_total ),
     subsample(false)
 {
-    initTraj( q0, q1, N );
+    initialize( q0, q1, N );
 }
 
-Trajectory::Trajectory( const std::vector<double> & q0,
-                        const std::vector<double> & q1,
-                        int N):
+Trajectory::Trajectory( const std::vector<double> & pinit,
+                        const std::vector<double> & pgoal,
+                        int N, ChompObjectiveType o_type, 
+                        t_total ):
     xi_sub( NULL, 0, 0 ),
-    use_mutex(false),
+    objective_type( o_type ),
+    total_time( t_total ),
     subsample(false)
 {
-    initTraj( q0, q1, N );
+    initialize( pinit, pgoal, N );
 }
 
 //row major matrix as a vector
-Trajectory::Trajectory( const std::vector<double> & vec, int N, int M):
+Trajectory::Trajectory( const std::vector<double> & vec, int M,
+                        ChompObjectiveType o_type, 
+                        t_total ):
     xi_sub( NULL, 0, 0 ),
-    use_mutex(false),
+    objective_type( o_type ),
+    total_time( t_total ),
     subsample(false)
 {
-    xi = MatMapR( vec.data, N, M );
+    initialize( vec, M );
 }
 
 
-Trajectory::Trajectory(const MatX & xi) : 
-    xi( xi ),
+Trajectory::Trajectory(const MatX & xinit,
+                       const MatX & pinit,
+                       const MatX & qgoal,
+                       ChompObjectiveType o_type, 
+                       t_total ) : 
+    xi( xinit ),
     xi_sub( NULL, 0, 0 ),
-    use_mutex(false),
+    q0( pinit ), q1( pgoal ),
+    objective_type( o_type ),
+    total_time( t_total ),
     subsample(false)
 {
+    dt = total_time / xi.rows()+1;
+    
+}
+//Initialization from a whole prexisting trajectory.
+Trajectory::Trajectory( const MatX & traj,
+                        ChompObjectiveType o_type, 
+                        double t_total) :
+    xi_sub( NULL, 0, 0 ),
+    objective_type( o_type ),
+    total_time( t_total ),
+    subsample(false)
+{
+    initialize( traj );
+}
+
+Trajectory::Trajectory( const std::vector<double> & traj,
+                        int M,
+                        ChompObjectiveType o_type, 
+                        double t_total) : 
+    xi_sub( NULL, 0, 0 ),
+    objective_type( o_type ),
+    total_time( t_total ),
+    subsample(false)
+{
+    initialize( traj , M);
+}
+
+Trajectory::Trajectory(const std::vector<std::vector<double> > & traj,
+                       ChompObjectiveType o_type, 
+                       double t_total) :
+    xi_sub( NULL, 0, 0 ),
+    objective_type( o_type ),
+    total_time( t_total ),
+    subsample(false)
+{
+    initialize( traj );
+}
+
+Trajectory::Trajectory(const double * traj,
+                       int M, int N,
+                       ChompObjectiveType o_type, 
+                       double t_total) :
+    xi_sub( NULL, 0, 0 ),
+    objective_type( o_type ),
+    total_time( t_total ),
+    subsample(false)
+{
+    initialize( traj, M, N );
 }
 
 Trajectory::Trajectory() : 
     xi_sub( NULL, 0, 0 ),
-    use_mutex(false),
+    objective_type( MINIMIZE_ACCELERATION ),
+    total_time( 1.0 ),
     subsample(false)
 {
-}
-
-Trajectory::~Trajectory(){
-    if( use_mutex ){ pthread_mutex_destroy( &trajectory_mutex ); }
 }
 
 void Trajectory::subsample(){
@@ -85,114 +144,220 @@ void Trajectory::getState( double * array, int i ) const
     MatMap( array, 1, xi.cols() ) = xi.row( i );
 }
 
-void Trajectory::upsample(const MatX & q0,
-                          const MatX & q1,
-                          double dt,
-                          ChompObjectiveType objective_type)
+void Trajectory::upsample()
 {
 
-  const int N = xi.rows();
-  const int M = xi.cols();
-  const int N_up = 2*N+1; // e.g. size 3 goes to size 7
+    const int N = xi.rows();
+    const int M = xi.cols();
+    const int N_up = 2*N+1; // e.g. size 3 goes to size 7
   
-  MatX xi_up(N_up, M);
+    MatX xi_up(N_up, M);
 
-  // q0    d0    d1    d2    q1   with n = 3
-  // q0 u0 u1 u2 u3 u4 u5 u6 q1   with n = 7
-  //
-  // u0 = 0.5*(q0 + d0)
-  // u1 = d0
-  // u2 = 0.5*(d0 + d1)
-  // u3 = d1 
-  // u4 = 0.5*(d1 + d2)
-  // u5 = d2
-  // u6 = 0.5*(d2 + q1)
+    // q0    d0    d1    d2    q1   with n = 3
+    // q0 u0 u1 u2 u3 u4 u5 u6 q1   with n = 7
+    //
+    // u0 = 0.5*(q0 + d0)
+    // u1 = d0
+    // u2 = 0.5*(d0 + d1)
+    // u3 = d1 
+    // u4 = 0.5*(d1 + d2)
+    // u5 = d2
+    // u6 = 0.5*(d2 + q1)
 
-  for (int t=0; t<N_up; ++t) { // t is timestep in new (upsampled) regime
+    for (int t=0; t<N_up; ++t) { // t is timestep in new (upsampled) regime
 
-    if (t % 2 == 0) {
+        if (t % 2 == 0) {
 
-      assert(t == N_up-1 || (t/2) < xi.rows());
-      assert(t < xi_up.rows());
+            assert(t == N_up-1 || (t/2) < xi.rows());
+            assert(t < xi_up.rows());
 
-      if (objective_type == MINIMIZE_VELOCITY) {
+            if (objective_type == MINIMIZE_VELOCITY) {
 
-        MatX qneg1 = getTickBorderRepeat(t/2-1, xi, q0, q1, dt);
-        MatX qpos1 = getTickBorderRepeat(t/2,   xi, q0, q1, dt);
-        xi_up.row(t) = 0.5 * (qneg1 + qpos1);
+                MatX qneg1 = getTickBorderRepeat(t/2-1, xi, q0, q1, dt);
+                MatX qpos1 = getTickBorderRepeat(t/2,   xi, q0, q1, dt);
+                xi_up.row(t) = 0.5 * (qneg1 + qpos1);
 
-      } else { 
+            } else { 
 
-        MatX qneg3 = getTickBorderRepeat(t/2-2, xi, q0, q1, dt);
-        MatX qneg1 = getTickBorderRepeat(t/2-1, xi, q0, q1, dt);
-        MatX qpos1 = getTickBorderRepeat(t/2,   xi, q0, q1, dt);
-        MatX qpos3 = getTickBorderRepeat(t/2+1, xi, q0, q1, dt);
+                MatX qneg3 = getTickBorderRepeat(t/2-2, xi, q0, q1, dt);
+                MatX qneg1 = getTickBorderRepeat(t/2-1, xi, q0, q1, dt);
+                MatX qpos1 = getTickBorderRepeat(t/2,   xi, q0, q1, dt);
+                MatX qpos3 = getTickBorderRepeat(t/2+1, xi, q0, q1, dt);
 
-        const double c3 = -1.0/160;
-        const double c1 = 81.0/160;
+                const double c3 = -1.0/160;
+                const double c1 = 81.0/160;
 
-        xi_up.row(t) = c3*qneg3 + c1*qneg1 + c1*qpos1 + c3*qpos3;
+                xi_up.row(t) = c3*qneg3 + c1*qneg1 + c1*qpos1 + c3*qpos3;
 
-      }
+            }
 
+        } else {
+            xi_up.row(t) = xi.row(t/2);
+        }
 
-    } else {
-      xi_up.row(t) = xi.row(t/2);
     }
 
-  }
-
-  xi = xi_up;
-
+    xi = xi_up;
+    dt = total_time / xi.rows()+1;
 }
 
+void Trajectory::upsampleTo( int Nmax ){
+    while ( xi.rows < Nmax ){ upsample; }
+}
 
-void Trajectory::initTraj(const MatX & q0, const MatX & q1, int N)
+void Trajectory::constrainedUpsample(ConstraintFactory * factory,
+                                     double htol,
+                                     double hstep)
 {
-    xi.resize( N, q0.size() );
-    createInitialTraj( q0, q1 );
+    upsample();
+    
+    //if there is no factory, or there are no constraints,
+    //    do not evaluate the constraints.
+    if ( factory ){ factory->getAll( xi.rows() ); }
+    else{ continue; }
+    if ( factory->constraints.empty() ){ continue; }
+
+
+    MatX h, H, delta;
+    double hinit = 0, hfinal = 0;
+
+    for (int i=0; i < xi.rows(); i+=2) {
+  
+        Constraint* c = factory->constraints[i];
+
+        if (!c || !c->numOutputs()) { continue; }
+      
+        for (int iter=0; ; ++iter) { 
+            c->evaluateConstraints(xi.row(i), h, H);
+            if (h.rows()) {
+                double hn = h.lpNorm<Eigen::Infinity>();
+                if (iter == 0) { hinit = std::max(hn, hinit); }
+                if (hn < htol) { hfinal = std::max(hn, hfinal); break; }
+                delta = H.colPivHouseholderQr().solve(h);
+                updateTrajectory( hstep * delta.transpose(), i );
+            }
+        }
+    }
 }
-void Trajectory::initTraj(const MatX & q0, const MatX & q1 )
+
+void Trajectory::constraintUpsampleTo( ConstraintFactory * factory,
+                                       double htol,
+                                       double hstep,
+                                       int Nmax)
 {
-    createInitialTraj( q0, q1 );
+    while (xi.rows() < Nmax ){
+        constrainedUpsample( factory, htol, hstep );
+    }
 }
 
-
-void Trajectory::initTraj( const std::vector<double> & q0,
-                           const std::vector<double> & q1 )
+void Trajectory::initialize(const MatX & traj)
 {
-    ConstMatMap pinit( q0.data(), q0.size(), 1 );
-    ConstMatMap pgoal( q1.data(), q1.size(), 1 );
-    createInitialTraj( pinit, pgoal );
+    q0 = traj.row( 0 );
+    q1 = traj.row( traj.rows() - 1 );
+    xi = traj.block( 1, 0, traj.rows()-2, traj.cols() );
+
+    dt = total_time / xi.rows()+1;
 }
 
-void Trajectory::initTraj( const std::vector<double> & q0,
-                           const std::vector<double> & q1,
-                           int N)
+void Trajectory::initialize(const std::vector<double> & traj, int M)
 {
-    xi.resize( N, q0.size() );
-    initTraj( q0, q1 );
+    int N = traj.size() / M;
+    q0 = MatMapR( traj.data(), 1, M );
+    q1 = MatMapR( traj.data() + M*(N-1), 1, M );
+    xi = MatMapR( traj.data()+M, N-2, M );
+
+    dt = total_time / xi.rows()+1;
 }
-void Trajectory::initTraj( const double * q0, const double * q1, int M)
+
+void Trajectory::initialize(const std::vector< std::vector<double> > & traj)
 {
-    ConstMatMap pinit( q0, M, 1 );
-    ConstMatMap pgoal( q1, M, 1 );
+    const int N = traj.size();
+    const int M = traj[0].size();
 
-    initTraj( pinit, pgoal );
+    q0 = MatMapR( traj[0].data(), 1, M );
+    q1 = MatMapR( traj.back().data(), 1, M );
+    
+    xi.resize( N-2, M );
+    for( int i = 0; i < N-2; i ++ ){
+        assert( traj[i+1].size() == M );
+        xi.row( i ) = MatMap( traj[i+1].data(), 1 , M );
+    }
+
+    dt = total_time / xi.rows()+1;
+    
 }
 
-void Trajectory::initTraj( const double * q0, const double * q1,
-                           int M, int N)
+void Trajectory::initialize(const double * traj, int M, int N)
+{
+    int N = vec.size() / M;
+    q0 = MatMapR( traj, 1, M );
+    q1 = MatMapR( traj + M*(N-1), 1, M );
+    xi = MatMapR( traj+M, N-2, M );
+
+    dt = total_time / xi.rows()+1;
+    
+}
+
+
+void Trajectory::initialize(const MatX & pinit, const MatX & pgoal, int N)
+{
+    xi.resize( N, pinit.size() );
+    initialize( pinit, pgoal );
+}
+
+void Trajectory::initialize(const MatX & pinit, const MatX & pgoal )
+{
+    q0 = pinit;
+    q1 = pgoal;
+
+    dt = total_time / xi.rows()+1;
+
+    createInitialTraj();
+}
+
+
+void Trajectory::initialize( const std::vector<double> & pinit,
+                             const std::vector<double> & pgoal )
+{
+    q0 = ConstMatMap( pinit.data(), 1, pinit.size() );
+    q1 = ConstMatMap( pgoal.data(), 1, pgoal.size() );
+
+    dt = total_time / xi.rows()+1;
+    assert( xi.rows() > 0 );
+    createInitialTraj();
+}
+
+void Trajectory::initialize( const std::vector<double> & pinit,
+                             const std::vector<double> & pgoal,
+                             int N)
+{
+    xi.resize( N, pinit.size() );
+    initialize( pinit, pgoal );
+}
+
+void Trajectory::initialize( const double * pinit, 
+                             const double * pgoal,
+                             int M)
+{
+    q0 = ConstMatMap( pinit, 1, M );
+    q1 = ConstMatMap( pgoal, 1, M );
+    
+    assert( xi.rows() > 0 );
+
+    dt = total_time / xi.rows()+1;
+    createInitialTraj();
+}
+
+void Trajectory::initialize( const double * q0,
+                             const double * q1,
+                             int M, int N)
 {
     xi.resize( N, M );
-    initTraj( q0, q1, M );
+    initialize( q0, q1, M );
 }
 
 
-template <class Derived> 
-void Trajectory::createInitialTrajectory(
-                              const Eigen::MatrixBase<Derived> & q0,
-                              const Eigen::MatrixBase<Derived> & q1); 
+void Trajectory::createInitialTrajectory(); 
 {
     assert( q0.size() == q1.size() );
     assert( xi.cols() == q0.size() );
@@ -207,6 +372,7 @@ void Trajectory::createInitialTrajectory(
         xi.row( i ) = q0 + (q1-q0)*t;
     }
 }
+
 
 
 }//namespace

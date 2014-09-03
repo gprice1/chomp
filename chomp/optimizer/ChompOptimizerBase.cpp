@@ -37,7 +37,7 @@ ChompOptimizerBase::ChompOptimizerBase( Trajectory & traj,
 
 }
 
-virtual void ChompOptimizer::solve(){
+virtual void ChompOptimizerBase::solve(){
 
     if (notify(CHOMP_INIT, 0, lastObjective, -1, hmag)) { 
         global = false;
@@ -72,7 +72,7 @@ virtual void ChompOptimizer::solve(){
     notify(CHOMP_FINISH, 0, lastObjective, -1, hmag);
 } 
 
-bool ChompOptimizer::iterate(){
+bool ChompOptimizerBase::iterate(){
     
     debug << "Starting Iteration" << std::endl;
 
@@ -106,7 +106,7 @@ bool ChompOptimizerBase::checkFinished(ChompEventType event)
 {
     
     //get the new value of the objective
-    current_objective = gradient->evaluateObjective();
+    current_objective = gradient->evaluateObjective(xi);
 
     //test for termination conditions
     bool greater_than_min = curr_iter > min_iter;

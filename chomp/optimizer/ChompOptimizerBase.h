@@ -42,7 +42,8 @@ class ChompOptimizerBase : public OptimizerBase{
     ChompEventType event; //either global or local iteration, depending
                           //on the type of the optimization.
 
-    ChompOptimizerBase(  ConstraintFactory * factory,
+    ChompOptimizerBase(  Trajectory & traj,
+                         ConstraintFactory * factory,
                          ChompGradient * gradient,
                          ChompObserver * observer,
                          double obstol = 1e-8,
