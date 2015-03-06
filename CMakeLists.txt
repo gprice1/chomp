@@ -1,7 +1,6 @@
 # CMakeLists.txt for hubomz
 cmake_minimum_required(VERSION 2.6)
 
-find_package(Threads)
 
 set(CMAKE_BUILD_TYPE Debug)
 project(CHOMP_MULTIGRID)
@@ -21,8 +20,8 @@ set(GUI_LIBS
 add_subdirectory(mzcommon)
 include_directories(mzcommon)
 
-add_subdirectory(chomp)
-include_directories( chomp )
+add_subdirectory(motionoptimizer)
+include_directories( motionoptimizer )
 
 add_subdirectory( demo )
 

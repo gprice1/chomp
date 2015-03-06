@@ -31,7 +31,7 @@
 *
 */
 
-#include "Chomp.h"
+#include "MotionOptimizer.h"
 #include "Constraint.h"
 #include "ConstraintFactory.h"
 #include <getopt.h>
