@@ -1,17 +1,10 @@
 set( SOURCE 
     ${CMAKE_CURRENT_SOURCE_DIR}/Trajectory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ChompGradient.cpp
-    ${SOURCE}
-    PARENT_SCOPE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Constraint.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ConstraintFactory.cpp
    )
 
-
-set( HEADER 
-    ${CMAKE_CURRENT_SOURCE_DIR}/Trajectory.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/ChompGradient.h
-    ${HEADER}
-    PARENT_SCOPE
-    )
-
-
+add_library(containers SHARED ${SOURCE} )
+target_link_libraries( containers mzcommon )
 
