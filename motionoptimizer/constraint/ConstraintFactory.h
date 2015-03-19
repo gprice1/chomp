@@ -34,7 +34,7 @@
 #ifndef _CONSTRAINT_FACTORY_H_
 #define _CONSTRAINT_FACTORY_H_
 
-#include "class_utils.h"
+#include "../utils/class_utils.h"
 #include <vector>
 
 namespace chomp {

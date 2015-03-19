@@ -60,8 +60,10 @@ class ChompOptimizer : public ChompOptimizerBase {
                     const MatX & lower_bounds=MatX(0,0),
                     const MatX & upper_bounds=MatX(0,0)); 
 
+    ~ChompOptimizer(){}
+    
   protected: 
-    virtual void optimize();
+    void optimize();
 
 };
 

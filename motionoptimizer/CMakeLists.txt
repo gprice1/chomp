@@ -1,6 +1,6 @@
-set( SOURCE MotionOptimizer.cpp )
-set( HEADER MotionOptimizer.h  )
 set(LINK_LIBS)
+set( SOURCE )
+set( HEADER )
 
 add_subdirectory( utils )
 include_directories( utils )
@@ -14,7 +14,14 @@ include_directories( containers )
 add_subdirectory( optimizer )
 include_directories( optimizer )
 
-add_library(motion_optimizer ${SOURCE})
-target_link_libraries( motion_optimizer ${LINK_LIBS} )
+
+set( SOURCE MotionOptimizer.cpp ${SOURCE} )
+set( HEADER MotionOptimizer.h   ${HEADER} )
+
+message(STATUS "Sources: ${SOURCE}")
+
+
+add_library(motionoptimizer ${SOURCE})
+target_link_libraries( motionoptimizer ${LINK_LIBS} )
 
 

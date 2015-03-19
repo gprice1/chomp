@@ -34,7 +34,7 @@
 #ifndef _CONSTRAINT_H_
 #define _CONSTRAINT_H_
 
-#include "class_utils.h"
+#include "../utils/class_utils.h"
 #include "Transform3.h"
 #include <vector>
 

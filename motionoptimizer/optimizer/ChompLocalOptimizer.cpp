@@ -32,9 +32,8 @@
 */
 
 #include "ChompLocalOptimizer.h"
-#include "ConstraintFactory.h"
-#include "Constraint.h"
-#include "HMC.h"
+#include "../constraint/ConstraintFactory.h"
+#include "../constraint/Constraint.h"
 #include <float.h>
 #include <cmath>
 

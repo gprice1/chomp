@@ -32,9 +32,9 @@
 */
 
 #include "ChompOptimizer.h"
-#include "ConstraintFactory.h"
-#include "Constraint.h"
-#include "ChompGradient.h"
+#include "../constraint/ConstraintFactory.h"
+#include "../constraint/Constraint.h"
+#include "../containers/ChompGradient.h"
 #include <float.h>
 #include <cmath>
 

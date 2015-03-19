@@ -34,8 +34,8 @@
 #ifndef _CHOMP_GRADIENT_H_
 #define _CHOMP_GRADIENT_H_
 
-#include "function_utils.h"
-#include "class_utils.h"
+#include "../utils/function_utils.h"
+#include "../utils/class_utils.h"
 #include "Trajectory.h"
 
 namespace chomp {
@@ -114,13 +114,7 @@ class ChompGradient {
     
     ChompObjectiveType objective_type;
     
-    int M; // degrees of freedom
-    int N; // number of timesteps
-    
     int iteration;
-
-    MatX q0; // initial point of size M
-    MatX q1; // end point of size M
 
     MatX Ax; // A*x of size N-by-M
   

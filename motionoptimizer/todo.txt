@@ -4,3 +4,5 @@
 2. the destructor of the trajectory should destroy the data.
 
 3. The HMC needs to be updated to be compatible with the new system.
+
+4. Make a set termination function for the MotionOptimizer

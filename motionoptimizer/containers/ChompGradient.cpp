@@ -242,7 +242,7 @@ MatX& ChompGradient::getSmoothnessGradient( const Trajectory & traj )
 
 MatX& ChompGradient::getSubsampledGradient(int N_sub)
 {   
-    g_sub.resize( N_sub, M );
+    g_sub.resize( N_sub, trajectory.M() );
 
     for ( int i = 0; i < g_sub.rows(); i ++ ){
         g_sub.row( i ) = g.row( i * 2 );
@@ -257,6 +257,9 @@ double ChompGradient::getGradient( unsigned n_by_m,
 {
     iteration ++;
     trajectory.setData( xi );
+    
+    const int N = trajectory.N();
+    const int M = trajectory.M();
 
     if ( grad != NULL ){
 

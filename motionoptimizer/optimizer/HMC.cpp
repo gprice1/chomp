@@ -1,9 +1,9 @@
 
 #include "HMC.h"
-#include "Trajectory.h"
+#include "../containers/Trajectory.h"
 #include "mzcommon/mersenne.h"
 #include "mzcommon/gauss.h"
-#include "function_utils.h"
+#include "../utils/function_utils.h"
 
 
 namespace chomp {

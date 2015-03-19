@@ -1,7 +1,7 @@
 #ifndef _OPTIMIZER_BASE_H_
 #define _OPTIMIZER_BASE_H_
 
-#include "class_utils.h"
+#include "../utils/class_utils.h"
 
 namespace chomp{
 
@@ -31,7 +31,7 @@ class OptimizerBase{
                    const MatX & lower_bounds=MatX(0,0),
                    const MatX & upper_bounds=MatX(0,0));
 
-    virtual ~OptimizerBase();
+    virtual ~OptimizerBase(){}
 
     virtual void solve()=0;
 

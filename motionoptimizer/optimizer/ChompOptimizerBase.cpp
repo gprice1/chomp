@@ -1,7 +1,7 @@
 
 #include "ChompOptimizerBase.h"
-#include "ChompGradient.h"
-#include "Trajectory.h"
+#include "../containers/ChompGradient.h"
+#include "../containers/Trajectory.h"
 #include "HMC.h"
 
 namespace chomp {

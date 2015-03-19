@@ -1,7 +1,7 @@
 
 #include "NLOptimizer.h"
-#include "ChompGradient.h"
-#include "ConstraintFactory.h"
+#include "../containers/ChompGradient.h"
+#include "../constraint/ConstraintFactory.h"
 
 
 namespace chomp {

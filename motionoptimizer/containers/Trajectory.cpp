@@ -1,6 +1,8 @@
 #include "Trajectory.h"
-#include "ConstraintFactory.h"
-#include "Constraint.h"
+#include "../constraint/ConstraintFactory.h"
+#include "../constraint/Constraint.h"
+
+#include <sstream>
 
 namespace chomp {
 
@@ -499,6 +501,31 @@ void Trajectory::createInitialTrajectory()
     }
 }
 
+std::string Trajectory::toString() const {
+    
+    std::ostringstream s;
+    Eigen::IOFormat print_format(Eigen::StreamPrecision,
+                                 Eigen::DontAlignCols,
+                                 ", ", ", ", "", "", " = ", "");
+    
+    s << "[ q0" << q0.format( print_format ) << "\n";
+
+    for ( int i = 0; i < N() ; i ++ ){
+        for ( int j = 0; j < M() ; j ++ ){
+            s << xi( i, j ) << " ";
+        }
+        s << "\n";
+    }
+    
+    s << "q1" << q1.format( print_format ) <<  "]";
+
+    return s.str();
+
+}
+void Trajectory::print() const{
+    std::cout << toString();
+
+}
 
 
 }//namespace

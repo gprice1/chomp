@@ -1,10 +1,9 @@
 #ifndef _CHOMP_OPTIMIZER_BASE_H_
 #define _CHOMP_OPTIMIZER_BASE_H_
 
-#include "function_utils.h"
-#include "class_utils.h"
-
-#include "TimeUtil.h"
+#include "../utils/function_utils.h"
+#include "../utils/class_utils.h"
+#include "mzcommon/TimeUtil.h"
 #include "OptimizerBase.h"
 
 namespace chomp{
@@ -54,9 +53,9 @@ class ChompOptimizerBase : public OptimizerBase{
                          const MatX & lower_bounds=MatX(0,0),
                          const MatX & upper_bounds=MatX(0,0)); 
 
-    virtual ~ChompOptimizerBase();
+    virtual ~ChompOptimizerBase(){};
     
-    virtual void solve();
+    void solve();
 
   protected:
 

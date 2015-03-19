@@ -3,8 +3,8 @@
 #ifndef _TRAJECTORY_H_
 #define _TRAJECTORY_H_
 
-#include "class_utils.h"
-#include "function_utils.h"
+#include "../utils/class_utils.h"
+#include "../utils/function_utils.h"
 
 namespace chomp{
 
@@ -58,7 +58,7 @@ class Trajectory {
                ChompObjectiveType o_type=MINIMIZE_ACCELERATION, 
                double t_total=1.0);
 
-    ~Trajectory();
+    ~Trajectory() { delete data; };
     
     void startGoalSet();
     void endGoalSet();
@@ -100,6 +100,12 @@ class Trajectory {
     int rows() const;
     int cols() const;
     int size() const;
+
+    inline const MatX & getQ0() const { return q0; }
+    inline const MatX & getStart() const { return q0; }
+
+    inline const MatX & getQ1() const { return q1; };
+    inline const MatX & getEnd() const { return q1; }
 
     //get individual matrix blocks or rows
     Row row( int i );
@@ -165,6 +171,9 @@ class Trajectory {
                            int row);
 
     inline MatX getTick(int tick) const;
+
+    std::string toString() const;
+    void print() const;
 
   private:
     void createInitialTrajectory(); 

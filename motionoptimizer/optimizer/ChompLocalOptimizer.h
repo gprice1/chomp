@@ -34,10 +34,9 @@
 #ifndef _CHOMP_LOCAL_OPTIMIZER_H_
 #define _CHOMP_LOCAL_OPTIMIZER_H_
 
-#include "class_utils.h"
-#include "ChompGradient.h"
+#include "../utils/class_utils.h"
+#include "../containers/ChompGradient.h"
 #include "ChompOptimizerBase.h"
-#include "../mzcommon/TimeUtil.h"
 
 namespace chomp {
 

@@ -1,9 +1,23 @@
 
 #include "MotionOptimizer.h"
-#include "ChompGradient.h"
-#include "ConstraintFactory.h"
 
 namespace chomp {
+
+//constructor.
+MotionOptimizer::MotionOptimizer(ConstraintFactory * factory,
+                                 ChompObserver * observer,
+                                 double obstol,
+                                 double timeout_seconds,
+                                 size_t max_iter,
+                                 const MatX & lower_bounds,
+                                 const MatX & upper_bounds,
+                                 OptimizationAlgorithm algorithm) :
+    gradient( trajectory ),
+    factory ( factory ),
+    observer( observer ),
+    obstol( obstol )
+{
+}
 
 void MotionOptimizer::solve(){
 
@@ -24,11 +38,11 @@ void MotionOptimizer::solve(){
 }
 
 
-void MotionOptimizer::optimize(){
+void MotionOptimizer::optimize( ){
     
     if ( use_goalset ){ prepareGoalSet(); }
 
-    gradient->prepareRun( trajectory, use_goalset );
+    gradient.prepareRun( trajectory, use_goalset );
 
     // Subsample
     bool subsample = trajectory.N() > N_min && !use_goalset &&
@@ -36,6 +50,48 @@ void MotionOptimizer::optimize(){
 
 
     if( subsample ){ trajectory.subsample(); }
+
+
+    //create the optimizer
+    //TODO include other optimization schemes
+    OptimizerBase * optimizer;
+
+    switch ( algorithm ){
+        case CHOMP:
+            optimizer = new ChompOptimizer(trajectory, 
+                                           factory, 
+                                           &gradient, 
+                                           observer, 
+                                           obstol,
+                                           timeout_seconds,
+                                           max_iterations,
+                                           lower_bounds,
+                                           upper_bounds );
+            break;
+
+        case THE_OTHER:
+#if NLOPT_FOUND
+            //TODO add nlopt optimization schemes
+            std::cerr << "NLopt optimization schemes are unimplemented"
+                      << std::endl;
+#else 
+            std::cerr << "NLopt optimization libraries are"
+                      << " not available, please use a different"
+                      << " optimization algorithm" << std::endl;
+            return; 
+#endif
+            return;
+            break;
+
+        default:
+            std::cerr << "Unrecognized optimization scheme";
+            return;
+            break;
+    }
+
+    optimizer->solve();
+
+    delete optimizer;
 
 }
 

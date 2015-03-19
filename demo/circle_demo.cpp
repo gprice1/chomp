@@ -32,8 +32,6 @@
 */
 
 #include "MotionOptimizer.h"
-#include "Constraint.h"
-#include "ConstraintFactory.h"
 #include <getopt.h>
 #include <stdio.h>
 
@@ -128,7 +126,7 @@ public:
     
   }
 
-  virtual int notify(const Chomp& chomper, 
+  virtual int notify(const OptimizerBase & chomper, 
                      ChompEventType event,
                      size_t iter,
                      double curObjective,
@@ -161,16 +159,16 @@ public:
     cairo_arc(cr, MAPX(0), MAPY(0), 2*scl, 0, 2*M_PI);
     cairo_stroke(cr);
 
-    for (int i=-1; i<=chomper.N; ++i) {
+    for (int i=-1; i<=chomper.trajectory.N(); ++i) {
       MatX pi;
       if (i < 0) { 
-        pi = chomper.gradient->q0;
-      } else if (i >= chomper.N) {
-        pi = chomper.gradient->q1;
+        pi = chomper.trajectory.getQ0();
+      } else if (i >= chomper.trajectory.N()) {
+        pi = chomper.trajectory.getQ1();
       } else {
-        pi = chomper.xi.row(i);
+        pi = chomper.trajectory.row(i);
       }
-      double u = double(i+1) / (chomper.N+1);
+      double u = double(i+1) / (chomper.trajectory.N()+1);
       cairo_set_source_rgb(cr, 1-u, 0, u);
       cairo_arc(cr, MAPX(pi(0)), MAPY(pi(1)), 2, 0, 2*M_PI);
       cairo_stroke(cr);
@@ -191,19 +189,15 @@ public:
 
 #endif
 
-void generateInitialTraj(int N, MatX& xi, MatX& q0, MatX& q1) {
-
-  xi.resize(N, 2);
-  q0.resize(1, 2);
-  q1.resize(1, 2);
+void generateInitialTraj( Trajectory & traj, int N,
+                          MatX& q0, MatX& q1) 
+{
 
   q0 << -3, 5;
   q1 << 5, -3;
 
-  for (int i=0; i<N; ++i) {
-    xi.row(i) = (i+1)*(q1-q0)/(N+1) + q0;
-  }
-
+  traj = Trajectory( q0, q1, N );
+    
 }
 
 
@@ -306,17 +300,17 @@ int main(int argc, char** argv) {
   std::cout << "  multigrid:        " << (doMultigrid ? "ON" : "OFF") << "\n";
   std::cout << "  local smoothing:  " << (doLocalSmooth ? "ON" : "OFF") << "\n";
   std::cout << "  global smoothing: " << (doGlobalSmooth ? "ON" : "OFF") << "\n\n";
-
-  MatX xi, q0, q1;
-
-  generateInitialTraj(N, xi, q0, q1);
-
+  
+  
   CircleFactory factory;
-
-  Chomp chomper(&factory, xi, q0, q1, Nmax, alpha, errorTol);
-
   DebugChompObserver obs;
-  chomper.observer = &obs;
+
+  MotionOptimizer chomper( &factory, &obs );
+  
+  MatX q0, q1;
+
+  generateInitialTraj( chomper.trajectory, N, q0, q1);
+
 
 #ifdef MZ_HAVE_CAIRO
   PdfEmitter* pobs = 0;
@@ -326,7 +320,7 @@ int main(int argc, char** argv) {
     char filename[1024];
 
     snprintf(filename, 1024, "circle_%04d_%04d_%s_%s.pdf",
-             chomper.minN, chomper.maxN, 
+             chomper.N_min, chomper.N_max, 
              doLocalSmooth ? "local" : "nolocal", 
              doGlobalSmooth ? "global" : "noglobal");
 
@@ -337,7 +331,7 @@ int main(int argc, char** argv) {
   }
 #endif
 
-  chomper.solve(doGlobalSmooth, doLocalSmooth);
+  chomper.solve();
 
 #ifdef MZ_HAVE_CAIRO
   delete pobs;
