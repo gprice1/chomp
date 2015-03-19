@@ -34,8 +34,6 @@
 #ifndef _CHOMP_LOCAL_OPTIMIZER_H_
 #define _CHOMP_LOCAL_OPTIMIZER_H_
 
-#include "../utils/class_utils.h"
-#include "../containers/ChompGradient.h"
 #include "ChompOptimizerBase.h"
 
 namespace chomp {

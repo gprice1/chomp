@@ -31,15 +31,136 @@
 *
 */
 
-#ifndef _FUNCTION_UTILS_H_
-#define _FUNCTION_UTILS_H_
+#ifndef UTILS_H_
+#define UTILS_H_
 
-#include "class_utils.h"
+#include <Eigen/Dense>
+#include <algorithm>
+#include <iostream>
+#include <iomanip>
 #include <vector>
 
 namespace chomp {
 
+/////////////////////typedefs///////////////////////////////
 
+typedef Eigen::MatrixXd MatX;
+typedef Eigen::Map<MatX>  MatMap;
+typedef const Eigen::Map< const MatX>  ConstMatMap;
+
+//this matrix map is used for subsampling a matrix. 
+typedef Eigen::Stride<Eigen::Dynamic,2> SubMatMapStride;
+typedef Eigen::Stride<Eigen::Dynamic,Eigen::Dynamic> DynamicStride;
+
+typedef Eigen::Map<MatX, 0, SubMatMapStride > SubMatMap; 
+typedef const Eigen::Map<const MatX, 0, SubMatMapStride > ConstSubMatMap; 
+
+typedef Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, 
+                       Eigen::RowMajor> MatXR;
+typedef Eigen::Map<MatXR> MatMapR;
+typedef const Eigen::Map<const MatXR> ConstMatMapR;
+typedef Eigen::Map<MatXR, 0, Eigen::OuterStride<> > SubMatMapR; 
+
+typedef Eigen::Block<MatMap, 1, Eigen::Dynamic> Row;
+typedef const Eigen::Block< const MatMap, 1, Eigen::Dynamic> ConstRow;
+typedef Eigen::Block<MatMap, Eigen::Dynamic, 1, Eigen::Dynamic> Col;
+typedef const Eigen::Block< const MatMap, Eigen::Dynamic,
+                            1, Eigen::Dynamic> ConstCol;
+
+typedef Eigen::Block<SubMatMap, 1, Eigen::Dynamic> SubRow;
+typedef const Eigen::Block< const SubMatMap, 1, Eigen::Dynamic> ConstSubRow;
+typedef Eigen::Block<SubMatMap, Eigen::Dynamic, 1, Eigen::Dynamic> SubCol;
+typedef const Eigen::Block< const SubMatMap, Eigen::Dynamic, 1,
+                            Eigen::Dynamic> ConstSubCol;
+
+
+/////////////////forward class declarations///////////////
+class ChompGradient;
+class ChompOptimizerBase;
+class ConstraintFactory;
+class Constraint;
+class HMC;
+class Chomp;
+class Trajectory;
+
+class OptimizerBase;
+class ChompOptimizerBase;
+class ChompOptimizer;
+class ChompLocalOptimizer;
+
+enum ChompEventType { 
+    CHOMP_INIT,
+    CHOMP_GLOBAL_ITER,
+    CHOMP_LOCAL_ITER,
+    CHOMP_FINISH,
+    CHOMP_TIMEOUT,
+    CHOMP_GOALSET_ITER
+};
+
+
+
+/////////////////Utility types /////////////////////////
+// These classes interface with chomp, to do something useful
+class ChompObserver {
+  public:
+    virtual ~ChompObserver(){}
+    virtual int notify(const OptimizerBase& c, 
+                       ChompEventType event,
+                       size_t iter,
+                       double curObjective,
+                       double lastObjective,
+                       double constraintViolation)
+    {
+        return 0;
+    }
+};
+
+class DebugChompObserver: public ChompObserver {
+  public:
+    virtual ~DebugChompObserver(){}
+    virtual int notify(const OptimizerBase& c, 
+                       ChompEventType e,
+                       size_t iter,
+                       double curObjective,
+                       double lastObjective,
+                       double constraintViolation)
+    {
+            
+         std::string event_string;
+
+         switch (e) {
+            case CHOMP_INIT: event_string = "CHOMP_INIT"; break;
+            case CHOMP_GLOBAL_ITER:
+                 event_string =  "CHOMP_GLOBAL_ITER";
+                 break;
+            case CHOMP_LOCAL_ITER: event_string =  "CHOMP_LOCAL_ITER"; break;
+            case CHOMP_FINISH: event_string =  "CHOMP_FINISH"; break;
+            case CHOMP_TIMEOUT: event_string =  "CHOMP_TIMEOUT";break;
+            case CHOMP_GOALSET_ITER: event_string =  "CHOMP_GOALSET_ITER";break;
+            default: event_string =  "[INVALID]"; break;
+         }
+
+         std::cout << "chomp debug: "
+              << "event=" << event_string << ", "
+              << "iter=" << iter << ", "
+              << "cur=" << std::setprecision(10) << curObjective << ", "
+              << "last=" << std::setprecision(10) << lastObjective << ", "
+              << "rel=" << std::setprecision(10)
+              << ((lastObjective-curObjective)/curObjective) << ", "
+              << "constraint=" << std::setprecision(10)
+              << constraintViolation << "\n";
+        if (std::isnan(curObjective) || std::isinf(curObjective) ||
+            std::isnan(lastObjective) || std::isinf(lastObjective)) {
+            return 1;
+        }
+        return 0;
+    }
+};
+
+enum ChompObjectiveType {
+    MINIMIZE_VELOCITY = 0,
+    MINIMIZE_ACCELERATION = 1,
+};
 
 ///////////////////////////////////////////////////////////
 /////////////////////Inline Functions//////////////////////
@@ -539,5 +660,6 @@ double createBMatrix(int n,
     return 0.5*c;
 }
 
-} // Namespace
+}//namespace
+
 #endif

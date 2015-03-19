@@ -1,13 +1,7 @@
-set( SOURCE
-    ${CMAKE_CURRENT_SOURCE_DIR}/Constraint.cpp
+set( SOURCE 
     ${CMAKE_CURRENT_SOURCE_DIR}/ConstraintFactory.cpp
-    ${SOURCE}
-    PARENT_SCOPE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/Constraint.cpp
    )
 
-set( HEADER 
-    ${CMAKE_CURRENT_SOURCE_DIR}/Constraint.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/ConstraintFactory.h
-    ${HEADER}
-    PARENT_SCOPE
-   )
+add_library( constraint SHARED ${SOURCE} )
+target_link_libraries( constraint mzcommon )

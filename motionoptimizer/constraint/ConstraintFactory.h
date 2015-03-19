@@ -34,47 +34,76 @@
 #ifndef _CONSTRAINT_FACTORY_H_
 #define _CONSTRAINT_FACTORY_H_
 
-#include "../utils/class_utils.h"
-#include <vector>
+#include "Constraint.h"
 
 namespace chomp {
 
-  class Constraint;
-  
+class ConstraintFactory {
 
-  class ConstraintFactory {
-  public:
-    
-    std::vector<Constraint*> constraints;
-    
+
+private:
+    class ConstraintInterval {
+        
+        public:
+            
+        double start, stop;
+        Constraint * constraint;
+        
+        ConstraintInterval( double start,
+                            double stop,
+                            Constraint * constraint ) :
+            start( start ), stop( stop ), constraint( constraint )
+        {}
+
+        inline bool operator < ( const ConstraintInterval & rhs ){
+            return start < rhs.start;
+        }
+
+    };
+    /*
+    static inline bool operator < ( const ConstraintInterval & lhs,
+                                    const ConstraintInterval & rhs ){
+        return lhs.start < rhs.start;
+    }
+    */
+
+
+public:
+
+    Trajectory & trajectory;
+
+    std::vector<ConstraintInterval> constraint_intervals;
+    std::vector<Constraint*> constraints ;
+
+    ConstraintFactory( Trajectory & trajectory ); 
+
     //base constructor, if constraints is non-empty, it deletes all
     //  of the constraints which are non-NULL.
-    virtual ~ConstraintFactory(); 
+    ~ConstraintFactory(); 
 
     void clearConstraints();
+    void addConstraint( Constraint * constraint, 
+                        double start,
+                        double stop );
 
-    virtual Constraint* getConstraint(size_t t, size_t total) =0;
-    
+    Constraint* getConstraint(size_t t, size_t total);
+
     void getAll(size_t total);
-    
+
     size_t numOutput();
 
-    virtual void evaluate(const MatX& xi, 
-                          MatX& h_tot, 
-                          MatX& H_tot, 
-                          int step=1);
-
-    virtual void evaluate(ConstMatMap& xi, 
-                          MatMap& h_tot, 
-                          MatMap& H_tot);
-    virtual void evaluate(ConstMatMap& xi, 
-                          MatMap& h_tot);
+    template <class Derived1, class Derived2>
+    void evaluate( const Eigen::MatrixBase<Derived1> & h_tot,
+                   const Eigen::MatrixBase<Derived2> & H_tot);
     
-    virtual void evaluate( unsigned constraint_dim,
-                           double* result,
-                           unsigned n_by_m,
-                           const double * x,
-                           double* grad );
+    template <class Derived>
+    void evaluate( const Eigen::MatrixBase<Derived> & h_tot);
+
+    void evaluate( unsigned constraint_dim,
+                   double* result,
+                   unsigned n_by_m,
+                   const double * x,
+                   double* grad );
 
     static void NLoptConstraint(unsigned constraint_dim,
                                 double* result,
@@ -87,9 +116,11 @@ namespace chomp {
             ->evaluate( constraint_dim, result, n_by_m, x, grad);
     }
 
-  };
+};
 
-}
+//include the template functions implementation
+#include "ConstraintFactory-inl.h"
 
 
+}//namespace
 #endif

@@ -1,8 +1,6 @@
 #ifndef _CHOMP_OPTIMIZER_BASE_H_
 #define _CHOMP_OPTIMIZER_BASE_H_
 
-#include "../utils/function_utils.h"
-#include "../utils/class_utils.h"
 #include "mzcommon/TimeUtil.h"
 #include "OptimizerBase.h"
 

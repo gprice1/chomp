@@ -6,3 +6,5 @@
 3. The HMC needs to be updated to be compatible with the new system.
 
 4. Make a set termination function for the MotionOptimizer
+
+5. Make the constraint factory aware of subsampled matrices.

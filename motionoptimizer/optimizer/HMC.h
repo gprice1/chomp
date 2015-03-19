@@ -1,7 +1,7 @@
 #ifndef _HMC_H_
 #define _HMC_H_
 
-#include "../utils/class_utils.h"
+#include "../utils/utils.h"
 
 namespace chomp{
 

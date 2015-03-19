@@ -3,7 +3,6 @@
 #include "../containers/Trajectory.h"
 #include "mzcommon/mersenne.h"
 #include "mzcommon/gauss.h"
-#include "../utils/function_utils.h"
 
 
 namespace chomp {

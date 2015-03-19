@@ -1,7 +1,7 @@
 #ifndef _OPTIMIZER_BASE_H_
 #define _OPTIMIZER_BASE_H_
 
-#include "../utils/class_utils.h"
+#include "../utils/utils.h"
 
 namespace chomp{
 

@@ -32,8 +32,7 @@
 */
 
 #include "../mzcommon/gauss.h"
-#include "function_utils.h"
-#include "class_utils.h"
+#include "utils.h"
 #include <assert.h>
 #include <mzcommon/TimeUtil.h>
 

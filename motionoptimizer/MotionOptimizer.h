@@ -2,8 +2,7 @@
 #ifndef _MOTION_OPTIMIZER_H_
 #define _MOTION_OPTIMIZER_H_
 
-#include "utils/class_utils.h"
-#include "utils/function_utils.h"
+#include "utils/utils.h"
 
 #include "containers/Trajectory.h"
 #include "containers/ChompGradient.h"
