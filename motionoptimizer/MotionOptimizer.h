@@ -7,8 +7,8 @@
 #include "containers/Trajectory.h"
 #include "containers/ChompGradient.h"
 
-#include "constraint/ConstraintFactory.h"
-#include "constraint/Constraint.h"
+#include "containers/ConstraintFactory.h"
+#include "containers/Constraint.h"
 
 #include "optimizer/ChompLocalOptimizer.h"
 #include "optimizer/ChompOptimizer.h"
@@ -29,8 +29,8 @@ class MotionOptimizer {
 
     Trajectory trajectory; //the trajectory
     ChompGradient gradient;
- 
-    ConstraintFactory * factory;
+    ConstraintFactory factory;
+    
     ChompObserver * observer;
 
     int N_max, N_min, N_sub;
@@ -47,8 +47,7 @@ class MotionOptimizer {
     int max_iterations;
 
     //constructor.
-    MotionOptimizer( ConstraintFactory * factory = NULL,
-                     ChompObserver * observer = NULL,
+    MotionOptimizer( ChompObserver * observer = NULL,
                      double obstol = 1e-8,
                      double timeout_seconds = 0,
                      size_t max_iter = size_t(-1),

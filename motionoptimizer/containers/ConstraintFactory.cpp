@@ -37,14 +37,15 @@
 namespace chomp {
 
 ConstraintFactory::ConstraintFactory( Trajectory & trajectory ):
-    trajectory( trajectory )
+    trajectory( trajectory ),
+    interval_is_sorted( false )
 {
 }
 
 ConstraintFactory::~ConstraintFactory(){
-    clearConstraints();
 }
 
+//TODO this may not be needed anymore
 void ConstraintFactory::clearConstraints() {
 
     for ( std::vector<Constraint*>::iterator it = constraints.begin(); 
@@ -56,19 +57,83 @@ void ConstraintFactory::clearConstraints() {
     constraints.clear();
 }
 
-void ConstraintFactory::getAll(size_t total) {
-    clearConstraints();
+void ConstraintFactory::sortIntervals(){
 
+    std::sort( constraint_intervals.begin(),
+               constraint_intervals.end(),
+               ConstraintInterval::compare );
+
+    interval_is_sorted = true;
+
+}
+
+void ConstraintFactory::addConstraint( Constraint * constraint, 
+                                       double start,
+                                       double stop )
+{
+    constraint_intervals.resize( constraint_intervals.size() + 1 );
+    constraint_intervals.back().start = start;
+    constraint_intervals.back().stop = stop;
+    constraint_intervals.back().constraint = constraint;
+    interval_is_sorted = false;
+}
+
+//TODO make this able to take more constraint
+Constraint* ConstraintFactory::getConstraint(size_t t, size_t total){
+    
+    if ( constraint_intervals.size() == 0 ){ return NULL; }
+
+    //if the interval vector is not sorted, sort it.
+    if ( !interval_is_sorted ){ sortIntervals(); }
+    
+    double time = double(t) / double(total);
+
+    //iterate over all of the constriant intervals;
+    for (std::vector<ConstraintInterval>::const_iterator it
+            = constraint_intervals.begin();
+         it != constraint_intervals.end();
+         ++ it )
+    {
+        if ( it->start <= time ){
+            if ( time <= it->stop ){ return it->constraint; }
+            else { return NULL; }
+        }
+    }
+
+    return NULL;
+}
+
+void ConstraintFactory::getAll(size_t total) {
+
+    if ( constraint_intervals.size() == 0 ){ return; }
+    
     //fill up the constraints vector.
-    constraints.resize( total );
-    for (size_t i=0; i<total; i++){
-        constraints[i] = getConstraint(i, total);
+    constraints.assign( total, NULL );
+    
+    //if the interval vector is not sorted, sort it.
+    if ( !interval_is_sorted ){ sortIntervals(); }
+    
+    //iterate over all of the constriant intervals;
+    for (std::vector<ConstraintInterval>::const_iterator it
+            = constraint_intervals.begin();
+         it != constraint_intervals.end();
+         ++ it )
+    {
+        const int start_point = int( it->start * total );
+        const int end_point = int( it->stop * total );
+        
+        for ( int i = start_point; i <= end_point; i++ ){
+            constraints[i] = it->constraint;
+        }
     }
 }
 
 
 size_t ConstraintFactory::numOutput()
 {
+
+    if ( constraint_intervals.size() == 0 ){ return 0; }
+    
     //compute the total dimensionality of the constraints
     int constraint_dims = 0;
     for ( std::vector<Constraint*>::iterator it = constraints.begin();
@@ -88,7 +153,7 @@ void ConstraintFactory::evaluate( unsigned constraint_dim,
                                 const double * x,
                                 double* grad )
 {
-    assert( n_by_m == trajectory.size() );
+    assert( int( n_by_m ) == trajectory.size() );
     assert( constraint_dim == numOutput() );
 
     //put the data into matrix maps.

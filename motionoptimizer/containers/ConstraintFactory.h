@@ -35,6 +35,7 @@
 #define _CONSTRAINT_FACTORY_H_
 
 #include "Constraint.h"
+#include "Trajectory.h"
 
 namespace chomp {
 
@@ -44,19 +45,17 @@ class ConstraintFactory {
 private:
     class ConstraintInterval {
         
-        public:
+      public:
             
         double start, stop;
         Constraint * constraint;
-        
-        ConstraintInterval( double start,
-                            double stop,
-                            Constraint * constraint ) :
-            start( start ), stop( stop ), constraint( constraint )
-        {}
 
-        inline bool operator < ( const ConstraintInterval & rhs ){
-            return start < rhs.start;
+        //this is a function for comparing two intervals in
+        //  sorting.
+        inline static bool compare( ConstraintInterval first, 
+                                    ConstraintInterval second )
+        {
+            return first.start < second.start;
         }
 
     };
@@ -73,6 +72,8 @@ public:
     Trajectory & trajectory;
 
     std::vector<ConstraintInterval> constraint_intervals;
+    bool interval_is_sorted;
+
     std::vector<Constraint*> constraints ;
 
     ConstraintFactory( Trajectory & trajectory ); 
@@ -115,6 +116,9 @@ public:
         reinterpret_cast<ConstraintFactory*>(data) 
             ->evaluate( constraint_dim, result, n_by_m, x, grad);
     }
+
+private:
+    void sortIntervals();
 
 };
 

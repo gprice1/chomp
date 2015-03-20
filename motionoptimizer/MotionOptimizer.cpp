@@ -4,8 +4,7 @@
 namespace chomp {
 
 //constructor.
-MotionOptimizer::MotionOptimizer(ConstraintFactory * factory,
-                                 ChompObserver * observer,
+MotionOptimizer::MotionOptimizer(ChompObserver * observer,
                                  double obstol,
                                  double timeout_seconds,
                                  size_t max_iter,
@@ -13,7 +12,7 @@ MotionOptimizer::MotionOptimizer(ConstraintFactory * factory,
                                  const MatX & upper_bounds,
                                  OptimizationAlgorithm algorithm) :
     gradient( trajectory ),
-    factory ( factory ),
+    factory ( trajectory ),
     observer( observer ),
     obstol( obstol )
 {
@@ -59,7 +58,7 @@ void MotionOptimizer::optimize( ){
     switch ( algorithm ){
         case CHOMP:
             optimizer = new ChompOptimizer(trajectory, 
-                                           factory, 
+                                           &factory, 
                                            &gradient, 
                                            observer, 
                                            obstol,
@@ -108,7 +107,7 @@ void MotionOptimizer::prepareGoalSet(){
     trajectory.startGoalSet();
     
     //add the goal constraint to the constraints vector.
-    factory->constraints.push_back( goalset );
+    factory.constraints.push_back( goalset );
 }
 
 void MotionOptimizer::finishGoalSet(){
@@ -119,7 +118,7 @@ void MotionOptimizer::finishGoalSet(){
 
     //remove the goal constraint, so that it is not deleted along
     //  with the other constraints.
-    factory->constraints.pop_back();
+    factory.constraints.pop_back();
 
 }
 

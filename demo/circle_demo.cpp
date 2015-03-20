@@ -70,25 +70,6 @@ public:
 
 };
 
-class CircleFactory: public ConstraintFactory {
-public:
-
-  virtual Constraint* getConstraint(size_t t, size_t total) {
-
-    if (4*(t+1)<(total+1) || 4*(t+1)>3*(total+1)) {
-      
-      return new NullConstraint();
-      
-    } else { 
-
-      return new CircleConstraint();
-      
-    } 
-
-  }
-
-
-};
 
 #ifdef MZ_HAVE_CAIRO
 
@@ -302,11 +283,13 @@ int main(int argc, char** argv) {
   std::cout << "  global smoothing: " << (doGlobalSmooth ? "ON" : "OFF") << "\n\n";
   
   
-  CircleFactory factory;
   DebugChompObserver obs;
-
-  MotionOptimizer chomper( &factory, &obs );
   
+  CircleConstraint c;
+
+  MotionOptimizer chomper( &obs );
+  chomper.factory.addConstraint( &c, 0.25, 0.75 );
+   
   MatX q0, q1;
 
   generateInitialTraj( chomper.trajectory, N, q0, q1);

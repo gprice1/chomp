@@ -55,12 +55,13 @@ void ConstraintFactory::evaluate(
     }  
 }
 
+
 template <class Derived>
 void ConstraintFactory::evaluate( 
         const Eigen::MatrixBase<Derived> & h_tot_const)
 {
     Eigen::MatrixBase<Derived>& h_tot = 
-        const_cast<Eigen::MatrixBase<Derived1>&>(h_tot_const);
+        const_cast<Eigen::MatrixBase<Derived>&>(h_tot_const);
 
     assert(size_t(trajectory.rows()) == constraints.size());
 

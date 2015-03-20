@@ -3,8 +3,7 @@
 #ifndef _TRAJECTORY_H_
 #define _TRAJECTORY_H_
 
-#include "../utils/class_utils.h"
-#include "../utils/function_utils.h"
+#include "../utils/utils.h"
 
 namespace chomp{
 
@@ -12,7 +11,7 @@ class Trajectory {
   public:
 
     double * data;
-    double sampled_data
+    double * sampled_data;
         
     MatMap xi;
 
@@ -113,8 +112,6 @@ class Trajectory {
     inline const MatX & getQ1() const { return q1; };
     inline const MatX & getEnd() const { return q1; }
 
-
-
     //get individual matrix blocks or rows
     inline Row row( int i ) { return xi.row(i); }
     inline ConstRow row( int i ) const{ return xi.row(i); }
@@ -123,14 +120,9 @@ class Trajectory {
     inline ConstCol col( int i ) const { return xi.col(i); }
 
 
-
-
     inline MatMap const & getXi() const { return xi; } 
     inline MatMap & getXi() { return xi; } 
 
-    inline SubMatMap const & getXiSub() const { return xi_sub;}
-    inline SubMatMap & getXiSub() { return xi_sub; }
-    
     //upsample the trajectory by two times.
     void upsample();
     //upsample the trajectory until it is greater than Nmax.

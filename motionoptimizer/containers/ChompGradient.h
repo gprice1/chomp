@@ -34,8 +34,7 @@
 #ifndef _CHOMP_GRADIENT_H_
 #define _CHOMP_GRADIENT_H_
 
-#include "../utils/function_utils.h"
-#include "../utils/class_utils.h"
+#include "../utils/utils.h"
 #include "Trajectory.h"
 
 namespace chomp {

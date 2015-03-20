@@ -1,6 +1,6 @@
 #include "Trajectory.h"
-#include "../constraint/ConstraintFactory.h"
-#include "../constraint/Constraint.h"
+#include "ConstraintFactory.h"
+#include "Constraint.h"
 
 #include <sstream>
 
@@ -10,7 +10,6 @@ Trajectory::Trajectory( const MatX & q0, const MatX & q1, int N,
                         ChompObjectiveType o_type, 
                         double t_total ):
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -23,7 +22,6 @@ Trajectory::Trajectory( const std::vector<double> & pinit,
                         int N, ChompObjectiveType o_type, 
                         double t_total ):
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -37,7 +35,6 @@ Trajectory::Trajectory( const std::vector<double> & vec,
                         ChompObjectiveType o_type, 
                         double t_total ):
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -52,7 +49,6 @@ Trajectory::Trajectory(const MatX & xinit,
                        ChompObjectiveType o_type, 
                        double t_total ) : 
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     q0( pinit ), q1( pgoal ),
     objective_type( o_type ),
     total_time( t_total ),
@@ -75,7 +71,6 @@ Trajectory::Trajectory( const MatX & traj,
                         ChompObjectiveType o_type, 
                         double t_total) :
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -88,7 +83,6 @@ Trajectory::Trajectory(const std::vector<std::vector<double> > & traj,
                        ChompObjectiveType o_type, 
                        double t_total) :
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -101,7 +95,6 @@ Trajectory::Trajectory(const double * traj,
                        ChompObjectiveType o_type, 
                        double t_total) :
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -111,7 +104,6 @@ Trajectory::Trajectory(const double * traj,
 
 Trajectory::Trajectory() : 
     xi( NULL, 0, 0 ),    
-    xi_sub( NULL, 0, 0 ),
     objective_type( MINIMIZE_ACCELERATION ),
     total_time( 1.0 ),
     is_subsampled(false)

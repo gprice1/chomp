@@ -32,8 +32,8 @@
 */
 
 #include "ChompOptimizer.h"
-#include "../constraint/ConstraintFactory.h"
-#include "../constraint/Constraint.h"
+#include "../containers/ConstraintFactory.h"
+#include "../containers/Constraint.h"
 #include "../containers/ChompGradient.h"
 #include <float.h>
 #include <cmath>
@@ -73,7 +73,7 @@ void ChompOptimizer::optimize() {
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
     if ( factory ){
-        factory->evaluate(trajectory.getXi(), h, H);
+        factory->evaluate(h, H);
 
         if (h.rows()) {
             hmag = h.lpNorm<Eigen::Infinity>();
