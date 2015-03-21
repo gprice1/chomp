@@ -52,7 +52,7 @@ class ChompLocalOptimizer : public ChompOptimizerBase {
                          const MatX & upper_bounds=MatX(0,0)); 
 
   protected:
-    virtual void optimize( );
+    void optimize(const MatX & grad );
 
 };
 

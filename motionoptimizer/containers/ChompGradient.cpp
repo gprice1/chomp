@@ -253,7 +253,6 @@ MatX& ChompGradient::getSubsampledGradient(int N_sub)
     }
 
     debug_status( TAG, "getSubsampledGradient", "end" );
-    debug << g_sub;
     
     return g_sub;
 }

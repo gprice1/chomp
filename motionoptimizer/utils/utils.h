@@ -41,7 +41,7 @@
 #include <vector>
 
 
-#ifdef DEBUG
+#ifdef RELEASE
     #define debug_assert assert
     #define debug std::cout
     #define debug_status( tag, function, point ) std::cout << tag << " - " << function << " - " << point << std::endl

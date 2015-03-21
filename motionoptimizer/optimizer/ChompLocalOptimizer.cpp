@@ -61,53 +61,54 @@ ChompLocalOptimizer::ChompLocalOptimizer( Trajectory & traj,
 //
 // precondition: prepareChompIter has been called since the last
 // time xi was modified
-void ChompLocalOptimizer::optimize( )
+void ChompLocalOptimizer::optimize( const MatX & g )
 {
+    
+    debug_status( TAG, "optimize", "start" );
 
-    debug << "Starting localSmooth" << std::endl;
-
-    MatX h_t, H_t, P_t_inv, delta_t;
+    MatX h_t, H_t, P_t, P_t_inv, delta_t;
 
     hmag = 0;
     
-    const MatX & g = gradient->g;
+    debug_status( TAG, "optimize", "pre-for-loop" );
 
     for (int t=0; t<trajectory.N(); ++t){
 
         Constraint* c = factory->constraints.empty() ?
                         NULL : factory->constraints[t];
         
-        bool is_constrained = (c && c->numOutputs() > 0);
-
         //if this timestep could be constrained,
         //  evaluate the constraints
-        if (is_constrained) {
+        if (c && c->numOutputs() > 0) {
+            
             c->evaluateConstraints(trajectory.row(t), h_t, H_t);
-            is_constrained = h_t.rows() > 0;
-        }
         
-        //if there are active constraints this timestep.
-        if ( is_constrained ) {
-
             hmag = std::max(hmag, h_t.lpNorm<Eigen::Infinity>());
             
             P_t_inv = ( H_t*H_t.transpose() ).inverse();
 
-            // transpose g to be a column vector
-            delta_t = ( (MatX::Identity(trajectory.N(),trajectory.M() )
-                         - H_t.transpose()*P_t_inv*H_t )
-                        * g.row(t).transpose() * alpha
-                        + H_t.transpose()*P_t_inv*h_t 
-                      ).transpose();
+            const int M = trajectory.M();
+            trajectory.update(
+                (alpha *(MatX::Identity(M,M) - H_t.transpose()*P_t_inv*H_t )
+                  * g.row(t).transpose()
+                + H_t.transpose()*P_t_inv*h_t).transpose(),
+                t );
+                   
         }
+
+        
         //there are no constraints, so just add the negative gradient
         //  into the trajectory (multiplied by the step size, of course.
-        else { delta_t = alpha * g.row(t); }
+        else { 
+            debug_status( TAG, "optimize", "gradient" );
+            
+            trajectory.update( alpha * g.row(t), t );
+        }
         
-        trajectory.update( delta_t, t );
     }
     
-    debug << "Done with localSmooth" << std::endl;
+    debug_status( TAG, "optimize", "end" );
+    
 }
 
 

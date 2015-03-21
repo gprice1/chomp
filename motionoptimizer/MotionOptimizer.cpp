@@ -12,18 +12,23 @@ MotionOptimizer::MotionOptimizer(ChompObserver * observer,
                                  size_t max_iter,
                                  const MatX & lower_bounds,
                                  const MatX & upper_bounds,
-                                 OptimizationAlgorithm algorithm,
+                                 OptimizationAlgorithm alg1,
+                                 OptimizationAlgorithm alg2,
                                  int N_max) :
     gradient( trajectory ),
     factory ( trajectory ),
     observer( observer ),
     N_max( N_max ),
+    use_goalset( false ),
+    full_global_at_final( false ),
+    do_subsample( true ),
     obstol( obstol ),
     timeout_seconds( timeout_seconds ),
     max_iterations( max_iter ),
     lower_bounds( lower_bounds ),
     upper_bounds( upper_bounds ),
-    algorithm( algorithm )
+    algorithm1( alg1 ),
+    algorithm2( alg2 )
     
 {
     debug << "MotionOptimizer initialized" << std::endl;
@@ -36,7 +41,7 @@ void MotionOptimizer::solve(){
     N_min = trajectory.N();
 
     //optimize at the current resolution
-    optimize();
+    optimize( getOptimizer(algorithm1) );
 
     //if the current resolution is not the final resolution,
     //  upsample and then optimize. Repeat until the final resolution
@@ -47,21 +52,18 @@ void MotionOptimizer::solve(){
         //  stage of optimization.
         trajectory.upsample();
 
-        optimize();
+        if (do_subsample) { optimize( getOptimizer( algorithm1 ), true ); }
+        optimize( getOptimizer( algorithm2 ) );
     }
 
     debug_status( TAG, "solve", "end");
 }
 
 
-void MotionOptimizer::optimize( ){
+void MotionOptimizer::optimize( OptimizerBase * optimizer, 
+                                bool subsample ){
     
     debug_status( TAG, "optimize", "start");
-
-    
-       // Subsample
-    bool subsample = trajectory.N() > N_min && !use_goalset &&
-                     !(full_global_at_final && trajectory.N() >= N_max);
 
     if( subsample ){ trajectory.subsample(); }
     
@@ -70,54 +72,54 @@ void MotionOptimizer::optimize( ){
 
     gradient.prepareRun( trajectory, use_goalset );
 
-    //create the optimizer
-    //TODO include other optimization schemes
-    OptimizerBase * optimizer;
-
-    switch ( algorithm ){
-        case CHOMP:
-            optimizer = new ChompOptimizer(trajectory, 
-                                           &factory, 
-                                           &gradient, 
-                                           observer, 
-                                           obstol,
-                                           timeout_seconds,
-                                           max_iterations,
-                                           lower_bounds,
-                                           upper_bounds );
-            break;
-
-        case THE_OTHER:
-#if NLOPT_FOUND
-            //TODO add nlopt optimization schemes
-            std::cerr << "NLopt optimization schemes are unimplemented"
-                      << std::endl;
-#else 
-            std::cerr << "NLopt optimization libraries are"
-                      << " not available, please use a different"
-                      << " optimization algorithm" << std::endl;
-            return; 
-#endif
-            return;
-            break;
-
-        default:
-            std::cerr << "Unrecognized optimization scheme";
-            return;
-            break;
-    }
-
     optimizer->solve();
 
     delete optimizer;
 
-    if (use_goalset){ finishGoalSet(); }
+    if (use_goalset ){ finishGoalSet(); }
     if( subsample ){ trajectory.endSubsample(); }
 
     debug_status( TAG, "optimize", "end");
 
 }
 
+OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
+{
+    //create the optimizer
+    //TODO include other optimization schemes
+
+    switch ( alg ){
+    case GLOBAL_CHOMP:
+        return new ChompOptimizer(trajectory, &factory, 
+                                  &gradient, observer, 
+                                  obstol, timeout_seconds,
+                                  max_iterations, 
+                                  lower_bounds, upper_bounds );
+    case LOCAL_CHOMP:
+        return new ChompLocalOptimizer(trajectory, &factory, 
+                                  &gradient, observer, 
+                                  obstol, timeout_seconds,
+                                  max_iterations, 
+                                  lower_bounds, upper_bounds );
+
+    case THE_OTHER:
+#if NLOPT_FOUND
+        //TODO add nlopt optimization schemes
+        std::cerr << "NLopt optimization schemes are unimplemented"
+                  << std::endl;
+#else 
+        std::cerr << "NLopt optimization libraries are"
+                  << " not available, please use a different"
+                  << " optimization algorithm" << std::endl;
+        return NULL; 
+#endif
+        return NULL;
+    default:
+        std::cerr << "Unrecognized optimization scheme";
+        return NULL;
+    }
+    return NULL;
+}
 void MotionOptimizer::setGoalset( Constraint * goalset ){
       this->goalset = goalset;
       use_goalset = true;

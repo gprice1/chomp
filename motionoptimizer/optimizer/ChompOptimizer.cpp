@@ -59,12 +59,9 @@ ChompOptimizer::ChompOptimizer( Trajectory & traj,
 }
 
 // single iteration of chomp
-void ChompOptimizer::optimize() { 
+void ChompOptimizer::optimize( const MatX & g) { 
     
     debug_status( TAG, "optimize", "start" );
-    const MatX& g = trajectory.isSubsampled() ? 
-                    gradient->g_sub :
-                    gradient->g;
     const MatX& L = gradient->getInvAMatrix();
 
     // If there is a factory, 
@@ -116,13 +113,6 @@ void ChompOptimizer::optimize() {
         const int N = trajectory.N();
 
 
-        debug << "H.rows() = " << H.rows() 
-              << " --- L.rows() = " 
-              << L.rows() << std::endl
-              << "H.cols() = " << H.cols() << " --- L.cols() = " 
-              << L.cols() << std::endl;
-        
-
         P = H;
         
         // TODO: see if we can make this more efficient?
@@ -143,9 +133,6 @@ void ChompOptimizer::optimize() {
         debug_assert( P.transpose().isApprox( HP*Y ));
 
         int newsize = H.rows();
-        
-        debug << g.rows() << " " << g.cols() << std::endl
-              << N << " " << M << std::endl;
         
         assert(newsize == N * M);
         assert(g.rows() == N && g.cols() == M);

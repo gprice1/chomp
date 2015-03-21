@@ -88,10 +88,10 @@ void ChompOptimizerBase::solve(){
 bool ChompOptimizerBase::iterate(){
     debug_status( TAG, "iterate", "start" );
     
-    gradient->getGradient( trajectory );
+    MatX & grad = gradient->getGradient( trajectory );
     
     //perform optimization
-    optimize();
+    optimize( grad );
 
     //check and correct the bounds 
     checkBounds();

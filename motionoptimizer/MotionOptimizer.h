@@ -20,7 +20,8 @@
 
 namespace chomp {
 enum OptimizationAlgorithm {
-    CHOMP,
+    LOCAL_CHOMP,
+    GLOBAL_CHOMP,
     THE_OTHER
 };
 
@@ -36,7 +37,7 @@ class MotionOptimizer {
 
     int N_max, N_min;
 
-    bool use_goalset, full_global_at_final;
+    bool use_goalset, full_global_at_final, do_subsample;
 
     Constraint * goalset;
 
@@ -45,7 +46,7 @@ class MotionOptimizer {
 
     MatX lower_bounds, upper_bounds;
     
-    OptimizationAlgorithm algorithm;
+    OptimizationAlgorithm algorithm1, algorithm2;
 
     const static char* TAG;
     
@@ -56,14 +57,17 @@ class MotionOptimizer {
                      size_t max_iter = size_t(-1),
                      const MatX & lower_bounds=MatX(0,0),
                      const MatX & upper_bounds=MatX(0,0),
-                     OptimizationAlgorithm algorithm = CHOMP,
+                     OptimizationAlgorithm algorithm1 = GLOBAL_CHOMP,
+                     OptimizationAlgorithm algorithm2 = LOCAL_CHOMP,
+                     
                      int N_max = 0);
 
     void solve();
     
     //sets up the factory, gradient, and optimizer for the current
     //  resolution.
-    void optimize();
+    void optimize( OptimizerBase * optimizer, bool subsample = false);
+    OptimizerBase * getOptimizer( OptimizationAlgorithm algorithm );
 
     //setbounds;
 
@@ -107,8 +111,19 @@ class MotionOptimizer {
     inline void setFunctionTolerance( double tol ){ obstol = tol; }
     inline double getFunctionTolerance(){ return obstol; }
 
-    inline void setAlgorithm( OptimizationAlgorithm a ){ algorithm = a; }
-    inline OptimizationAlgorithm getAlgorithm(){ return algorithm; }
+
+    inline void setAlgorithm(OptimizationAlgorithm a){ algorithm1 = a; }
+    inline OptimizationAlgorithm getAlgorithm(){ return algorithm1; }
+
+    inline void setAlgorithm1(OptimizationAlgorithm a1){ algorithm1 = a1; }
+    inline void setAlgorithm2(OptimizationAlgorithm a2){ algorithm2 = a2; }
+    
+    inline OptimizationAlgorithm getAlgorithm1(){ return algorithm1; }
+    inline OptimizationAlgorithm getAlgorithm2(){ return algorithm2; }
+
+    inline void dontSubsample(){ do_subsample = false; }
+    inline void doSubsample(){ do_subsample = true; }
+    inline void setSubsample( bool subsample ){ do_subsample = subsample;}
 
 };
 

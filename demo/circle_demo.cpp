@@ -277,7 +277,8 @@ int main(int argc, char** argv) {
 
   CircleConstraint c;
   chomper.factory.addConstraint( &c, 0.25, 0.75 );
-   
+  chomper.setMaxIterations( 30 );
+
   MatX q0(1,2), q1(1,2);
   q0 << -3, 5;
   q1 << 5, -3;

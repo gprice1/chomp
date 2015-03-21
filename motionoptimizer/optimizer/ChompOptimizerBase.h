@@ -63,7 +63,7 @@ class ChompOptimizerBase : public OptimizerBase{
 
   protected:
 
-    virtual void optimize()=0;
+    virtual void optimize( const MatX & grad)=0;
 
   private:
     
