@@ -76,6 +76,9 @@ public:
 
     std::vector<Constraint*> constraints ;
 
+    int constraint_dims;
+
+    static const char* TAG;
     ConstraintFactory( Trajectory & trajectory ); 
 
     //base constructor, if constraints is non-empty, it deletes all
@@ -83,19 +86,29 @@ public:
     ~ConstraintFactory(); 
 
     void clearConstraints();
+    
     void addConstraint( Constraint * constraint, 
                         double start,
                         double stop );
 
+    inline bool empty(){ return constraint_intervals.empty(); }
+    
     Constraint* getConstraint(size_t t, size_t total);
-
+    
+    //TODO consider renaming this to prepareRun, for
+    //  consistency with ConstraintFactory
     void getAll(size_t total);
 
-    size_t numOutput();
-
+    inline int numOutput(){ return constraint_dims; }
+    
+    //calculates the dimensionality of the whole constraint
+    //  vector.
+    void calculateConstraintDimension();
+    
     template <class Derived1, class Derived2>
     void evaluate( const Eigen::MatrixBase<Derived1> & h_tot,
                    const Eigen::MatrixBase<Derived2> & H_tot);
+
     
     template <class Derived>
     void evaluate( const Eigen::MatrixBase<Derived> & h_tot);

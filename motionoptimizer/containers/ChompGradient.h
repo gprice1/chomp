@@ -106,6 +106,7 @@ class ChompGradient {
 
   private:
     Trajectory & trajectory;
+    static const char* TAG;
     
   public:
     
@@ -175,13 +176,8 @@ class ChompGradient {
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.
-    inline double evaluateObjective( Trajectory & traj ) const
-    {
-        return  (0.5 * mydot(traj.getXi(), Ax)
-               + mydot(traj.getXi(), b) + c)
-               + fextra;
-    }
-
+    double evaluateObjective( Trajectory & traj ) const;
+    
   private:
     template <class Derived>
     void computeSmoothnessGradient( 

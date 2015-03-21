@@ -40,6 +40,17 @@
 #include <iomanip>
 #include <vector>
 
+
+#ifdef DEBUG
+    #define debug_assert assert
+    #define debug std::cout
+    #define debug_status( tag, function, point ) std::cout << tag << " - " << function << " - " << point << std::endl
+#else 
+    #define debug_assert if(0) assert
+    #define debug if(0) std::cout
+    #define debug_status( tag, function, point ) if(0) std::cout << tag 
+#endif
+
 namespace chomp {
 
 /////////////////////typedefs///////////////////////////////
@@ -149,8 +160,10 @@ class DebugChompObserver: public ChompObserver {
               << ((lastObjective-curObjective)/curObjective) << ", "
               << "constraint=" << std::setprecision(10)
               << constraintViolation << "\n";
-        if (std::isnan(curObjective) || std::isinf(curObjective) ||
-            std::isnan(lastObjective) || std::isinf(lastObjective)) {
+        if ( e != CHOMP_INIT && 
+            (std::isnan(curObjective) || std::isinf(curObjective) ||
+             std::isnan(lastObjective) || std::isinf(lastObjective)) )
+        {
             return 1;
         }
         return 0;
@@ -198,6 +211,7 @@ static inline double mydot(const Eigen::MatrixBase<Derived1>& a,
 {
   return a.cwiseProduct(b).sum();
 }
+
 
 template <class Derived>
 inline MatX getPos(const Eigen::MatrixBase<Derived>& x, double h){
@@ -513,10 +527,12 @@ double createBMatrix(int n,
         //    when j=o, we want t1=0, and when j<o we want t1>0
         int t0 = j-o;
         int t1 = -t0;
+        
         b.row(i0) += coeffs(j)*getPos(x0, t0*dt);
         b.row(i1) += coeffs(j)*getPos(x1, t1*dt);
       }
       c += mydot(b.row(i0), b.row(i0));
+
       if (i0 != i1) { c += mydot(b.row(i1), b.row(i1)); }
     }
 

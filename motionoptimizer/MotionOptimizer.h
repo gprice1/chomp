@@ -17,6 +17,7 @@
     #include "optimizer/NLOptimizer.h"
 #endif
 
+
 namespace chomp {
 enum OptimizationAlgorithm {
     CHOMP,
@@ -33,19 +34,21 @@ class MotionOptimizer {
     
     ChompObserver * observer;
 
-    int N_max, N_min, N_sub;
+    int N_max, N_min;
 
     bool use_goalset, full_global_at_final;
 
     Constraint * goalset;
 
-    MatX upper_bounds, lower_bounds;
+    double obstol, timeout_seconds;
+    size_t max_iterations;
+
+    MatX lower_bounds, upper_bounds;
     
     OptimizationAlgorithm algorithm;
 
-    double obstol, timeout_seconds;
-    int max_iterations;
-
+    const static char* TAG;
+    
     //constructor.
     MotionOptimizer( ChompObserver * observer = NULL,
                      double obstol = 1e-8,
@@ -53,7 +56,8 @@ class MotionOptimizer {
                      size_t max_iter = size_t(-1),
                      const MatX & lower_bounds=MatX(0,0),
                      const MatX & upper_bounds=MatX(0,0),
-                     OptimizationAlgorithm algorithm = CHOMP);
+                     OptimizationAlgorithm algorithm = CHOMP,
+                     int N_max = 0);
 
     void solve();
     
@@ -75,8 +79,6 @@ class MotionOptimizer {
     
   public:
 
-    inline void setAlgorithm(OptimizationAlgorithm alg ){ algorithm = alg;}
-
     //Functions for setting the upper and lower bounds of MotionOptimizer.
     void setLowerBounds( const MatX & lower );
     void setLowerBounds( const std::vector<double> & lower);
@@ -92,7 +94,21 @@ class MotionOptimizer {
     void setBounds( const double * lower,
                             const double * upper );
 
+    //simple getters and setters
+    inline void setNMax( int n_max ){ N_max = n_max; }
+    inline int  getNMax( ){ return N_max; }
 
+    inline void   setTimeoutSeconds( double s ){ timeout_seconds = s; }
+    inline double getTimeoutSeconds(){ return timeout_seconds; }
+
+    inline void setMaxIterations( size_t max ){ max_iterations = max; }
+    inline size_t getMaxIterations(){ return max_iterations; }
+
+    inline void setFunctionTolerance( double tol ){ obstol = tol; }
+    inline double getFunctionTolerance(){ return obstol; }
+
+    inline void setAlgorithm( OptimizationAlgorithm a ){ algorithm = a; }
+    inline OptimizationAlgorithm getAlgorithm(){ return algorithm; }
 
 };
 

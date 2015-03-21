@@ -1,6 +1,8 @@
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
+set(LIBRARY_TYPE STATIC)
+
 if(APPLE)
   include_directories(/opt/local/include) # MacPorts
   link_directories(/opt/local/lib)
@@ -33,6 +35,11 @@ endif ()
 
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions( -DDEBUG )
+else()
+    add_definitions( -DRELEASE )
+endif()
 
 set(CMAKE_C_FLAGS "-Wall -g")
 set(CMAKE_CXX_FLAGS "-Wall -g")

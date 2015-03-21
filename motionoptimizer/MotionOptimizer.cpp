@@ -3,6 +3,8 @@
 
 namespace chomp {
 
+const char* MotionOptimizer::TAG = "MotionOptimizer";
+
 //constructor.
 MotionOptimizer::MotionOptimizer(ChompObserver * observer,
                                  double obstol,
@@ -10,15 +12,28 @@ MotionOptimizer::MotionOptimizer(ChompObserver * observer,
                                  size_t max_iter,
                                  const MatX & lower_bounds,
                                  const MatX & upper_bounds,
-                                 OptimizationAlgorithm algorithm) :
+                                 OptimizationAlgorithm algorithm,
+                                 int N_max) :
     gradient( trajectory ),
     factory ( trajectory ),
     observer( observer ),
-    obstol( obstol )
+    N_max( N_max ),
+    obstol( obstol ),
+    timeout_seconds( timeout_seconds ),
+    max_iterations( max_iter ),
+    lower_bounds( lower_bounds ),
+    upper_bounds( upper_bounds ),
+    algorithm( algorithm )
+    
 {
+    debug << "MotionOptimizer initialized" << std::endl;
 }
 
 void MotionOptimizer::solve(){
+    
+    debug_status( TAG, "solve", "start");
+    
+    N_min = trajectory.N();
 
     //optimize at the current resolution
     optimize();
@@ -34,22 +49,26 @@ void MotionOptimizer::solve(){
 
         optimize();
     }
+
+    debug_status( TAG, "solve", "end");
 }
 
 
 void MotionOptimizer::optimize( ){
     
-    if ( use_goalset ){ prepareGoalSet(); }
+    debug_status( TAG, "optimize", "start");
 
-    gradient.prepareRun( trajectory, use_goalset );
-
-    // Subsample
+    
+       // Subsample
     bool subsample = trajectory.N() > N_min && !use_goalset &&
                      !(full_global_at_final && trajectory.N() >= N_max);
 
-
     if( subsample ){ trajectory.subsample(); }
+    
+    if ( !factory.empty() ){ factory.getAll( trajectory.N() ); }
+    if ( use_goalset ){ prepareGoalSet(); }
 
+    gradient.prepareRun( trajectory, use_goalset );
 
     //create the optimizer
     //TODO include other optimization schemes
@@ -92,6 +111,11 @@ void MotionOptimizer::optimize( ){
 
     delete optimizer;
 
+    if (use_goalset){ finishGoalSet(); }
+    if( subsample ){ trajectory.endSubsample(); }
+
+    debug_status( TAG, "optimize", "end");
+
 }
 
 void MotionOptimizer::setGoalset( Constraint * goalset ){
@@ -102,8 +126,6 @@ void MotionOptimizer::setGoalset( Constraint * goalset ){
 void MotionOptimizer::prepareGoalSet(){
     
     //do not subsample if doing goalset run.
-    N_sub = 0;
-    
     trajectory.startGoalSet();
     
     //add the goal constraint to the constraints vector.

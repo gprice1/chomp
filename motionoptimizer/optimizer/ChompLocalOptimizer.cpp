@@ -38,15 +38,6 @@
 #include <float.h>
 #include <cmath>
 
-#define DEBUG_PRINTING 0 
-#if DEBUG_PRINTING
-    #define debug std::cout
-    #define debug_assert assert
-#else
-    #define debug if (0) std::cout
-    #define debug_assert if (0) assert
-#endif
-
 namespace chomp {
 
 ChompLocalOptimizer::ChompLocalOptimizer( Trajectory & traj,
@@ -61,7 +52,10 @@ ChompLocalOptimizer::ChompLocalOptimizer( Trajectory & traj,
     ChompOptimizerBase( traj, factory, gradient, observer,
                    obstol, timeout_seconds, max_iter,
                    lower_bounds, upper_bounds )
-{}
+{
+    event = CHOMP_LOCAL_ITER;
+
+}
 
 // single iteration of local smoothing
 //

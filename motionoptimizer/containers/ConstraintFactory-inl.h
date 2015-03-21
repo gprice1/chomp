@@ -9,23 +9,32 @@ void ConstraintFactory::evaluate(
         const Eigen::MatrixBase<Derived2> & H_tot_const)
 {
     
+    debug_status( TAG, "evaluate", "start" );
+
+    if (empty()){ return; }
+    
     Eigen::MatrixBase<Derived1>& h_tot = 
         const_cast<Eigen::MatrixBase<Derived1>&>(h_tot_const);
 
     Eigen::MatrixBase<Derived2>& H_tot = 
         const_cast<Eigen::MatrixBase<Derived2>&>(H_tot_const);
+    
+    debug_status( TAG, "evaluate", "start" );
 
     //TODO - Make the trajectory aware of subsampled matrices.
-    size_t DoF = trajectory.cols();
-    size_t N = trajectory.rows();
+    int M = trajectory.cols();
+    int N = trajectory.rows();
     H_tot.setZero();    
-
-    assert(N == constraints.size());
+    
+    debug << "N: " << N << " --- Constraints: "
+          << constraints.size() << std::endl; 
+    debug_assert(size_t( N ) == constraints.size());
 
     MatX h, H; // individual constraints at time t
-    size_t row = 0; // starting row for the current bundle o constraints
-
-    for (size_t i=0; i<constraints.size(); ++i) {
+    
+    debug_status( TAG, "evaluate", "end" );
+    
+    for (int i=0, row=0; size_t(i) < constraints.size(); ++i) {
 
         Constraint* c = constraints[i];
 
@@ -35,24 +44,27 @@ void ConstraintFactory::evaluate(
         c->evaluateConstraints( trajectory.row(i), h, H);
 
         //stick all the h and H into h_tot and H_tot
-        assert(H.cols() == (int)DoF);
-        assert(h.cols() == 1);
-        assert(H.rows() == (int)constraints[i]->numOutputs());
-        assert(H.rows() == h.rows());
+        debug_assert(H.cols() == M);
+        debug_assert(h.cols() == 1);
+        debug_assert(size_t( H.rows()) == constraints[i]->numOutputs());
+        debug_assert(H.rows() == h.rows());
         
-
-        for (size_t r = 0; r<(size_t)h.rows(); r++, row++){
+        for (int r = 0; r < h.rows(); r++, row++){
+            debug_assert( h_tot.rows() > row );
+            debug_assert( h_tot.cols() == h.size() );
             h_tot(row) = h(r);
 
-            for (size_t j = 0; j<DoF; j++){
-                //TODO change to debug assert
-                assert( H_tot.cols() > (int)row   );
-                assert( H_tot.rows() > (int)(j*N + i) );
+            for (int j = 0; j<M; j++){
+                debug_assert( H_tot.cols() > row   );
+                debug_assert( H_tot.rows() > j*N + i );
               
                 H_tot(j*N + i, row) = H(r,j);
             }
         }
     }  
+
+
+    debug_status( TAG, "evaluate", "end" );
 }
 
 

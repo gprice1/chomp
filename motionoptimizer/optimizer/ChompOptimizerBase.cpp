@@ -6,7 +6,8 @@
 
 namespace chomp {
 
-    
+const char* ChompOptimizerBase::TAG = "ChompOptimizerBase";
+
 ChompOptimizerBase::ChompOptimizerBase( Trajectory & traj,
                                         ConstraintFactory * factory,
                                         ChompGradient * gradient,
@@ -28,21 +29,26 @@ ChompOptimizerBase::ChompOptimizerBase( Trajectory & traj,
     use_momentum( false ),
     hmc( NULL )
 {
-
-    if ( timeout_seconds < 0 ){ canTimeout = false; }
+    
+    if ( timeout_seconds <= 0 ){ canTimeout = false; }
     else {
         canTimeout = true;
         stop_time = TimeStamp::now() +
                     Duration::fromDouble( timeout_seconds );
     }
 
+    debug_status( TAG, "construction", "end" );
 }
 
 void ChompOptimizerBase::solve(){
 
+    debug_status( TAG, "solve", "start" );
+    
+    last_objective = gradient->evaluateObjective( trajectory );
+    
     if (notify(CHOMP_INIT, 0, last_objective, -1, hmag)) { return; }
 
-    if ( timeout_seconds < 0 ){ canTimeout = false; }
+    if ( timeout_seconds <= 0 ){ canTimeout = false; }
     else {
         canTimeout = true;
         stop_time = TimeStamp::now() +
@@ -60,18 +66,29 @@ void ChompOptimizerBase::solve(){
         momentum.setZero();
     }
     
+
     bool not_finished = true;
+
+    debug_status( TAG, "solve", "before evaluateObjective" );
 
     //Do the optimization
     //TODO find out why prepareIter is not needed anymore.
     //prepareIter( trajectory );
-    last_objective = gradient->evaluateObjective( trajectory );
+
+    debug_status( TAG, "solve", "evaluated_objective" );
+    
     while (not_finished) { not_finished = iterate(); }
     
     notify(CHOMP_FINISH, 0, last_objective, -1, hmag);
+
+
+    debug_status( TAG, "solve", "end" );
 } 
 
 bool ChompOptimizerBase::iterate(){
+    debug_status( TAG, "iterate", "start" );
+    
+    gradient->getGradient( trajectory );
     
     //perform optimization
     optimize();
@@ -81,10 +98,6 @@ bool ChompOptimizerBase::iterate(){
     
     //increment the iteration.
     curr_iter ++;
-    
-    //prepare for the next iteration.
-    //TODO find out why prepareIter is not needed anymore.
-    //prepareIter( trajectory );
 
     if ( hmc ) {
         //TODO make sure that we are doing Global Chomp,
@@ -93,10 +106,11 @@ bool ChompOptimizerBase::iterate(){
                         gradient->getInvAMatrix(),
                         last_objective );
     }
-    
-    gradient->getGradient( trajectory );
 
     //check whether optimization is completed.
+
+    debug_status( TAG, "iterate", "end" );
+    
     return checkFinished( event );
 }
 
@@ -145,6 +159,7 @@ bool ChompOptimizerBase::goodEnough(double oldObjective,
 void ChompOptimizerBase::checkBounds()
 {
 
+    debug_status( TAG, "checkBounds", "start" );
     const bool check_upper = (upper_bounds.size() == trajectory.M());
     const bool check_lower = (lower_bounds.size() == trajectory.M());
 
@@ -224,6 +239,8 @@ void ChompOptimizerBase::checkBounds()
         //continue to check and fix limit violations as long as they exist.
         }while( violation && count < max_checks );
     }
+
+    debug_status( TAG, "checkBounds", "end" );
 }
 
 }//namespace

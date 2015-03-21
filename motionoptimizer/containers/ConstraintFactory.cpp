@@ -36,9 +36,12 @@
 
 namespace chomp {
 
+const char* ConstraintFactory::TAG = "ConstraintFactory";
+
 ConstraintFactory::ConstraintFactory( Trajectory & trajectory ):
     trajectory( trajectory ),
-    interval_is_sorted( false )
+    interval_is_sorted( false ),
+    constraint_dims(-1)
 {
 }
 
@@ -126,16 +129,19 @@ void ConstraintFactory::getAll(size_t total) {
             constraints[i] = it->constraint;
         }
     }
+
+    calculateConstraintDimension();
+
 }
 
 
-size_t ConstraintFactory::numOutput()
+void ConstraintFactory::calculateConstraintDimension()
 {
 
-    if ( constraint_intervals.size() == 0 ){ return 0; }
+    if ( constraint_intervals.size() == 0 ){ return; }
     
     //compute the total dimensionality of the constraints
-    int constraint_dims = 0;
+    constraint_dims = 0;
     for ( std::vector<Constraint*>::iterator it = constraints.begin();
         it != constraints.end();
         it ++ )
@@ -143,8 +149,6 @@ size_t ConstraintFactory::numOutput()
         //if there is a constraint, get its dimensions.
         if ( *it ) { constraint_dims += (*it)->numOutputs(); }
     }
-
-    return constraint_dims;
 }
 
 void ConstraintFactory::evaluate( unsigned constraint_dim,
@@ -153,8 +157,8 @@ void ConstraintFactory::evaluate( unsigned constraint_dim,
                                 const double * x,
                                 double* grad )
 {
-    assert( int( n_by_m ) == trajectory.size() );
-    assert( constraint_dim == numOutput() );
+    debug_assert( int( n_by_m ) == trajectory.size() );
+    debug_assert( int(constraint_dim) == numOutput() );
 
     //put the data into matrix maps.
     trajectory.setData( x );

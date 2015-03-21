@@ -1,7 +1,4 @@
-
-1. change the constraintfactory evaluate functions to take a trajectory instead of a matrix.
-
-2. the destructor of the trajectory should destroy the data.
+1. Change the location of the ConstraintFactories matrix resizing because it resizes the matrices even it does not use them, in the case of NLoptimization
 
 3. The HMC needs to be updated to be compatible with the new system.
 

@@ -10,6 +10,13 @@ class ChompOptimizerBase : public OptimizerBase{
     
   public:
 
+    //either global or local iteration, depending
+    //on the type of the optimization, this should be assigned in 
+    // inheriting class constructor    
+    ChompEventType event; 
+
+    static const char* TAG;
+
     double alpha;       // the gradient step size
 
     MatX bounds_violations;
@@ -38,8 +45,7 @@ class ChompOptimizerBase : public OptimizerBase{
     //an HMC object for performing the Hamiltonian Monte Carlo method
     HMC * hmc;
     
-    ChompEventType event; //either global or local iteration, depending
-                          //on the type of the optimization.
+
 
     ChompOptimizerBase(  Trajectory & traj,
                          ConstraintFactory * factory,

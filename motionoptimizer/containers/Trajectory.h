@@ -10,17 +10,16 @@ namespace chomp{
 class Trajectory {
   public:
 
-    double * data;
-    double * sampled_data;
-        
-    MatMap xi;
+    double * data, * sampled_data;
+    MatMap xi, sampled_xi;
 
     MatX q0, q1;
 
     //TODO : remove this from the trajectory. This should be in
     //  the gradient.
     ChompObjectiveType objective_type;
-
+    
+    static const char* TAG;
   private:
     double dt, total_time;
     bool is_subsampled;
@@ -59,6 +58,8 @@ class Trajectory {
                double t_total=1.0);
 
     ~Trajectory() { delete data; };
+    
+    Trajectory & operator= (const Trajectory & other);
     
     void startGoalSet();
     void endGoalSet();
@@ -101,6 +102,8 @@ class Trajectory {
     inline int N() const { return xi.rows(); }
     inline int M() const { return xi.cols(); }
 
+    inline int sampledN() const { return sampled_xi.rows(); }
+
     inline int rows() const { return xi.rows();}
     inline int cols() const { return xi.cols();}
 
@@ -119,9 +122,11 @@ class Trajectory {
     inline Col col( int i ){  return xi.col(i); }
     inline ConstCol col( int i ) const { return xi.col(i); }
 
-
     inline MatMap const & getXi() const { return xi; } 
     inline MatMap & getXi() { return xi; } 
+
+    inline MatMap const & getSampledXi() const { return sampled_xi; } 
+    inline MatMap & getSampledXi() { return sampled_xi; } 
 
     //upsample the trajectory by two times.
     void upsample();
@@ -202,6 +207,11 @@ template <class Derived>
 inline void Trajectory::update(const Eigen::MatrixBase<Derived> & delta)
 {
     xi -= delta;
+    if (is_subsampled)
+    { 
+        SubMatMap( sampled_data, N(), M(),
+                  SubMatMapStride( sampledN(), 2 ) ) = xi;
+    }
 }
 
 template <class Derived>
@@ -209,6 +219,11 @@ inline void Trajectory::update(const Eigen::MatrixBase<Derived> & delta,
                                int index)
 {
     xi.row( index ) -= delta;
+    if (is_subsampled){
+        SubMatMap( sampled_data, N(), M(),
+                   SubMatMapStride( sampledN(),2 ) ).row(index)
+            = xi.row(index);
+    }
 }
 
 }//namespace

@@ -170,17 +170,6 @@ public:
 
 #endif
 
-void generateInitialTraj( Trajectory & traj, int N,
-                          MatX& q0, MatX& q1) 
-{
-
-  q0 << -3, 5;
-  q1 << 5, -3;
-
-  traj = Trajectory( q0, q1, N );
-    
-}
-
 
 void usage(int status) {
   std::ostream& ostr = status ? std::cerr : std::cout;
@@ -284,26 +273,29 @@ int main(int argc, char** argv) {
   
   
   DebugChompObserver obs;
-  
-  CircleConstraint c;
-
   MotionOptimizer chomper( &obs );
+
+  CircleConstraint c;
   chomper.factory.addConstraint( &c, 0.25, 0.75 );
    
-  MatX q0, q1;
+  MatX q0(1,2), q1(1,2);
+  q0 << -3, 5;
+  q1 << 5, -3;
 
-  generateInitialTraj( chomper.trajectory, N, q0, q1);
+  chomper.trajectory.initialize( q0, q1, N );  
+  chomper.setNMax( Nmax );
+  
 
 
 #ifdef MZ_HAVE_CAIRO
-  PdfEmitter* pobs = 0;
+  PdfEmitter* pobs = NULL;
 
   if (doPDF) {
 
     char filename[1024];
 
     snprintf(filename, 1024, "circle_%04d_%04d_%s_%s.pdf",
-             chomper.N_min, chomper.N_max, 
+             N, Nmax, 
              doLocalSmooth ? "local" : "nolocal", 
              doGlobalSmooth ? "global" : "noglobal");
 
@@ -317,9 +309,8 @@ int main(int argc, char** argv) {
   chomper.solve();
 
 #ifdef MZ_HAVE_CAIRO
-  delete pobs;
+  if ( pobs ){ delete pobs; }
 #endif
 
   return 0;
-
 }

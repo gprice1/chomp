@@ -37,14 +37,6 @@
 
 #include "ChompGradient.h"
 
-#define DEBUG_PRINTING 1
-#if DEBUG_PRINTING 
-    #define debug std::cout
-    #define debug_assert assert
-#else
-    #define debug if (0) std::cout
-    #define debug_assert if (0) assert
-#endif
 
 namespace chomp {
 
@@ -174,15 +166,20 @@ ChompGradient::ChompGradient(
 
 }
 
+const char* ChompGradient::TAG = "ChompGradient";
+
 void ChompGradient::prepareRun(const Trajectory & traj,
                                bool use_goalset)
 {
+    debug_status( TAG, "prepareRun", "start" );
+
     iteration = 0;
     
     this->use_goalset = use_goalset;
 
     //resize the g, b, and ax matrices.
-    const int N = traj.N();
+    const int N = traj.isSubsampled() ? traj.sampledN() :
+                                        traj.N();
     const int M = traj.M();
 
     g.resize(N,M);
@@ -190,20 +187,21 @@ void ChompGradient::prepareRun(const Trajectory & traj,
     b.resize(N,M);
     
     //set b to zero to prepare for creating the b matrix
-    b.setZero();
     
     const double dt = traj.getDt();
     //get the b matrix, and get its contribution to the
-    //  objective function
-    if ( traj.isSubsampled() ) {
-        skylineChol( traj.rows(), coeffs_sub, L); 
-        c = createBMatrix(N, coeffs, traj.q0, traj.q1, b, dt);
-    } else if (use_goalset){
-        skylineChol(N, coeffs, coeffs_goalset, L);
-        c = createBMatrix( N, coeffs, traj.q0, b, dt);
+    //  objective function.
+    //  Also, compute the L matrix (lower triangluar cholesky 
+    //  decomposition). 
+    if (use_goalset){
+        skylineChol( traj.N(), coeffs, coeffs_goalset, L);
+        c = createBMatrix( N, coeffs, traj.getQ0(), b, dt);
     } else{
-        skylineChol(N, coeffs, L);
-        c = createBMatrix(N, coeffs, traj.q0, traj.q1, b, dt);
+        const MatX & current_coeffs = (traj.isSubsampled() ?
+                                       coeffs_sub :
+                                       coeffs ); 
+        skylineChol( traj.N(), current_coeffs, L); 
+        c = createBMatrix(N, coeffs, traj.getQ0(), traj.getQ1(), b, dt);
     }
     
     double inv_dt = 1/dt;
@@ -211,6 +209,7 @@ void ChompGradient::prepareRun(const Trajectory & traj,
     if ( objective_type == MINIMIZE_VELOCITY ){ fscl = inv_dt * inv_dt;}
     else { fscl = inv_dt * inv_dt * inv_dt;  }
 
+    debug_status( TAG, "prepareRun", "start" );
 }
 
 MatX& ChompGradient::getInvAMatrix(){ return L; }
@@ -224,11 +223,14 @@ MatX& ChompGradient::getCollisionGradient( const Trajectory & traj )
 
 MatX& ChompGradient::getGradient( const Trajectory & traj )
 {
+    debug_status( TAG, "getGradient", "start" );
     
     computeSmoothnessGradient( traj, g );
     computeCollisionGradient( traj, g );
     
-    if ( traj.isSubsampled() ){ return getSubsampledGradient(traj.rows());}
+    if ( traj.isSubsampled() ){ return getSubsampledGradient(traj.N());}
+    debug_status( TAG, "getGradient", "end" );
+    
     return g;
 
 }
@@ -242,12 +244,17 @@ MatX& ChompGradient::getSmoothnessGradient( const Trajectory & traj )
 
 MatX& ChompGradient::getSubsampledGradient(int N_sub)
 {   
+    debug_status( TAG, "getSubsampledGradient", "start" );
+    
     g_sub.resize( N_sub, trajectory.M() );
 
     for ( int i = 0; i < g_sub.rows(); i ++ ){
         g_sub.row( i ) = g.row( i * 2 );
     }
 
+    debug_status( TAG, "getSubsampledGradient", "end" );
+    debug << g_sub;
+    
     return g_sub;
 }
 
@@ -285,27 +292,48 @@ double ChompGradient::getGradient( unsigned n_by_m,
     return cost;
 }
 
+double ChompGradient::evaluateObjective( Trajectory & traj ) const
+{
+    if ( traj.isSubsampled() ){
+        return 0.5 * mydot(traj.getSampledXi(), Ax) + 
+               mydot(traj.getSampledXi(), b) +
+               c + fextra;
+    }
+    
+    return 0.5 * mydot(traj.getXi(), Ax) + 
+           mydot(traj.getXi(), b) +
+           c + fextra;
+}
+
 
 template <class Derived>
 inline void ChompGradient::computeSmoothnessGradient(
                     const Trajectory & traj,
                     const Eigen::MatrixBase<Derived> & g_const)
 {
+    debug_status( TAG, "computeSmoothnessGradient", "start" );
     //cast away the const-ness of g_const
     Eigen::MatrixBase<Derived>& grad = 
         const_cast<Eigen::MatrixBase<Derived>&>(g_const);
 
     //Performs the operation: A * x.
     //  (fill the matrix Ax, with the results.
+    //
+    const MatMap & xi = (traj.isSubsampled() ? 
+                         traj.getSampledXi() : 
+                         traj.getXi() );
+
     if( use_goalset ){
-        diagMul(coeffs, coeffs_goalset, traj.getXi(), Ax);
+        diagMul(coeffs, coeffs_goalset, xi, Ax);
     } else { 
-        diagMul(coeffs, traj.getXi(), Ax);
+        diagMul(coeffs, xi, Ax);
     }
     
     //add in the b matrix to get the contribution from the
     //  endpoints, and set this equal to the gradient.
     grad = Ax + b; 
+
+    debug_status( TAG, "computeSmoothnessGradient", "end" );
 }
 
 void ChompGradient::computeCollisionGradient(const Trajectory & traj,

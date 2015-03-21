@@ -38,16 +38,9 @@
 #include <float.h>
 #include <cmath>
 
-#define DEBUG_PRINTING 0 
-#if DEBUG_PRINTING
-    #define debug std::cout
-    #define debug_assert assert
-#else
-    #define debug if (0) std::cout
-    #define debug_assert if (0) assert
-#endif
-
 namespace chomp {
+
+const char* ChompOptimizer::TAG = "ChompOptimizer";
 
 ChompOptimizer::ChompOptimizer( Trajectory & traj,
                                 ConstraintFactory * factory,
@@ -61,18 +54,38 @@ ChompOptimizer::ChompOptimizer( Trajectory & traj,
     ChompOptimizerBase( traj, factory, gradient, observer,
                         obstol, timeout_seconds, max_iter,
                         lower_bounds, upper_bounds )
-{}
+{
+    event = CHOMP_GLOBAL_ITER;
+}
 
 // single iteration of chomp
 void ChompOptimizer::optimize() { 
     
-    const MatX& g = gradient->g;
+    debug_status( TAG, "optimize", "start" );
+    const MatX& g = trajectory.isSubsampled() ? 
+                    gradient->g_sub :
+                    gradient->g;
     const MatX& L = gradient->getInvAMatrix();
-
 
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
     if ( factory ){
+
+        const int constraint_dims = factory->numOutput();
+        
+        //resize the constraint matrices if they are not
+        //  the correct size
+        if ( h.rows() != constraint_dims ||
+             h.cols() != 1)
+        {
+            h.resize( constraint_dims, 1 );
+        }
+        if ( H.rows() != constraint_dims ||
+             H.cols() != trajectory.size() )
+        {
+            H.resize(  trajectory.size(), constraint_dims );
+        }
+
         factory->evaluate(h, H);
 
         if (h.rows()) {
@@ -102,30 +115,43 @@ void ChompOptimizer::optimize() {
         const int M = trajectory.M();
         const int N = trajectory.N();
 
-        P = H.transpose();
+
+        debug << "H.rows() = " << H.rows() 
+              << " --- L.rows() = " 
+              << L.rows() << std::endl
+              << "H.cols() = " << H.cols() << " --- L.cols() = " 
+              << L.cols() << std::endl;
+        
+
+        P = H;
         
         // TODO: see if we can make this more efficient?
-        for (int i=0; i<P.cols(); i++){ skylineCholSolveMulti(L, P.col(i));}
+        for (int i=0; i<P.cols(); i++){ 
+            skylineCholSolveMulti(L, P.col(i));
+        }
 
-        debug << "H = \n" << H << "\n";
-        debug << "P = \n" << P << "\n";
+        //debug << "H = \n" << H << "\n";
+        //debug << "P = \n" << P << "\n";
       
-        HP = H*P;
+        HP = H.transpose()*P;
 
         cholSolver.compute(HP);
         Y = cholSolver.solve(P.transpose());
 
-        debug << "HP*Y = \n" << HP*Y << "\n";
-        debug << "P.transpose() = \n" << P.transpose() << "\n";
+        //debug << "HP*Y = \n" << HP*Y << "\n";
+        //debug << "P.transpose() = \n" << P.transpose() << "\n";
         debug_assert( P.transpose().isApprox( HP*Y ));
 
-        int newsize = H.cols();
+        int newsize = H.rows();
+        
+        debug << g.rows() << " " << g.cols() << std::endl
+              << N << " " << M << std::endl;
+        
         assert(newsize == N * M);
-
         assert(g.rows() == N && g.cols() == M);
         
         ConstMatMap g_flat(g.data(), newsize, 1);
-        W = (MatX::Identity(newsize,newsize) - H.transpose() * Y)
+        W = (MatX::Identity(newsize,newsize) - H * Y)
             * g_flat * alpha;
         skylineCholSolveMulti(L, W);
 
@@ -144,14 +170,13 @@ void ChompOptimizer::optimize() {
 
         ConstMatMap delta_rect(delta.data(), N, M);
         
-        debug << "delta = \n" << delta << "\n";
-        debug << "delta_rect = \n" << delta_rect << "\n";
-        
-        assert(delta_rect.rows() == N && 
-               delta_rect.cols() == M );
+        //debug << "delta = \n" << delta << "\n";
+        //debug << "delta_rect = \n" << delta_rect << "\n";
         
         trajectory.update( delta_rect );
     }
+
+    debug_status( TAG, "optimize", "end" );
 }
 
 }// namespace

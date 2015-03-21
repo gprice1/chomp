@@ -23,5 +23,5 @@ if ( NLOPT_FOUND )
 
 endif( NLOPT_FOUND )
 
-add_library( optimizer SHARED ${SOURCE} )
+add_library( optimizer ${LIBRARY_TYPE}  ${SOURCE} )
 target_link_libraries( optimizer ${LINK_LIBS} containers)

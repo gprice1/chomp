@@ -49,7 +49,9 @@ class ChompOptimizer : public ChompOptimizerBase {
     
     //A cholesky solver for solving the constraint matrix.
     Eigen::LDLT<MatX> cholSolver;
-   
+    
+    static const char* TAG;
+
     ChompOptimizer( Trajectory & traj,
                     ConstraintFactory * factory,
                     ChompGradient * gradient,
