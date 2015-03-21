@@ -149,7 +149,7 @@ class ChompGradient {
     void prepareRun( const Trajectory & traj,
                      bool use_goalset=false);
 
-    MatX& getInvAMatrix();
+    const MatX& getInvAMatrix() const;
    
     MatX& getGradient( const Trajectory & xi);
 
@@ -168,6 +168,9 @@ class ChompGradient {
     // modification of xi.
     double evaluateObjective( Trajectory & traj ) const;
     
+    template <class Derived>
+    void precondition( const Eigen::MatrixBase<Derived> & vpre );
+
   private:
     template <class Derived>
     void computeSmoothnessGradient( 
@@ -178,6 +181,8 @@ class ChompGradient {
                                    MatMap & grad);
     void computeCollisionGradient( const Trajectory & traj,
                                    MatX & grad);
+
+
 
 };
 

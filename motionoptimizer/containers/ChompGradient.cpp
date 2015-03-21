@@ -212,7 +212,9 @@ void ChompGradient::prepareRun(const Trajectory & traj,
     debug_status( TAG, "prepareRun", "start" );
 }
 
-MatX& ChompGradient::getInvAMatrix(){ return L; }
+const MatX& ChompGradient::getInvAMatrix() const { 
+    return trajectory.isSubsampled() ? L_sub : L;
+}
 
 MatX& ChompGradient::getCollisionGradient( const Trajectory & traj )
 {
@@ -275,6 +277,9 @@ double ChompGradient::getGradient( unsigned n_by_m,
         g_mat.setZero();
         
         if ( trajectory.isSubsampled() ){
+            computeSmoothnessGradient( trajectory, g );
+            computeCollisionGradient(  trajectory, g );
+            g_mat = getSubsampledGradient(trajectory.N());
         }
         else {
             computeSmoothnessGradient( trajectory, g_mat );
@@ -364,6 +369,13 @@ void ChompGradient::computeCollisionGradient(const Trajectory & traj,
         fextra = 0;
     }
 }
+
+template <class Derived>
+void ChompGradient::precondition(const Eigen::MatrixBase<Derived> & vpre )
+{
+    const MatX & conditioner = trajectory.isSubsampled() ? L_sub : L;
+    skylineCholSolve( conditioner, vpre );
+}    
 
 }// namespace
 

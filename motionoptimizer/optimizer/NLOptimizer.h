@@ -3,7 +3,7 @@
 #ifndef _NLOPTIMIZER_H_
 #define _NLOPTIMIZER_H_
 
-#include <nlopt.hpp>
+#include <nlopt.h>
 
 #include "OptimizerBase.h"
 
@@ -47,11 +47,19 @@ class NLOptimizer : public OptimizerBase{
     void copyNRows( const MatX & original_bounds, 
                     std::vector<double> & result);
 
+    void precondition( const double *v, double *vpre ) const;
+    
     //a wrapper function for passing the ChompGradient to NLopt.
-    static double objectiveFunction(unsigned n,
+    static double objectiveFunction(unsigned n_by_m,
                                     const double * x,
                                     double* grad,
                                     void *data);
+    
+    static void preconditionFunction( unsigned n_by_m,
+                                      const double *x,
+                                      const double *v,
+                                      double *vpre,
+                                      void *f_data);
 
 };
 

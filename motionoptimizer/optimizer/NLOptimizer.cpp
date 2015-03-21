@@ -10,7 +10,7 @@ namespace chomp {
 const std::string getNLoptReturnString( nlopt::result & result ){
     if ( result == nlopt::SUCCESS ){ return "SUCCESS"; }
     if ( result == nlopt::STOPVAL_REACHED ){ return "STOPVAL_REACHED"; }
-    if ( result == nlopt:: FTOL_REACHED ){ return "FTOL_REACHED"; }
+    if ( result == nlopt::FTOL_REACHED ){ return "FTOL_REACHED"; }
     if ( result == nlopt::XTOL_REACHED  ){ return "XTOL_REACHED "; }
     if ( result == nlopt::MAXEVAL_REACHED ){ return "MAXEVAL_REACHED"; }
     if ( result == nlopt::MAXTIME_REACHED ){ return "MAXTIME_REACHED"; }
@@ -62,7 +62,14 @@ void NLOptimizer::solve()
     giveBoundsToNLopt( optimizer );
 
     //set the objective function and the termination conditions.
-    optimizer.set_min_objective( objectiveFunction, this );
+    //  If the optiimizer is CCSAQ, use a precoditioner.
+    if (algorithm == nlopt::LD_CCSAQ){
+        optimizer.set_precond_min_objective( objectiveFunction,
+                                             preconditionFunction,
+                                             this );
+    }else {
+        optimizer.set_min_objective( objectiveFunction, this );
+    }
     
     //call the optimization routine, get the result and the value
     //  of the objective function.
@@ -110,16 +117,13 @@ void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
         if ( algorithm != nlopt::LD_SLSQP || 
              algorithm != nlopt::LN_COBYLA ){
 
-            //create the new optimizer, and set the local optimizer.
-            nlopt::algorithm algorithm2;
-
             if ( algorithm == nlopt::LD_MMA  ){
-                algorithm2 = nlopt::AUGLAG_EQ;
+                algorithm = nlopt::AUGLAG_EQ;
             }else {
-                algorithm2 = nlopt::AUGLAG;
+                algorithm = nlopt::AUGLAG;
             }
             
-            nlopt::opt new_optimizer( algorithm2, trajectory.size());
+            nlopt::opt new_optimizer( algorithm, trajectory.size());
             new_optimizer.set_local_optimizer( optimizer );
 
             optimizer = new_optimizer;
@@ -197,7 +201,24 @@ double NLOptimizer::objectiveFunction(unsigned n,
     return opt->current_objective;
             
 }
+void NLOptimizer::precondition( const double *v, double *vpre ) const 
+{
+    ConstMatMap v_mat( v, trajectory.N(), trajectory.M() );
+    MatMap vpre_mat( vpre, trajectory.N(), trajectory.M() );
+    vpre_mat = v_mat;
+    
+    gradient->precondition( vpre_mat );
 
+}
+
+void NLOptimizer::preconditionFunction( unsigned n_by_m,
+                                        const double *x,
+                                        const double *v,
+                                        double *vpre,
+                                        void *data)
+{
+    reinterpret_cast<NLOptimizer*>(data)->precondition( v, vpre );
+}
 
 
 }//namespace
