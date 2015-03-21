@@ -273,12 +273,14 @@ double ChompGradient::getGradient( unsigned n_by_m,
         MatMap g_mat( grad, N, M);
         
         g_mat.setZero();
-
-        computeSmoothnessGradient( trajectory, g_mat );
-        computeCollisionGradient(  trajectory, g_mat );
         
-        //skylineCholSolve( L, g_mat );
-
+        if ( trajectory.isSubsampled() ){
+        }
+        else {
+            computeSmoothnessGradient( trajectory, g_mat );
+            computeCollisionGradient(  trajectory, g_mat );
+        }
+        
     }else{
         computeSmoothnessGradient( trajectory, g );
         computeCollisionGradient(  trajectory, g );

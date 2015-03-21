@@ -163,16 +163,6 @@ class ChompGradient {
                         const double * xi,
                         double * grad);
     
-    //a wrapper function for passing the ChompGradient to NLopt.
-    static double NLoptFunction(unsigned n,
-                                const double * x,
-                                double* grad,
-                                void *data)
-    {
-        return reinterpret_cast<ChompGradient*>(data)
-                               ->getGradient( n, x, grad);
-    }
-
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.

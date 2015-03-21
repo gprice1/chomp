@@ -13,7 +13,9 @@
 #include "optimizer/ChompLocalOptimizer.h"
 #include "optimizer/ChompOptimizer.h"
 
-#if NLOPT_FOUND
+
+#ifdef NLOPT_FOUND
+    #include <nlopt.hpp>
     #include "optimizer/NLOptimizer.h"
 #endif
 
@@ -22,8 +24,19 @@ namespace chomp {
 enum OptimizationAlgorithm {
     LOCAL_CHOMP,
     GLOBAL_CHOMP,
-    THE_OTHER
+    MMA_NLOPT,
+    CCSAQ_NLOPT,
+    SLSQP_NLOPT,
+    LBFGS_NLOPT,
+    TNEWTON_PRECOND_RESTART_NLOPT,
+    TNEWTON_RESTART_NLOPT,
+    TNEWTON_NLOPT,
+    VAR1_NLOPT,
+    VAR2_NLOPT,
+    NONE
 };
+
+nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg );
 
 class MotionOptimizer {
 
@@ -59,7 +72,6 @@ class MotionOptimizer {
                      const MatX & upper_bounds=MatX(0,0),
                      OptimizationAlgorithm algorithm1 = GLOBAL_CHOMP,
                      OptimizationAlgorithm algorithm2 = LOCAL_CHOMP,
-                     
                      int N_max = 0);
 
     void solve();
@@ -110,8 +122,7 @@ class MotionOptimizer {
 
     inline void setFunctionTolerance( double tol ){ obstol = tol; }
     inline double getFunctionTolerance(){ return obstol; }
-
-
+    
     inline void setAlgorithm(OptimizationAlgorithm a){ algorithm1 = a; }
     inline OptimizationAlgorithm getAlgorithm(){ return algorithm1; }
 

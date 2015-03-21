@@ -34,6 +34,7 @@ double myvconstraint(const std::vector<double> &x,
 
 
 int main(){
+
     nlopt::opt opt(nlopt::LD_MMA, 2);
 
     std::vector<double> lb(2);

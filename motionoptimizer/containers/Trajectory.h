@@ -10,7 +10,7 @@ namespace chomp{
 class Trajectory {
   public:
 
-    double * data, * sampled_data;
+    double * data, * sampled_data, * cached_data;
     MatMap xi, sampled_xi;
 
     MatX q0, q1;
@@ -57,14 +57,16 @@ class Trajectory {
                ChompObjectiveType o_type=MINIMIZE_ACCELERATION, 
                double t_total=1.0);
 
-    ~Trajectory() { delete data; };
-    
+    ~Trajectory();    
     Trajectory & operator= (const Trajectory & other);
     
     void startGoalSet();
     void endGoalSet();
 
-
+    //restores the data to the original after 
+    //  it had been replaced in a call to setData.
+    void restoreData();
+    
     void setData( const double * new_data );
     void setData( double * new_data );
 

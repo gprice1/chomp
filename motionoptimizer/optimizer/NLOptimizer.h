@@ -18,6 +18,10 @@ class NLOptimizer : public OptimizerBase{
     //the type of end that the optimizer comes to.
     nlopt::result result;
 
+    int iteration;
+
+    static const ChompEventType event = NLOPT_ITER;
+
     NLOptimizer( Trajectory & traj,
                  ConstraintFactory * factory,
                  ChompGradient * gradient,
@@ -30,6 +34,8 @@ class NLOptimizer : public OptimizerBase{
 
     ~NLOptimizer();
 
+    inline void setAlgorithm( nlopt::algorithm alg ){ algorithm = alg; }
+
     void solve();
 
   private:
@@ -40,7 +46,13 @@ class NLOptimizer : public OptimizerBase{
     
     void copyNRows( const MatX & original_bounds, 
                     std::vector<double> & result);
-  
+
+    //a wrapper function for passing the ChompGradient to NLopt.
+    static double objectiveFunction(unsigned n,
+                                    const double * x,
+                                    double* grad,
+                                    void *data);
+
 };
 
 

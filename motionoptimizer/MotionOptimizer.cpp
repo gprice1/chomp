@@ -3,6 +3,25 @@
 
 namespace chomp {
 
+nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg ){
+
+    switch (alg){
+    case MMA_NLOPT: return nlopt::LD_MMA;
+    case CCSAQ_NLOPT: return nlopt::LD_CCSAQ;
+    case SLSQP_NLOPT: return nlopt::LD_SLSQP;
+    case LBFGS_NLOPT: return nlopt::LD_LBFGS;
+    case TNEWTON_PRECOND_RESTART_NLOPT:
+        return nlopt::LD_TNEWTON_PRECOND_RESTART;
+    case TNEWTON_RESTART_NLOPT: return nlopt::LD_TNEWTON_RESTART;
+    case TNEWTON_NLOPT: return nlopt::LD_TNEWTON;
+    case VAR1_NLOPT: return nlopt::LD_VAR1;
+    case VAR2_NLOPT: return nlopt::LD_VAR2;
+
+    //TODO Throw error.
+    default: return nlopt::LD_MMA;
+    }
+}
+
 const char* MotionOptimizer::TAG = "MotionOptimizer";
 
 //constructor.
@@ -52,8 +71,13 @@ void MotionOptimizer::solve(){
         //  stage of optimization.
         trajectory.upsample();
 
-        if (do_subsample) { optimize( getOptimizer( algorithm1 ), true ); }
-        optimize( getOptimizer( algorithm2 ) );
+        if (do_subsample && algorithm2 != NONE ) {
+            optimize( getOptimizer( algorithm1 ), true );
+            optimize( getOptimizer( algorithm2 ) );
+        }else {
+            optimize( getOptimizer( algorithm1 ));
+        }
+            
     }
 
     debug_status( TAG, "solve", "end");
@@ -88,38 +112,40 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
     //create the optimizer
     //TODO include other optimization schemes
 
-    switch ( alg ){
-    case GLOBAL_CHOMP:
+    if ( alg == GLOBAL_CHOMP ){
         return new ChompOptimizer(trajectory, &factory, 
                                   &gradient, observer, 
                                   obstol, timeout_seconds,
                                   max_iterations, 
                                   lower_bounds, upper_bounds );
-    case LOCAL_CHOMP:
+    } else if ( alg == LOCAL_CHOMP ){
         return new ChompLocalOptimizer(trajectory, &factory, 
                                   &gradient, observer, 
                                   obstol, timeout_seconds,
                                   max_iterations, 
                                   lower_bounds, upper_bounds );
-
-    case THE_OTHER:
-#if NLOPT_FOUND
-        //TODO add nlopt optimization schemes
-        std::cerr << "NLopt optimization schemes are unimplemented"
-                  << std::endl;
+    } else if ( alg > GLOBAL_CHOMP && alg < NONE){
+#ifdef NLOPT_FOUND
+        NLOptimizer * opt = new NLOptimizer(
+                                  trajectory, &factory, 
+                                  &gradient, observer, 
+                                  obstol, timeout_seconds,
+                                  max_iterations, 
+                                  lower_bounds, upper_bounds );
+        opt->setAlgorithm( getNLoptAlgorithm( alg ) );
+        return opt;
 #else 
         std::cerr << "NLopt optimization libraries are"
                   << " not available, please use a different"
                   << " optimization algorithm" << std::endl;
         return NULL; 
 #endif
-        return NULL;
-    default:
-        std::cerr << "Unrecognized optimization scheme";
-        return NULL;
+
     }
+    
     return NULL;
 }
+
 void MotionOptimizer::setGoalset( Constraint * goalset ){
       this->goalset = goalset;
       use_goalset = true;
@@ -189,7 +215,7 @@ void MotionOptimizer::setBounds( const std::vector<double> & lower,
     setUpperBounds( upper );
 }
 void MotionOptimizer::setBounds( const double* lower, 
-                                    const double* upper){
+                                 const double* upper){
     setLowerBounds( lower );
     setUpperBounds( upper );
 }

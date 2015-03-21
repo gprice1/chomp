@@ -41,7 +41,7 @@
 #include <vector>
 
 
-#ifdef RELEASE
+#ifdef DRORG 
     #define debug_assert assert
     #define debug std::cout
     #define debug_status( tag, function, point ) std::cout << tag << " - " << function << " - " << point << std::endl
@@ -103,6 +103,7 @@ enum ChompEventType {
     CHOMP_INIT,
     CHOMP_GLOBAL_ITER,
     CHOMP_LOCAL_ITER,
+    NLOPT_ITER,
     CHOMP_FINISH,
     CHOMP_TIMEOUT,
     CHOMP_GOALSET_ITER
@@ -144,7 +145,8 @@ class DebugChompObserver: public ChompObserver {
             case CHOMP_GLOBAL_ITER:
                  event_string =  "CHOMP_GLOBAL_ITER";
                  break;
-            case CHOMP_LOCAL_ITER: event_string =  "CHOMP_LOCAL_ITER"; break;
+            case CHOMP_LOCAL_ITER: event_string ="CHOMP_LOCAL_ITER"; break;
+            case NLOPT_ITER: event_string ="NLOPT_ITER"; break;
             case CHOMP_FINISH: event_string =  "CHOMP_FINISH"; break;
             case CHOMP_TIMEOUT: event_string =  "CHOMP_TIMEOUT";break;
             case CHOMP_GOALSET_ITER: event_string =  "CHOMP_GOALSET_ITER";break;

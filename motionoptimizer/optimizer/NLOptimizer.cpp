@@ -31,7 +31,8 @@ NLOptimizer::NLOptimizer( Trajectory & traj,
     OptimizerBase( traj, factory, gradient, observer,
                    obstol, timeout_seconds, max_iter,
                    lower_bounds, upper_bounds ),
-    algorithm( nlopt::LD_MMA )
+    algorithm( nlopt::LD_MMA ),
+    iteration(0)
 {
 }
 
@@ -47,12 +48,11 @@ void NLOptimizer::solve()
     nlopt::opt optimizer( algorithm, trajectory.size() );
 
     //set termination conditions.
-    if ( timeout_seconds <= 0){optimizer.set_maxtime(timeout_seconds);}
-    if ( obstol <= 0 ){   optimizer.set_ftol_rel( obstol ); }
-    if ( max_iter <= 0 ){ optimizer.set_maxeval( max_iter ); }
-
-    //prepare the gradient for the run.
-    gradient->prepareRun( trajectory );
+    if ( timeout_seconds > 0){optimizer.set_maxtime(timeout_seconds);}
+    if ( obstol > 0 ){optimizer.set_ftol_rel( obstol ); }
+    
+    debug << "MaxIter: " << max_iter << std::endl;
+    if ( max_iter > 0 ){ optimizer.set_maxeval( max_iter ); }
 
     //prepare the constraints for optimization.
     //  This MUST be called before set_min_objective and giveBoundsToNLopt,
@@ -62,7 +62,7 @@ void NLOptimizer::solve()
     giveBoundsToNLopt( optimizer );
 
     //set the objective function and the termination conditions.
-    optimizer.set_min_objective( ChompGradient::NLoptFunction, gradient );
+    optimizer.set_min_objective( objectiveFunction, this );
     
     //call the optimization routine, get the result and the value
     //  of the objective function.
@@ -78,7 +78,8 @@ void NLOptimizer::solve()
         std::cout << "Caught exception: " << e.what() << std::endl;
     }
     
-
+    trajectory.restoreData();
+    
     trajectory.copyToData( optimization_vector );
 
     //notify the observer of the happenings.
@@ -106,10 +107,19 @@ void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
         //the algorithm must be one that can handle equality constraints,
         //  if it is not one that can handle equality constraints,
         //  use the AUGLAG algorithm, with the specified local optimizer.
-        if ( algorithm != nlopt::LD_SLSQP ){
+        if ( algorithm != nlopt::LD_SLSQP || 
+             algorithm != nlopt::LN_COBYLA ){
 
             //create the new optimizer, and set the local optimizer.
-            nlopt::opt new_optimizer( nlopt::AUGLAG, trajectory.size() );
+            nlopt::algorithm algorithm2;
+
+            if ( algorithm == nlopt::LD_MMA  ){
+                algorithm2 = nlopt::AUGLAG_EQ;
+            }else {
+                algorithm2 = nlopt::AUGLAG;
+            }
+            
+            nlopt::opt new_optimizer( algorithm2, trajectory.size());
             new_optimizer.set_local_optimizer( optimizer );
 
             optimizer = new_optimizer;
@@ -126,7 +136,6 @@ void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
                                 ConstraintFactory::NLoptConstraint,
                                 factory, constraint_tolerances);
     }
-
 }
 
 
@@ -164,6 +173,31 @@ void NLOptimizer::giveBoundsToNLopt( nlopt::opt & optimizer )
         optimizer.set_upper_bounds( nlopt_upper_bounds );
     }
 }
+
+
+//a wrapper function for passing the ChompGradient to NLopt.
+double NLOptimizer::objectiveFunction(unsigned n,
+                                             const double * x,
+                                             double* grad,
+                                             void *data)
+{
+    NLOptimizer * opt = reinterpret_cast<NLOptimizer*>(data);
+
+    opt->last_objective = opt->current_objective;
+    opt->current_objective = opt->gradient->getGradient( n, x, grad);
+    
+    //TODO - get the constraint violations
+    opt->notify( event, opt->iteration,
+                        opt->current_objective,
+                        opt->last_objective,
+                        0 );
+    
+    opt->iteration ++;
+
+    return opt->current_objective;
+            
+}
+
 
 
 }//namespace

@@ -14,6 +14,7 @@ Trajectory::Trajectory( const MatX & q0, const MatX & q1, int N,
                         double t_total ):
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),
     sampled_xi( NULL, 0, 0 ),    
     objective_type( o_type ),
@@ -31,6 +32,7 @@ Trajectory::Trajectory( const std::vector<double> & pinit,
                         double t_total ):
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     objective_type( o_type ),
@@ -47,6 +49,7 @@ Trajectory::Trajectory( const std::vector<double> & vec,
                         double t_total ):
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     objective_type( o_type ),
@@ -64,6 +67,7 @@ Trajectory::Trajectory(const MatX & xinit,
                        double t_total ) : 
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     q0( pinit ), q1( pgoal ),
@@ -89,6 +93,7 @@ Trajectory::Trajectory( const MatX & traj,
                         double t_total) :
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     objective_type( o_type ),
@@ -104,6 +109,7 @@ Trajectory::Trajectory(const std::vector<std::vector<double> > & traj,
                        double t_total) :
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     objective_type( o_type ),
@@ -119,6 +125,7 @@ Trajectory::Trajectory(const double * traj,
                        double t_total) :
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     objective_type( o_type ),
@@ -131,6 +138,7 @@ Trajectory::Trajectory(const double * traj,
 Trajectory::Trajectory() : 
     data(NULL),
     sampled_data(NULL),
+    cached_data(NULL),
     xi( NULL, 0, 0 ),    
     sampled_xi( NULL, 0, 0 ),    
     objective_type( MINIMIZE_ACCELERATION ),
@@ -138,6 +146,13 @@ Trajectory::Trajectory() :
     is_subsampled(false)
 {
 }
+
+
+Trajectory::~Trajectory() { 
+    if (cached_data ){ delete cached_data; }
+    else {delete data; };
+}
+
 
 //assignment operator
 Trajectory & Trajectory::operator= (const Trajectory & other)
@@ -189,6 +204,8 @@ Trajectory & Trajectory::operator= (const Trajectory & other)
         
         this->objective_type = other.objective_type;
 
+        this->cached_data = NULL;
+
 
     }
     
@@ -233,10 +250,18 @@ void Trajectory::endGoalSet(){
     //  because there is already enough room for it.
 }
 
+void Trajectory::restoreData(){
+    if (cached_data){
+        data = cached_data;
+        cached_data = NULL;
+    }
+}
+
 
 //This is dangerous, and it may be a bad idea.
 void Trajectory::setData( const double * new_data ){
     
+    if (cached_data == NULL ){ cached_data = data;}
     data = const_cast<double*>(new_data);
 
     const int N = xi.rows();
@@ -246,6 +271,8 @@ void Trajectory::setData( const double * new_data ){
 }
 
 void Trajectory::setData( double * new_data ){
+    
+    if (cached_data == NULL ){ cached_data = data;}
     
     data = new_data;
 
@@ -277,7 +304,9 @@ void Trajectory::subsample(){
     
     debug_status( TAG, "subsample", "start" );
     
+    assert( !cached_data );
     assert( !is_subsampled );
+    
     is_subsampled = true;
 
     const int n = N();
@@ -353,7 +382,9 @@ void Trajectory::getState( double * array, int i ) const
 
 void Trajectory::upsample()
 {
-
+    
+    assert( !cached_data );
+    
     debug_status( TAG, "upsample", "start" );
     const int N = xi.rows();
     const int M = xi.cols();
