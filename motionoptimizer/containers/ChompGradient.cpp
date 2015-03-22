@@ -275,6 +275,10 @@ double ChompGradient::getGradient( unsigned n_by_m,
         g_mat.setZero();
         
         if ( trajectory.isSubsampled() ){
+            computeSmoothnessGradient( trajectory, g );
+            computeCollisionGradient(  trajectory, g );
+            g_mat = getSubsampledGradient(trajectory.N());
+            
         }
         else {
             computeSmoothnessGradient( trajectory, g_mat );
@@ -287,10 +291,8 @@ double ChompGradient::getGradient( unsigned n_by_m,
     }
 
 
-    const double cost = evaluateObjective( trajectory );
+    return evaluateObjective( trajectory );
     
-    debug << "Iteration[" << iteration << "] -- Cost: " << cost << "\n";
-    return cost;
 }
 
 double ChompGradient::evaluateObjective( Trajectory & traj ) const
