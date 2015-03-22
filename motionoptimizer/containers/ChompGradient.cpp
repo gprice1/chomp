@@ -62,26 +62,26 @@ ChompCollGradHelper::~ChompCollGradHelper() {}
 
 template< class Derived >
 inline double ChompCollGradHelper::computeGradient(
-                    const Trajectory & traj,
+                    const Trajectory & trajectory,
                     const Eigen::MatrixBase<Derived> & g_const)
 {
     //cast away the const-ness of g_const
     Eigen::MatrixBase<Derived>& g = 
         const_cast<Eigen::MatrixBase<Derived>&>(g_const);
     
-    q1 = traj.getTick( -1 ).transpose();
-    q2 = traj.getTick( 0  ).transpose();
+    q1 = trajectory.getTick( -1 ).transpose();
+    q2 = trajectory.getTick( 0  ).transpose();
     
-    const double inv_dt = 1/traj.getDt();
+    const double inv_dt = 1/trajectory.getDt();
     const double inv_dt_squared = inv_dt * inv_dt;
 
     double total = 0.0;
 
-    for (int t=0; t < traj.rows() ; ++t) {
+    for (int t=0; t < trajectory.rows() ; ++t) {
 
       q0 = q1;
       q1 = q2;
-      q2 = traj.getTick( t+1 ).transpose();
+      q2 = trajectory.getTick( t+1 ).transpose();
 
       cspace_vel = 0.5 * (q2 - q0) * inv_dt;        
       cspace_accel = (q0 - 2.0*q1 + q2) * inv_dt_squared;
@@ -103,7 +103,7 @@ inline double ChompCollGradHelper::computeGradient(
           wkspace_vel /= wv_norm;
 
           // add to total
-          double scl = wv_norm * gamma * traj.getDt();
+          double scl = wv_norm * gamma * trajectory.getDt();
 
           total += cost * scl;
           
@@ -124,27 +124,25 @@ inline double ChompCollGradHelper::computeGradient(
     return total;
 
 }
-double ChompCollGradHelper::addToGradient( const Trajectory & traj,
+double ChompCollGradHelper::addToGradient( const Trajectory & trajectory,
                                           MatX& g)
 {
-    return computeGradient( traj, g );
+    return computeGradient( trajectory, g );
 }
 
-double ChompCollGradHelper::addToGradient( const Trajectory & traj,
+double ChompCollGradHelper::addToGradient( const Trajectory & trajectory,
                                           MatMap& g)
 {
-    return computeGradient( traj, g );
+    return computeGradient( trajectory, g );
 }
 
-ChompGradient::ChompGradient(
-            Trajectory & traj,
-            ChompObjectiveType objective_type) :
-    trajectory( traj ),
-    ghelper(NULL),
-    objective_type( objective_type )
+ChompGradient::ChompGradient( Trajectory & trajectory ) :
+    trajectory( trajectory ),
+    ghelper(NULL)
 
 {   
-
+    ChompObjectiveType objective_type = trajectory.getObjectiveType();
+    
     if (objective_type == MINIMIZE_VELOCITY) {
         coeffs.resize(1,2);
         coeffs_sub.resize(1,1);
@@ -168,18 +166,15 @@ ChompGradient::ChompGradient(
 
 const char* ChompGradient::TAG = "ChompGradient";
 
-void ChompGradient::prepareRun(const Trajectory & traj,
-                               bool use_goalset)
+void ChompGradient::prepareRun(bool use_goalset)
 {
     debug_status( TAG, "prepareRun", "start" );
 
-    iteration = 0;
-    
     this->use_goalset = use_goalset;
 
     //resize the g, b, and ax matrices.
-    const int N = traj.fullN();
-    const int M = traj.M();
+    const int N = trajectory.fullN();
+    const int M = trajectory.M();
 
     g.resize(N,M);
     Ax.resize(N,M);
@@ -187,57 +182,60 @@ void ChompGradient::prepareRun(const Trajectory & traj,
     
     //set b to zero to prepare for creating the b matrix
     
-    const double dt = traj.getDt();
+    const double dt = trajectory.getDt();
     //get the b matrix, and get its contribution to the
     //  objective function.
     //  Also, compute the L matrix (lower triangluar cholesky 
     //  decomposition). 
     if (use_goalset){
-        skylineChol( traj.N(), coeffs, coeffs_goalset, L);
-        c = createBMatrix( N, coeffs, traj.getQ0(), b, dt);
+        skylineChol( trajectory.N(), coeffs, coeffs_goalset, L);
+        c = createBMatrix( N, coeffs, trajectory.getQ0(), b, dt);
     } else{
-        const MatX & current_coeffs = (traj.isSubsampled() ?
+        const MatX & current_coeffs = (trajectory.isSubsampled() ?
                                        coeffs_sub :
                                        coeffs ); 
-        skylineChol( traj.N(), current_coeffs, L); 
-        c = createBMatrix(N, coeffs, traj.getQ0(), traj.getQ1(), b, dt);
+        skylineChol( trajectory.N(), current_coeffs, L); 
+        c = createBMatrix(N, coeffs, trajectory.getQ0(), trajectory.getQ1(), b, dt);
     }
     
     double inv_dt = 1/dt;
 
-    if ( objective_type == MINIMIZE_VELOCITY ){ fscl = inv_dt * inv_dt;}
-    else { fscl = inv_dt * inv_dt * inv_dt;  }
+    if ( trajectory.getObjectiveType() == MINIMIZE_VELOCITY ){
+        fscl = inv_dt * inv_dt;
+    } else { 
+        fscl = inv_dt * inv_dt * inv_dt;
+    }
 
     debug_status( TAG, "prepareRun", "start" );
 }
 
 MatX& ChompGradient::getInvAMatrix(){ return L; }
 
-MatX& ChompGradient::getCollisionGradient( const Trajectory & traj )
+MatX& ChompGradient::getCollisionGradient()
 {
     g.setZero();
-    computeCollisionGradient( traj , g );
+    computeCollisionGradient( g );
     return g;
 }
 
-MatX& ChompGradient::getGradient( const Trajectory & traj )
+MatX& ChompGradient::getGradient()
 {
     debug_status( TAG, "getGradient", "start" );
     
-    computeSmoothnessGradient( traj, g );
-    computeCollisionGradient( traj, g );
+    computeSmoothnessGradient( g );
+    computeCollisionGradient( g );
     
-    if ( traj.isSubsampled() ){ return getSubsampledGradient(traj.N());}
+    if ( trajectory.isSubsampled() ){ return getSubsampledGradient(trajectory.N());}
     debug_status( TAG, "getGradient", "end" );
     
     return g;
 
 }
 
-MatX& ChompGradient::getSmoothnessGradient( const Trajectory & traj )
+MatX& ChompGradient::getSmoothnessGradient(  )
 {
     
-    computeSmoothnessGradient( traj, g );
+    computeSmoothnessGradient( g );
     return g;
 }
 
@@ -260,7 +258,6 @@ double ChompGradient::getGradient( unsigned n_by_m,
                                    const double * xi,
                                    double * grad)
 {
-    iteration ++;
     trajectory.setData( xi );
     
     const int N = trajectory.N();
@@ -274,37 +271,36 @@ double ChompGradient::getGradient( unsigned n_by_m,
         g_mat.setZero();
         
         if ( trajectory.isSubsampled() ){
-            computeSmoothnessGradient( trajectory, g );
-            computeCollisionGradient(  trajectory, g );
+            computeSmoothnessGradient( g );
+            computeCollisionGradient( g );
             g_mat = getSubsampledGradient(trajectory.N());
             
         }
         else {
-            computeSmoothnessGradient( trajectory, g_mat );
-            computeCollisionGradient(  trajectory, g_mat );
+            computeSmoothnessGradient( g_mat );
+            computeCollisionGradient(  g_mat );
         }
         
     }else{
-        computeSmoothnessGradient( trajectory, g );
-        computeCollisionGradient(  trajectory, g );
+        computeSmoothnessGradient( g );
+        computeCollisionGradient( g );
     }
 
 
-    return evaluateObjective( trajectory );
+    return evaluateObjective( );
     
 }
 
-double ChompGradient::evaluateObjective( Trajectory & traj ) const
+double ChompGradient::evaluateObjective( ) const
 {
-    return 0.5 * mydot(traj.getFullXi(), Ax) + 
-           mydot(traj.getFullXi(), b) +
+    return 0.5 * mydot(trajectory.getFullXi(), Ax) + 
+           mydot(trajectory.getFullXi(), b) +
            c + fextra;
 }
 
 
 template <class Derived>
 inline void ChompGradient::computeSmoothnessGradient(
-                    const Trajectory & traj,
                     const Eigen::MatrixBase<Derived> & g_const)
 {
     debug_status( TAG, "computeSmoothnessGradient", "start" );
@@ -315,7 +311,7 @@ inline void ChompGradient::computeSmoothnessGradient(
     //Performs the operation: A * x.
     //  (fill the matrix Ax, with the results.
     //
-    const MatMap & xi = traj.getFullXi();
+    const MatMap & xi = trajectory.getFullXi();
     if( use_goalset ){
         diagMul(coeffs, coeffs_goalset, xi, Ax);
     } else { 
@@ -329,29 +325,27 @@ inline void ChompGradient::computeSmoothnessGradient(
     debug_status( TAG, "computeSmoothnessGradient", "end" );
 }
 
-void ChompGradient::computeCollisionGradient(const Trajectory & traj,
-                                             MatMap & grad)
+void ChompGradient::computeCollisionGradient(MatMap & grad)
 {
 
     //If there is a gradient helper, add in the contribution from
     //  that source, and set the fextra variable to the cost
     //  associated with the additional gradient.
     if (ghelper) {
-        fextra = ghelper->addToGradient(traj, grad);
+        fextra = ghelper->addToGradient(trajectory, grad);
     } else {
         fextra = 0;
     }
 }
 
-void ChompGradient::computeCollisionGradient(const Trajectory & traj,
-                                             MatX & grad)
+void ChompGradient::computeCollisionGradient(MatX & grad)
 {
 
     //If there is a gradient helper, add in the contribution from
     //  that source, and set the fextra variable to the cost
     //  associated with the additional gradient.
     if (ghelper) {
-        fextra = ghelper->addToGradient(traj, grad);
+        fextra = ghelper->addToGradient(trajectory, grad);
     } else {
         fextra = 0;
     }

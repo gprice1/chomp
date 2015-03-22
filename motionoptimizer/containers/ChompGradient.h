@@ -108,16 +108,13 @@ class ChompGradient {
     Trajectory & trajectory;
     static const char* TAG;
     
-  public:
+  private:
     
     ChompGradientHelper* ghelper;
     
     //TODO decide to keep this here and take it out of trajectory,
     //  or remove this. 
-    ChompObjectiveType objective_type;
     
-    int iteration;
-
     MatX Ax; // A*x of size N-by-M
   
     MatX coeffs; // coeffs for A e.g. [1, -4, 6] of size D-by-1 for accel
@@ -132,37 +129,33 @@ class ChompGradient {
     MatX g; // gradient terms (Ax + b) of size N-by-M
     MatX g_sub;
 
-    // working variables
-    MatX H_trans, P, P_trans, HP, Y, W, g_trans, delta, delta_trans; 
-
     MatX b; // endpoint vectors for this problem of size N-by-M
 
     double c; // c value for objective function
 
     bool use_goalset;
     
-    ChompGradient(
-         Trajectory & traj, 
-         ChompObjectiveType objective_type=MINIMIZE_ACCELERATION);
+  public:
+    ChompGradient( Trajectory & traj );
 
     ~ChompGradient(){}
     
     inline void setGradientHelper( ChompGradientHelper* help ){
         ghelper = help;
     }
+
     inline ChompGradientHelper * getGradientHelper(){ return ghelper; }
 
     //prepares chomp to be run at a resolution level
-    void prepareRun( const Trajectory & traj,
-                     bool use_goalset=false);
+    void prepareRun(bool use_goalset=false);
 
-    MatX& getInvAMatrix();
+    const MatX& getInvAMatrix();
    
-    MatX& getGradient( const Trajectory & xi);
+    MatX& getGradient();
 
-    MatX& getSmoothnessGradient(const Trajectory & xi);
+    MatX& getSmoothnessGradient();
 
-    MatX& getCollisionGradient( const Trajectory & xi);
+    MatX& getCollisionGradient();
 
     MatX& getSubsampledGradient(int N_sub);
 
@@ -173,18 +166,14 @@ class ChompGradient {
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.
-    double evaluateObjective( Trajectory & traj ) const;
+    double evaluateObjective() const;
     
   private:
     template <class Derived>
-    void computeSmoothnessGradient( 
-            const Trajectory & traj,
-            const Eigen::MatrixBase<Derived> & g );
+    void computeSmoothnessGradient(const Eigen::MatrixBase<Derived> & g );
     
-    void computeCollisionGradient( const Trajectory & traj,
-                                   MatMap & grad);
-    void computeCollisionGradient( const Trajectory & traj,
-                                   MatX & grad);
+    void computeCollisionGradient( MatMap & grad);
+    void computeCollisionGradient( MatX & grad  );
 
 };
 

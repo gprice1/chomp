@@ -98,7 +98,7 @@ void MotionOptimizer::optimize( OptimizerBase * optimizer,
     if ( !factory.empty() ){ factory.getAll( trajectory.N() ); }
     if ( use_goalset ){ prepareGoalSet(); }
 
-    gradient.prepareRun( trajectory, use_goalset );
+    gradient.prepareRun( use_goalset );
 
     optimizer->solve();
 

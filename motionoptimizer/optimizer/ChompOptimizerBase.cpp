@@ -44,7 +44,7 @@ void ChompOptimizerBase::solve(){
 
     debug_status( TAG, "solve", "start" );
     
-    last_objective = gradient->evaluateObjective( trajectory );
+    last_objective = gradient->evaluateObjective(  );
     
     if (notify(CHOMP_INIT, 0, last_objective, -1, hmag)) { return; }
 
@@ -57,7 +57,7 @@ void ChompOptimizerBase::solve(){
     
     if ( hmc ){ 
         use_momentum = true;
-        hmc->setupHMC( gradient->objective_type, alpha );
+        hmc->setupHMC( trajectory.getObjectiveType(), alpha );
         hmc->setupRun();
     }
 
@@ -88,7 +88,7 @@ void ChompOptimizerBase::solve(){
 bool ChompOptimizerBase::iterate(){
     debug_status( TAG, "iterate", "start" );
     
-    MatX & grad = gradient->getGradient( trajectory );
+    MatX & grad = gradient->getGradient();
     
     //perform optimization
     optimize( grad );
@@ -118,7 +118,7 @@ bool ChompOptimizerBase::checkFinished(ChompEventType event)
 {
     
     //get the new value of the objective
-    current_objective = gradient->evaluateObjective( trajectory );
+    current_objective = gradient->evaluateObjective();
 
 
     if ( canTimeout && stop_time < TimeStamp::now() ) {
