@@ -178,8 +178,7 @@ void ChompGradient::prepareRun(const Trajectory & traj,
     this->use_goalset = use_goalset;
 
     //resize the g, b, and ax matrices.
-    const int N = traj.isSubsampled() ? traj.sampledN() :
-                                        traj.N();
+    const int N = traj.fullN();
     const int M = traj.M();
 
     g.resize(N,M);
@@ -297,14 +296,8 @@ double ChompGradient::getGradient( unsigned n_by_m,
 
 double ChompGradient::evaluateObjective( Trajectory & traj ) const
 {
-    if ( traj.isSubsampled() ){
-        return 0.5 * mydot(traj.getSampledXi(), Ax) + 
-               mydot(traj.getSampledXi(), b) +
-               c + fextra;
-    }
-    
-    return 0.5 * mydot(traj.getXi(), Ax) + 
-           mydot(traj.getXi(), b) +
+    return 0.5 * mydot(traj.getFullXi(), Ax) + 
+           mydot(traj.getFullXi(), b) +
            c + fextra;
 }
 
@@ -322,10 +315,7 @@ inline void ChompGradient::computeSmoothnessGradient(
     //Performs the operation: A * x.
     //  (fill the matrix Ax, with the results.
     //
-    const MatMap & xi = (traj.isSubsampled() ? 
-                         traj.getSampledXi() : 
-                         traj.getXi() );
-
+    const MatMap & xi = traj.getFullXi();
     if( use_goalset ){
         diagMul(coeffs, coeffs_goalset, xi, Ax);
     } else { 

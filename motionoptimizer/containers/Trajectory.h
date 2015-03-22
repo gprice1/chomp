@@ -10,8 +10,9 @@ namespace chomp{
 class Trajectory {
   public:
 
-    double * data, * sampled_data, * cached_data;
-    MatMap xi, sampled_xi;
+    double * data, * cached_data;
+    DynamicMatMap xi;
+    MatMap full_xi;
 
     MatX q0, q1;
 
@@ -79,8 +80,9 @@ class Trajectory {
     void copyDataTo( double * copy ) const ;
     void copyDataTo( std::vector<double> & vec ) const;
 
-    MatMap const & getTraj()const { return xi; }
-    MatMap       & getTraj()      { return xi; }
+    const DynamicMatMap & getTraj()const { return xi; }
+    //ConstDynamicMatMap  & getTraj()      { return xi; }
+    
     void getTraj( std::vector<double> & vec ) const ;
     void getTraj( double * array ) const ;
 
@@ -101,10 +103,12 @@ class Trajectory {
         return xi( i, j );
     }
 
+    
     inline int N() const { return xi.rows(); }
     inline int M() const { return xi.cols(); }
 
-    inline int sampledN() const { return sampled_xi.rows(); }
+    inline int fullN() const { return full_xi.rows(); }
+    inline int fullM() const { return full_xi.cols(); }
 
     inline int rows() const { return xi.rows();}
     inline int cols() const { return xi.cols();}
@@ -124,11 +128,11 @@ class Trajectory {
     inline Col col( int i ){  return xi.col(i); }
     inline ConstCol col( int i ) const { return xi.col(i); }
 
-    inline MatMap const & getXi() const { return xi; } 
-    inline MatMap & getXi() { return xi; } 
+    inline const DynamicMatMap & getXi() const { return xi; } 
+    //inline DynamicMatMap & getXi() { return xi; } 
 
-    inline MatMap const & getSampledXi() const { return sampled_xi; } 
-    inline MatMap & getSampledXi() { return sampled_xi; } 
+    inline const MatMap & getFullXi() const { return full_xi; } 
+    //inline MatMap & getFullXi() { return full_xi; } 
 
     inline void setObjectiveType( ChompObjectiveType otype){
         objective_type = otype;
@@ -140,7 +144,8 @@ class Trajectory {
     void upsample();
     //upsample the trajectory until it is greater than Nmax.
     void upsampleTo( int Nmax );
-
+    
+    //upsample, respecting the given constraints.
     void constrainedUpsample( ConstraintFactory * factory,
                               double htol,
                               double hstep);
@@ -151,23 +156,22 @@ class Trajectory {
 
     //initialize from a matrix.
     void initialize(const MatX & traj);
-    void initialize(const std::vector<double> & traj, int M);
+    void initialize(const std::vector<double> & traj, int rows);
     void initialize(const std::vector<std::vector<double> > & traj);
-    void initialize(const double * traj, int M, int N);
+    void initialize(const double * traj, int rows, int cols);
     
     //initialize from two endpoints.
-    void initialize(const MatX & q0, const MatX & q1, int N);
-    void initialize( const MatX & q0, const MatX & q1 );
-
-    void initialize( const std::vector<double> & q0,
-                   const std::vector<double> & q1 );
-    void initialize( const std::vector<double> & q0,
-                   const std::vector<double> & q1,
-                   int N);
-    void initialize( const double * q0, const double * q1, int N);
-    void initialize( const double * q0, const double * q1,
-                             int M, int N);
-
+    void initialize( const MatX & pinit,
+                     const MatX & pgoal,
+                     int rows );
+    void initialize( const std::vector<double> & pinit,
+                     const std::vector<double> & pgoal,
+                     int rows);
+    void initialize( const double * pinit,
+                     const double * pgoal,
+                     int rows, int cols);
+    
+    
     //updates the trajectory via a matrix delta. Delta
     // must be the same size and shape as the trajectory,
     //  or the subsampled trajectory
@@ -177,21 +181,115 @@ class Trajectory {
     //updates the trajectory at the given row, by the vector delta,
     //  delta should have the same number of columns as the trajectory.
     template <class Derived>
-    void update( const Eigen::MatrixBase<Derived> & delta,
-                           int row);
-
+    void update( const Eigen::MatrixBase<Derived> & delta, int row);
+    
+    //a small helper function to get states that smoothly fall
+    //  off the positive and negative edges of the trajectory
     inline MatX getTick(int tick) const;
-
+    
+    //utility functions for turning the trajectory into a 
+    //  string, and then printing it.
     std::string toString() const;
     void print() const;
 
   private:
     void createInitialTrajectory(); 
-       
+
+    //copy over information 
+    template <class Derived>
+    void initializeData( const Eigen::MatrixBase<Derived> & traj );
+    
+    template <class Derived>
+    void initializeData( const Eigen::MatrixBase<Derived> & pinit,
+                         const Eigen::MatrixBase<Derived> & pgoal,
+                         int rows );
+
+    void remapXi( int n, int full_n, int m );
+
 };
+
+
+inline void Trajectory::remapXi( int n, int full_n, int m ){
+    
+    //find out which inner stride to use.
+    //  if full_n is not equal to n, then we are subsampling,
+    //  and the correct stride is 2, otherwise, the correct stride is 1.
+    const int inner_stride = full_n == n ? 1 : 2;
+    
+    new (&xi) DynamicMatMap( data, n, m, 
+                             DynamicStride(full_n, inner_stride) );
+    new (&full_xi) MatMap( data, full_n, m);
+}
 
 //definitions of the inline functions.
 
+//initialize the data from a preexistant matrix
+template <class Derived>
+inline void Trajectory::initializeData( 
+                               const Eigen::MatrixBase<Derived> & traj )
+{
+
+    q0 = traj.row(0);
+    q1 = traj.row( traj.rows() - 1 );
+
+    const int n = traj.rows() - 2;
+    const int m = traj.cols();
+
+    //if there is previously existant data,
+    //  delete it.
+    if (cached_data){ 
+        delete cached_data;
+        cached_data = NULL;
+    } else if (data){
+        delete data;
+    }
+
+    //allocate the data
+    data = new double[ n * m ];
+
+    //remap the data
+    remapXi( n, n, m );
+
+    //copy over the data from the trajectory
+    full_xi = traj.block( 1, 0, n, m );
+
+    dt = total_time / xi.rows()+1;
+    
+}
+
+//definitions of the inline functions.
+template <class Derived>
+inline void Trajectory::initializeData( 
+                               const Eigen::MatrixBase<Derived> & pinit,
+                               const Eigen::MatrixBase<Derived> & pgoal,
+                               int n )
+{
+    q0 = pinit;
+    q1 = pgoal;
+
+    const int m = q0.size();
+
+    //if there is previously existant data,
+    //  delete it.
+    if (cached_data){ 
+        delete cached_data;
+        cached_data = NULL;
+    } else if (data){
+        delete data;
+    }
+    
+    //allocate the data
+    data = new double[ n * m ];
+
+    //remap the data
+    remapXi( n, n, m );
+
+    //copy over the data from the trajectory
+    createInitialTrajectory();
+
+    dt = total_time / xi.rows()+1;
+    
+}
 
 
 inline MatX Trajectory::getTick(int tick) const
@@ -215,11 +313,6 @@ template <class Derived>
 inline void Trajectory::update(const Eigen::MatrixBase<Derived> & delta)
 {
     xi -= delta;
-    if (is_subsampled)
-    { 
-        SubMatMap( sampled_data, N(), M(),
-                  SubMatMapStride( sampledN(), 2 ) ) = xi;
-    }
 }
 
 template <class Derived>
@@ -227,11 +320,6 @@ inline void Trajectory::update(const Eigen::MatrixBase<Derived> & delta,
                                int index)
 {
     xi.row( index ) -= delta;
-    if (is_subsampled){
-        SubMatMap( sampled_data, N(), M(),
-                   SubMatMapStride( sampledN(),2 ) ).row(index)
-            = xi.row(index);
-    }
 }
 
 }//namespace

@@ -13,10 +13,9 @@ Trajectory::Trajectory( const MatX & q0, const MatX & q1, int N,
                         ChompObjectiveType o_type, 
                         double t_total ):
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),
+    full_xi(NULL, 0, 0),    
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -31,10 +30,9 @@ Trajectory::Trajectory( const std::vector<double> & pinit,
                         int N, ChompObjectiveType o_type, 
                         double t_total ):
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -48,10 +46,9 @@ Trajectory::Trajectory( const std::vector<double> & vec,
                         ChompObjectiveType o_type, 
                         double t_total ):
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -66,10 +63,9 @@ Trajectory::Trajectory(const MatX & xinit,
                        ChompObjectiveType o_type, 
                        double t_total ) : 
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     q0( pinit ), q1( pgoal ),
     objective_type( o_type ),
     total_time( t_total ),
@@ -92,10 +88,9 @@ Trajectory::Trajectory( const MatX & traj,
                         ChompObjectiveType o_type, 
                         double t_total) :
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -108,10 +103,9 @@ Trajectory::Trajectory(const std::vector<std::vector<double> > & traj,
                        ChompObjectiveType o_type, 
                        double t_total) :
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -124,10 +118,9 @@ Trajectory::Trajectory(const double * traj,
                        ChompObjectiveType o_type, 
                        double t_total) :
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     objective_type( o_type ),
     total_time( t_total ),
     is_subsampled(false)
@@ -137,10 +130,9 @@ Trajectory::Trajectory(const double * traj,
 
 Trajectory::Trajectory() : 
     data(NULL),
-    sampled_data(NULL),
     cached_data(NULL),
-    xi( NULL, 0, 0 ),    
-    sampled_xi( NULL, 0, 0 ),    
+    xi(NULL, 0, 0, DynamicStride(1,1) ),    
+    full_xi(NULL, 0, 0),    
     objective_type( MINIMIZE_ACCELERATION ),
     total_time( 1.0 ),
     is_subsampled(false)
@@ -165,11 +157,7 @@ Trajectory & Trajectory::operator= (const Trajectory & other)
             delete data;
             this->data = NULL;
         }
-        if (this->sampled_data){ 
-            delete sampled_data;
-            this->sampled_data = NULL;
-        }
-        
+
         //if there is data in the other.data array, copy it over
         //  and create the xi matrix
         if (other.data){ 
@@ -177,24 +165,20 @@ Trajectory & Trajectory::operator= (const Trajectory & other)
             std::copy( other.data, 
                        other.data + other.size(),
                        this->data );
-            new ( &(this->xi) ) MatMap( this->data,
-                                        other.N(),
-                                        other.M() );
-            
+
+            int inner = other.getXi().innerStride();
+            int outer = other.getXi().outerStride();
+
+            new ( &(this->full_xi) ) MatMap( this->data,
+                                             other.fullN(),
+                                             other.fullM() );
+            new ( &(this->xi) ) DynamicMatMap( 
+                                this->data,
+                                other.N(), other.M(),
+                                DynamicStride( inner, outer ) );
         }
 
-        //if there is data in the other.sampled_data array, copy it over
-        //  and create the sampled_xi matrix
-        if (other.sampled_data ){
-            this->sampled_data = new double[other.sampled_xi.size()];
-            std::copy( other.sampled_data, 
-                       other.sampled_data + other.sampled_xi.size(),
-                       this->sampled_data );
-            new ( &(this->sampled_xi) ) MatMap( this->sampled_data,
-                                        other.sampled_xi.rows(),
-                                        other.sampled_xi.cols() );
-        }
-        
+
         this->q0 = other.q0;
         this->q1 = other.q1;
 
@@ -205,7 +189,6 @@ Trajectory & Trajectory::operator= (const Trajectory & other)
         this->objective_type = other.objective_type;
 
         this->cached_data = NULL;
-
 
     }
     
@@ -225,35 +208,45 @@ void Trajectory::startGoalSet(){
     double * new_data = new double [ size() + M ];
 
     //copy the old data over to the new data vector
-    MatMap( new_data, N+1, M ).block(0,0, N, M) = xi;
+    MatMap( new_data, N+1, M ).block(0,0, N, M) = full_xi;
 
     //delete the old data, and replace it with new_data.
     delete data;
     data = new_data;
 
     //set the xi matrix map.
-    new (&xi) MatMap( data, N+1, M );
+    new (&xi) DynamicMatMap( data, N+1, M , DynamicStride(N,1));
+    new (&full_xi) MatMap( data, N+1, M );
+    
     xi.row( N ) = q1;
 }
 
 
 void Trajectory::endGoalSet(){
+    
     const int N = xi.rows();
     const int M = xi.cols();
 
     q1 = xi.row( N-1 ); 
         
-    //set the xi matrix map.
-    new (&xi) MatMap( data, N-1, M );
+    //copy the old data vector to a new data vector.
+    double * new_data = new double [ size() - M ];
+    new (&full_xi) MatMap( new_data, N-1, M );
 
-    //there is no need to reallocate the array,
-    //  because there is already enough room for it.
+    full_xi = xi.block(0,0, N-1, M);
+    
+    delete data;
+    data = new_data;
+    
+    //set the xi matrix map.
+    new (&xi) DynamicMatMap( data, N-1, M, DynamicStride(N-1,1));
 }
 
 void Trajectory::restoreData(){
     if (cached_data){
         data = cached_data;
         cached_data = NULL;
+        remapXi( fullN(), fullN(), M() );
     }
 }
 
@@ -261,25 +254,43 @@ void Trajectory::restoreData(){
 //This is dangerous, and it may be a bad idea.
 void Trajectory::setData( const double * new_data ){
     
-    if (cached_data == NULL ){ cached_data = data;}
-    data = const_cast<double*>(new_data);
+    //if we are subsampling, just copy the data over
+    if (is_subsampled){
+        xi = ConstMatMap( new_data, N(), M() );
 
-    const int N = xi.rows();
-    const int M = xi.cols();
-    
-    new (&xi) MatMap( data, N, M );
+    //if we are not subsampling, this are more complicated,
+    //  because we want to avoid copying all of the data,
+    //  in this case, we cache the data, if the data has not 
+    //  already been cached, and we set the data pointer
+    //  to the new data, making sure to change the mat mappings 
+    //  as well
+    } else {
+        
+        if (cached_data == NULL ){ cached_data = data;}
+        data = const_cast<double*>(new_data);
+
+        remapXi( N(), N(), M() );
+    }
 }
 
 void Trajectory::setData( double * new_data ){
     
-    if (cached_data == NULL ){ cached_data = data;}
-    
-    data = new_data;
-
-    const int N = xi.rows();
-    const int M = xi.cols();
-    
-    new (&xi) MatMap( data, N, M );
+    //if we are subsampling, just copy the data over
+    if (is_subsampled){
+        xi = MatMap( new_data, N(), M() );
+        
+    //if we are not subsampling, this are more complicated,
+    //  because we want to avoid copying all of the data,
+    //  in this case, we cache the data, if the data has not 
+    //  already been cached, and we set the data pointer
+    //  to the new data, making sure to change the mat mappings 
+    //  as well
+    } else {
+        
+        if (cached_data == NULL ){ cached_data = data;}
+        
+        remapXi( N(), N(), M() );
+    }
 }
 
 void Trajectory::copyToData( const std::vector<double> & vec ){
@@ -309,25 +320,13 @@ void Trajectory::subsample(){
     
     is_subsampled = true;
 
-    const int n = N();
+    const int n = full_xi.rows();
     const int n_sub = n/2 + 1;
     const int m = M();
 
-    //switch the old data into sampled_data,
-    //  and allocate a new data array for the 
-    //  subsampled data.
-    sampled_data = data;
-    data = new double [n_sub * m];
-    
-    //re-map the matrix maps
-    new (&xi) MatMap( data, n_sub, m );
-    new (&sampled_xi) MatMap( sampled_data, n, m );
+    //re-map the xi map
+    new (&xi) DynamicMatMap( data, n_sub, m, DynamicStride( n, 2 ));
 
-    //copy over the sampled data
-    for ( int i = 0; i < n_sub; i ++ ){
-        xi.row( i ) = sampled_xi.row( i*2);
-    }
-    
     debug_status( TAG, "subsample", "end" );
 }
 
@@ -335,22 +334,10 @@ void Trajectory::endSubsample(){
     assert( is_subsampled );
     is_subsampled = false;
 
-    const int n_sub = N();
-    const int n = n_sub*2 - 1;
+    const int n = full_xi.rows();
     const int m = M();
 
-    //copy over the newly calculated data. That is
-    //  housed in xi, into the sized n sampled matrix.
-    for ( int i = 0; i < n_sub; i ++ ){
-        sampled_xi.row( i*2 ) = xi.row( i );
-    }
-
-    delete data;
-    data = sampled_data;
-    sampled_data = NULL;
-
-    new (&xi) MatMap( data, n, m );
-    new (&sampled_xi) MatMap( NULL, 0 , 0 ); 
+    new (&xi) DynamicMatMap( data, n, m, DynamicStride(n,1) );
 
 }
 
@@ -391,7 +378,7 @@ void Trajectory::upsample()
     const int N_up = 2*N+1; // e.g. size 3 goes to size 7
     
     double * upsampled_data = new double [N_up*M];
-    MatMap xi_up(upsampled_data, N_up, M);
+    new (&full_xi) MatMap(upsampled_data, N_up, M);
 
     // q0    d0    d1    d2    q1   with n = 3
     // q0 u0 u1 u2 u3 u4 u5 u6 q1   with n = 7
@@ -409,13 +396,13 @@ void Trajectory::upsample()
         if (t % 2 == 0) {
 
             assert(t == N_up-1 || (t/2) < xi.rows());
-            assert(t < xi_up.rows());
+            assert(t < full_xi.rows());
 
             if (objective_type == MINIMIZE_VELOCITY) {
 
                 MatX qneg1 = getTick(t/2-1);
                 MatX qpos1 = getTick(t/2);
-                xi_up.row(t) = 0.5 * (qneg1 + qpos1);
+                full_xi.row(t) = 0.5 * (qneg1 + qpos1);
 
             } else { 
 
@@ -427,14 +414,13 @@ void Trajectory::upsample()
                 const double c3 = -1.0/160;
                 const double c1 = 81.0/160;
 
-                xi_up.row(t) = c3*qneg3 + c1*qneg1 + c1*qpos1 + c3*qpos3;
+                full_xi.row(t) = c3*qneg3 + c1*qneg1 + c1*qpos1 + c3*qpos3;
 
             }
 
         } else {
-            xi_up.row(t) = xi.row(t/2);
+            full_xi.row(t) = xi.row(t/2);
         }
-
     }
     
 
@@ -443,7 +429,8 @@ void Trajectory::upsample()
     
     //create the new matrix map, and set the data variable to the
     //  new data array. 
-    new (&xi) MatMap( upsampled_data, N_up, M);
+    new (&xi) DynamicMatMap( upsampled_data, N_up, M,
+                             DynamicStride( N_up, 1 ));
     data = upsampled_data;
     
     dt = total_time / xi.rows()+1;
@@ -503,44 +490,27 @@ void Trajectory::constrainedUpsampleTo( ConstraintFactory * factory,
 }
 
 void Trajectory::initialize(const MatX & traj)
-{
-    q0 = traj.row( 0 );
-    q1 = traj.row( traj.rows() - 1 );
-
-    data = new double[ (traj.rows()-2) * traj.cols() ];
-    new (&xi) MatMap( data, traj.rows()-2, traj.cols() );
-
-    xi = traj.block( 1, 0, traj.rows()-2, traj.cols() );
-
-    dt = total_time / xi.rows()+1;
+{   
+    initializeData( traj );
 }
 
-void Trajectory::initialize(const std::vector<double> & traj, int M)
+void Trajectory::initialize(const std::vector<double> & traj, int N)
 {
-    int N = traj.size() / M;
-    q0 = ConstMatMap( traj.data(), 1, M );
-    q1 = ConstMatMap( traj.data() + M*(N-1), 1, M );
-
-    data = new double[ traj.size()-2 ];
-    new (&xi) MatMap( data, N-2, M );
-
-    xi = ConstMatMapR( traj.data()+M, N-2, M );
-
-    dt = total_time / xi.rows()+1;
+    initializeData( ConstMatMapR( traj.data(), N, traj.size()/N ) );
 }
 
 void Trajectory::initialize(const std::vector< std::vector<double> > & traj)
 {
-    const int N = traj.size();
+    const int N = traj.size()-2;
     const int M = traj[0].size();
 
     q0 = ConstMatMap( traj[0].data(), 1, M );
     q1 = ConstMatMap( traj.back().data(), 1, M );
     
-    data = new double[ (N-2)*M  ];
-    new (&xi) MatMap( data, N-2, M);
+    data = new double[ N*M ];
+    remapXi( N, N, M );
 
-    for( int i = 0; i < N-2; i ++ ){
+    for( int i = 0; i < N; i ++ ){
         assert( traj[i+1].size() == size_t(M) );
         xi.row( i ) = ConstMatMap( traj[i+1].data(), 1 , M );
     }
@@ -549,100 +519,38 @@ void Trajectory::initialize(const std::vector< std::vector<double> > & traj)
     
 }
 
-void Trajectory::initialize(const double * traj, int M, int N)
+void Trajectory::initialize(const double * traj, int N, int M)
 {
-    q0 = ConstMatMap( traj, 1, M );
-    q1 = ConstMatMap( traj + M*(N-1), 1, M );
-
-    data = new double[ (N-2)*M  ];
-    new (&xi) MatMap( data, N-2, M);
-
-    xi = ConstMatMapR( traj+M, N-2, M );
-
-    dt = total_time / xi.rows()+1;
-    
+    initializeData( ConstMatMapR( traj, N, M ) );
 }
-
 
 void Trajectory::initialize(const MatX & pinit, const MatX & pgoal, int N)
 {
-    
-    debug_status( TAG, "initialize_N", "start");
-    const int M = pgoal.size();
-    
-    data = new double[ N*M  ];
-    new (&xi) MatMap( data, N, M);
-
-    initialize( pinit, pgoal );
-    debug_status( TAG, "initialize_N", "end");
+    initializeData( pinit, pgoal, N );
 }
 
-void Trajectory::initialize(const MatX & pinit, const MatX & pgoal )
-{
-
-    debug_status( TAG, "initialize_endpoints", "start");
-    q0 = pinit;
-    q1 = pgoal;
-
-    dt = total_time / xi.rows()+1;
-
-    createInitialTrajectory();
-    
-    debug_status( TAG, "initialize_endpoints", "end");
-}
 
 void Trajectory::initialize( const std::vector<double> & pinit,
                              const std::vector<double> & pgoal,
                              int N)
 {
-    
+    assert( pinit.size() == pgoal.size() );
+
     const int M = pinit.size();
-    data = new double[ N*M  ];
-    new (&xi) MatMap( data, N, M);
-
-    dt = total_time / xi.rows()+1;
     
-    initialize( pinit, pgoal );
-}
+    initializeData( ConstMatMap( pinit.data(), 1, M ),
+                    ConstMatMap( pgoal.data(), 1, M ),
+                    N );
 
-void Trajectory::initialize( const std::vector<double> & pinit,
-                             const std::vector<double> & pgoal )
-{
-
-    assert( xi.rows() != 0 );
-    
-    q0 = ConstMatMap( pinit.data(), 1, pinit.size() );
-    q1 = ConstMatMap( pgoal.data(), 1, pgoal.size() );
-
-    
-    createInitialTrajectory();
 }
 
 
-
-void Trajectory::initialize( const double * q0,
-                             const double * q1,
-                             int M, int N)
-{
-    
-    data = new double[ N*M ];
-    new (&xi) MatMap( data, N, M);
-    dt = total_time / xi.rows()+1;
-
-    initialize( q0, q1, M );
-}
-
-void Trajectory::initialize( const double * pinit, 
+void Trajectory::initialize( const double * pinit,
                              const double * pgoal,
-                             int M)
+                             int N, int M)
 {
-
-    assert( xi.rows() > 0 );
-
-    q0 = ConstMatMap( pinit, 1, M );
-    q1 = ConstMatMap( pgoal, 1, M );
-    
-    createInitialTrajectory();
+    initializeData( ConstMatMap( pinit, 1, M ),
+                    ConstMatMap( pgoal, 1, M ), N );
 }
 
 
@@ -659,8 +567,10 @@ void Trajectory::createInitialTrajectory()
     for ( int i=0; i < N; i ++ ){
 
         double t = double(i+1) / double(N+1);
-        xi.row( i ) = q0 + (q1-q0)*t;
+        full_xi.row( i ) = q0 + (q1-q0)*t;
     }
+    
+
     debug_status( TAG, "createInitialTrajectory", "start");
 }
 
@@ -687,8 +597,8 @@ std::string Trajectory::toString() const {
 }
 void Trajectory::print() const{
     std::cout << toString();
-
 }
+
 
 
 }//namespace

@@ -61,10 +61,12 @@ typedef const Eigen::Map< const MatX>  ConstMatMap;
 
 //this matrix map is used for subsampling a matrix. 
 typedef Eigen::Stride<Eigen::Dynamic,2> SubMatMapStride;
-typedef Eigen::Stride<Eigen::Dynamic,Eigen::Dynamic> DynamicStride;
-
 typedef Eigen::Map<MatX, 0, SubMatMapStride > SubMatMap; 
-typedef const Eigen::Map<const MatX, 0, SubMatMapStride > ConstSubMatMap; 
+typedef const Eigen::Map<const MatX, 0, SubMatMapStride > ConstSubMatMap;
+
+typedef Eigen::Stride<Eigen::Dynamic,Eigen::Dynamic> DynamicStride;
+typedef Eigen::Map<MatX, 0, DynamicStride > DynamicMatMap; 
+typedef const Eigen::Map<const MatX, 0, DynamicStride > ConstDynamicMatMap;
 
 typedef Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, 
                        Eigen::RowMajor> MatXR;
@@ -72,17 +74,11 @@ typedef Eigen::Map<MatXR> MatMapR;
 typedef const Eigen::Map<const MatXR> ConstMatMapR;
 typedef Eigen::Map<MatXR, 0, Eigen::OuterStride<> > SubMatMapR; 
 
-typedef Eigen::Block<MatMap, 1, Eigen::Dynamic> Row;
-typedef const Eigen::Block< const MatMap, 1, Eigen::Dynamic> ConstRow;
-typedef Eigen::Block<MatMap, Eigen::Dynamic, 1, Eigen::Dynamic> Col;
-typedef const Eigen::Block< const MatMap, Eigen::Dynamic,
+typedef Eigen::Block<DynamicMatMap, 1, Eigen::Dynamic> Row;
+typedef const Eigen::Block<const DynamicMatMap, 1, Eigen::Dynamic> ConstRow;
+typedef Eigen::Block<DynamicMatMap, Eigen::Dynamic, 1, Eigen::Dynamic> Col;
+typedef const Eigen::Block< const DynamicMatMap, Eigen::Dynamic,
                             1, Eigen::Dynamic> ConstCol;
-
-typedef Eigen::Block<SubMatMap, 1, Eigen::Dynamic> SubRow;
-typedef const Eigen::Block< const SubMatMap, 1, Eigen::Dynamic> ConstSubRow;
-typedef Eigen::Block<SubMatMap, Eigen::Dynamic, 1, Eigen::Dynamic> SubCol;
-typedef const Eigen::Block< const SubMatMap, Eigen::Dynamic, 1,
-                            Eigen::Dynamic> ConstSubCol;
 
 
 /////////////////forward class declarations///////////////
