@@ -11,6 +11,6 @@ target_link_libraries(circle_demo ${demo_libs})
 #add_executable(circle_goalset_demo circle_goalset_demo.cpp)
 #target_link_libraries(circle_goalset_demo ${demo_libs})
 
-#add_executable(map2d_demo map2d_demo.cpp Map2D.cpp)
-#target_link_libraries(map2d_demo ${demo_libs})
+add_executable(map2d_demo map2d_demo.cpp Map2D.cpp)
+target_link_libraries(map2d_demo ${demo_libs})
 

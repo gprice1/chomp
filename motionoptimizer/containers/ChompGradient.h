@@ -112,6 +112,8 @@ class ChompGradient {
     
     ChompGradientHelper* ghelper;
     
+    //TODO decide to keep this here and take it out of trajectory,
+    //  or remove this. 
     ChompObjectiveType objective_type;
     
     int iteration;
@@ -145,6 +147,11 @@ class ChompGradient {
 
     ~ChompGradient(){}
     
+    inline void setGradientHelper( ChompGradientHelper* help ){
+        ghelper = help;
+    }
+    inline ChompGradientHelper * getGradientHelper(){ return ghelper; }
+
     //prepares chomp to be run at a resolution level
     void prepareRun( const Trajectory & traj,
                      bool use_goalset=false);

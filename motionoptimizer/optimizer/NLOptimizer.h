@@ -20,6 +20,8 @@ class NLOptimizer : public OptimizerBase{
 
     int iteration;
 
+    static const char * TAG;
+
     static const ChompEventType event = NLOPT_ITER;
 
     NLOptimizer( Trajectory & traj,

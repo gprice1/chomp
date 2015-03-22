@@ -130,6 +130,12 @@ class Trajectory {
     inline MatMap const & getSampledXi() const { return sampled_xi; } 
     inline MatMap & getSampledXi() { return sampled_xi; } 
 
+    inline void setObjectiveType( ChompObjectiveType otype){
+        objective_type = otype;
+    }
+    inline ChompObjectiveType getObjectiveType(){return objective_type;}
+
+    
     //upsample the trajectory by two times.
     void upsample();
     //upsample the trajectory until it is greater than Nmax.

@@ -54,7 +54,7 @@ class MotionOptimizer {
 
     Constraint * goalset;
 
-    double obstol, timeout_seconds;
+    double obstol, timeout_seconds, alpha;
     size_t max_iterations;
 
     MatX lower_bounds, upper_bounds;
@@ -70,7 +70,7 @@ class MotionOptimizer {
                      size_t max_iter = size_t(-1),
                      const MatX & lower_bounds=MatX(0,0),
                      const MatX & upper_bounds=MatX(0,0),
-                     OptimizationAlgorithm algorithm1 = GLOBAL_CHOMP,
+                     OptimizationAlgorithm algorithm1 = VAR2_NLOPT,
                      OptimizationAlgorithm algorithm2 = LOCAL_CHOMP,
                      int N_max = 0);
 
@@ -135,6 +135,9 @@ class MotionOptimizer {
     inline void dontSubsample(){ do_subsample = false; }
     inline void doSubsample(){ do_subsample = true; }
     inline void setSubsample( bool subsample ){ do_subsample = subsample;}
+    
+    inline void setAlpha( double a ){ alpha = a; }
+    inline double getAlpha(){ return alpha; }
 
 };
 

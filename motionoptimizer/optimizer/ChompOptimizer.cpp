@@ -66,7 +66,7 @@ void ChompOptimizer::optimize( const MatX & g) {
 
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
-    if ( factory ){
+    if ( factory && !factory->empty() ){
 
         const int constraint_dims = factory->numOutput();
         
@@ -95,7 +95,7 @@ void ChompOptimizer::optimize( const MatX & g) {
     //If there are no constraints,
     //  run the update without constraints.
     if (H.rows() == 0) {
-
+        debug_status( TAG, "optimize" , "start unconstrained" );
         skylineCholSolve(L, g);
       
         //if we are using momentum, add the gradient into the
@@ -106,6 +106,8 @@ void ChompOptimizer::optimize( const MatX & g) {
         }
         else { trajectory.update( g * alpha ) ; }
 
+        debug_status( TAG, "optimize" , "end unconstrained" );
+        
     //chomp update with constraints
     } else {
       

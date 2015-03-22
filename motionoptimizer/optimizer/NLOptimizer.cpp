@@ -6,6 +6,7 @@
 
 namespace chomp {
 
+const char * NLOptimizer::TAG = "NLOptimizer";
 
 const std::string getNLoptReturnString( nlopt::result & result ){
     if ( result == nlopt::SUCCESS ){ return "SUCCESS"; }
@@ -41,7 +42,8 @@ NLOptimizer::~NLOptimizer(){}
 
 void NLOptimizer::solve()
 {
-    
+    debug_status( TAG, "solve", "start" );
+
     notify(CHOMP_INIT, 0, current_objective, -1, 0);
     
     //create the optimizer
@@ -51,24 +53,28 @@ void NLOptimizer::solve()
     if ( timeout_seconds > 0){optimizer.set_maxtime(timeout_seconds);}
     if ( obstol > 0 ){optimizer.set_ftol_rel( obstol ); }
     
-    debug << "MaxIter: " << max_iter << std::endl;
     if ( max_iter > 0 ){ optimizer.set_maxeval( max_iter ); }
 
     //prepare the constraints for optimization.
     //  This MUST be called before set_min_objective and giveBoundsToNLopt,
     //  because prepareNLoptConstraints can change the optimization
     //  routine.
-    if ( factory ){  prepareNLoptConstraints( optimizer ); }
+    if ( factory && !factory->empty() ){ 
+        prepareNLoptConstraints( optimizer );
+    }
     giveBoundsToNLopt( optimizer );
 
     //set the objective function and the termination conditions.
     optimizer.set_min_objective( objectiveFunction, this );
+    
+    debug_status( TAG, "solve", "before copying data" );
     
     //call the optimization routine, get the result and the value
     //  of the objective function.
     std::vector<double> optimization_vector;
     trajectory.copyDataTo( optimization_vector );
     
+    debug_status( TAG, "solve", "pre-optimize" );
     //many of the optimizer algorithms fail, but still return very good
     //  trajectories, so catch the failures and return the trajectory,
     //  even if failure occurs.
@@ -77,6 +83,8 @@ void NLOptimizer::solve()
     }catch( std::exception & e ){
         std::cout << "Caught exception: " << e.what() << std::endl;
     }
+    
+    debug_status( TAG, "solve", "post-optimize" );
     
     trajectory.restoreData();
     
@@ -87,6 +95,8 @@ void NLOptimizer::solve()
             last_objective, 0);
     std::cout << "Finished with exit code: "
               << getNLoptReturnString(result) << "\n";
+
+    debug_status( TAG, "solve", "end" );
 
 }
 

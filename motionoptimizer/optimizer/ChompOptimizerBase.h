@@ -61,6 +61,9 @@ class ChompOptimizerBase : public OptimizerBase{
     
     void solve();
 
+    inline void setAlpha( double a ){ alpha = a; }
+    inline double getAlpha( ){ return alpha ; }
+
   protected:
 
     virtual void optimize( const MatX & grad)=0;

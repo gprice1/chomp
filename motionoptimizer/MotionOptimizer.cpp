@@ -43,6 +43,7 @@ MotionOptimizer::MotionOptimizer(ChompObserver * observer,
     do_subsample( true ),
     obstol( obstol ),
     timeout_seconds( timeout_seconds ),
+    alpha( -1 ),
     max_iterations( max_iter ),
     lower_bounds( lower_bounds ),
     upper_bounds( upper_bounds ),
@@ -87,6 +88,9 @@ void MotionOptimizer::solve(){
 void MotionOptimizer::optimize( OptimizerBase * optimizer, 
                                 bool subsample ){
     
+    //if the optimizer is NULL, do not evaluate it.
+    if ( !optimizer ) { return; }
+
     debug_status( TAG, "optimize", "start");
 
     if( subsample ){ trajectory.subsample(); }
@@ -113,17 +117,25 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
     //TODO include other optimization schemes
 
     if ( alg == GLOBAL_CHOMP ){
-        return new ChompOptimizer(trajectory, &factory, 
+        ChompOptimizer * opt = new ChompOptimizer(
+                                  trajectory, &factory, 
                                   &gradient, observer, 
                                   obstol, timeout_seconds,
                                   max_iterations, 
                                   lower_bounds, upper_bounds );
+        if (alpha > 0){ opt->setAlpha( alpha ); }
+        return opt;
+        
     } else if ( alg == LOCAL_CHOMP ){
-        return new ChompLocalOptimizer(trajectory, &factory, 
-                                  &gradient, observer, 
-                                  obstol, timeout_seconds,
-                                  max_iterations, 
-                                  lower_bounds, upper_bounds );
+        ChompLocalOptimizer * opt = new ChompLocalOptimizer(
+                                      trajectory, &factory, 
+                                      &gradient, observer, 
+                                      obstol, timeout_seconds,
+                                      max_iterations, 
+                                      lower_bounds, upper_bounds );
+        if (alpha > 0){ opt->setAlpha( alpha ); }
+        return opt;
+        
     } else if ( alg > GLOBAL_CHOMP && alg < NONE){
 #ifdef NLOPT_FOUND
         NLOptimizer * opt = new NLOptimizer(

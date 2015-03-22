@@ -34,7 +34,7 @@
 #include "Map2D.h"
 #include <png.h>
 #include <getopt.h>
-#include "Chomp.h"
+#include "MotionOptimizer.cpp"
 
 using namespace chomp;
 
@@ -180,28 +180,22 @@ public:
 //////////////////////////////////////////////////////////////////////
 // help generate an an initial trajectory
 
-void generateInitialTraj(int N, 
+void generateInitialTraj(MotionOptimizer & chomper,
+                         int N, 
                          const Map2D& map, 
                          const vec2f& p0, 
                          const vec2f& p1,
-                         MatX& xi,
                          MatX& q0,
                          MatX& q1) {
   
-  xi.resize(N, 2);
   q0.resize(1, 2);
   q1.resize(1, 2);
 
   q0 << p0.x(), p0.y();
   q1 << p1.x(), p1.y();
 
-  for (int i=0; i<N; ++i) {
-    float u = float(i+1)/(N+1);
-    vec2f pi = p0 + u*(p1-p0);
-    xi(i,0) = pi.x();
-    xi(i,1) = pi.y();
-  }
-
+  chomper.trajectory.initialize( q0, q1, N );
+  
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -286,7 +280,7 @@ public:
 
   }
 
-  virtual int notify(const ChompOptimizerBase& chomper, 
+  virtual int notify(const OptimizerBase& chomper, 
                      ChompEventType event,
                      size_t iter,
                      double curObjective,
@@ -325,7 +319,7 @@ public:
     cairo_set_line_width(cr, 1.0*cs);
     cairo_set_source_rgb(cr, 0.0, 0.1, 0.5);
 
-    int N = chomper.N;
+    int N = chomper.trajectory.N();
 
     for (int i=0; i<N; ++i) {
       vec3f pi(xi_init(i,0), xi_init(i,1), 0.0);
@@ -333,8 +327,8 @@ public:
       cairo_fill(cr);
     }
 
-    const MatX& q0 = chomper.gradient->q0;
-    const MatX& q1 = chomper.gradient->q1;
+    const MatX& q0 = chomper.trajectory.getQ0();
+    const MatX& q1 = chomper.trajectory.getQ1();
 
     cairo_set_source_rgb(cr, 0.5, 0.0, 1.0);
     cairo_arc(cr, q0(0), q0(1), 4*cs, 0.0, 2*M_PI);
@@ -343,7 +337,7 @@ public:
     cairo_fill(cr);
 
     for (int i=0; i<N; ++i) {
-      vec3f pi(chomper.xi(i,0), chomper.xi(i,1), 0.0);
+      vec3f pi(chomper.trajectory(i,0), chomper.trajectory(i,1), 0.0);
       cairo_arc(cr, pi.x(), pi.y(), 2*cs, 0.0, 2*M_PI);
       cairo_fill(cr);
     }
@@ -457,7 +451,7 @@ int main(int argc, char** argv) {
   savePNG_RGB24("occupancy.png", map.grid.nx(), map.grid.ny(), 
                 map.grid.nx()*4, &buf[0], true);
 
-  MatX q0, q1, xi;
+  MatX q0, q1;
 
   Map2DCHelper mhelper(map);
   ChompCollGradHelper cghelper(&mhelper, gamma);
@@ -467,17 +461,18 @@ int main(int argc, char** argv) {
     p0 = map.grid.bbox().p0.trunc();
     p1 = map.grid.bbox().p1.trunc();
   }
-
-  generateInitialTraj(N, map, p0, p1, xi, q0, q1);
+  
+  //TODO include the alpha somehow.
+  MotionOptimizer chomper( NULL, errorTol, 0, max_iter );
+  generateInitialTraj(chomper, N, map, p0, p1, q0, q1);
     
-  std::cout << "xi: \n" << xi << std::endl;
-
-  Chomp chomper(NULL, xi, q0, q1, N, alpha, errorTol, max_iter);
-  chomper.objective_type = otype;
-  chomper.gradient->ghelper = &cghelper;
+  chomper.trajectory.setObjectiveType( otype );
+  chomper.gradient.ghelper = &cghelper;
 
   DebugChompObserver dobs;
   chomper.observer = &dobs;
+
+  chomper.setAlpha( alpha );
 
 #ifdef MZ_HAVE_CAIRO
 
@@ -491,13 +486,14 @@ int main(int argc, char** argv) {
             p0.x(), p0.y(), p1.x(), p1.y());
 
 
-    pe = new PdfEmitter(map, xi, pdf, buf);
+    pe = new PdfEmitter(map, chomper.trajectory.getXi(), pdf, buf);
     chomper.observer = pe;
   }
 
 #endif
-    
-  chomper.solve(true, false);
+  
+  chomper.dontSubsample();
+  chomper.solve();
 
 #ifdef MZ_HAVE_CAIRO
   delete pe;
