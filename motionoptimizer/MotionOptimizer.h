@@ -67,8 +67,8 @@ class MotionOptimizer {
                      size_t max_iter = size_t(-1),
                      const MatX & lower_bounds=MatX(0,0),
                      const MatX & upper_bounds=MatX(0,0),
-                     OptimizationAlgorithm algorithm1 = GLOBAL_CHOMP,
-                     OptimizationAlgorithm algorithm2 = LOCAL_CHOMP,
+                     OptimizationAlgorithm algorithm1 = VAR2_NLOPT,
+                     OptimizationAlgorithm algorithm2 = NONE,
                      int N_max = 0);
 
     void solve();
@@ -153,6 +153,12 @@ class MotionOptimizer {
     inline ChompObserver * getObserver(){ return observer; }
     inline const ChompObserver * getObserver() const { return observer; }
 
+    inline void doCovariantOptimization()
+                { problem.doCovariantOptimization(); }
+    inline void dontCovariantOptimization()
+                { problem.dontCovariantOptimization(); }
+    inline bool isCovariantOptimization()
+                { return problem.isCovariantOptimization(); }
 
 };
 

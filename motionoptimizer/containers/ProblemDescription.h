@@ -19,17 +19,22 @@ private:
     ChompGradient gradient;
     ConstraintFactory factory;
 
+    //in the case that we are doing covariant optimization,
+    //  this trajectory holds the covariant state
+    Trajectory covariant_trajectory;
+
     MatX lower_bounds, upper_bounds;
     
     Constraint * goalset;
 
     //This is true, if prepareRun has been called since the
     //  last change to the trajectory, or goalset has been made.
-    bool ok_to_run, use_goalset;
+    bool ok_to_run, ok_to_sample, use_goalset, is_covariant;
 
 public:
     
     ProblemDescription();
+    ~ProblemDescription();
 
     void upsample();
     void subsample();
@@ -88,15 +93,20 @@ public:
     double evaluateObjective();
     double evaluateObjective( const double * xi );
     
+    inline void doCovariantOptimization(){ is_covariant = true; }
+    inline void dontCovariantOptimization(){ is_covariant = false; }
+
+    inline bool isCovariantOptimization(){ return is_covariant; }
 
 private:
 
     void prepareRun();
+    void prepareSample();
+    void prepareCovariant( const double * xi = NULL );
+    
     void startGoalset();
     void stopGoalset();
     
-
-
 };//Class ProblemDescription
 
 

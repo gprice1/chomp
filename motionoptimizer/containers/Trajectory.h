@@ -192,8 +192,13 @@ class Trajectory {
     //  string, and then printing it.
     std::string toString() const;
     void print() const;
+    
 
-    void translate( MatX translation_matrix, Trajectory & other ) const;
+    void getCovariantTrajectory( const MatX & translation_matrix,
+                                 Trajectory & other ) const;
+    void getNonCovariantTrajectory( const MatX & translation_matrix,
+                                    Trajectory & other) const; 
+    void copyDataToOther(Trajectory & other ) const;
 
   private:
     void createInitialTrajectory(); 

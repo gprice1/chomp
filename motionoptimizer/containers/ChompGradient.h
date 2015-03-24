@@ -121,6 +121,7 @@ class ChompGradient {
     MatX g_full; // a working variable for use when calculating
                  // the gradient of a subsampled trajectory
     MatX b; // endpoint vectors for this problem of size N-by-M
+    
     double c; // c value for objective function
 
     bool use_goalset;
@@ -139,33 +140,40 @@ class ChompGradient {
 
     //prepares chomp to be run at a resolution level
     void prepareRun( const Trajectory & trajectory,
-                     bool use_goalset=false);
+                     bool use_goalset=false,
+                     bool is_covariant=false);
 
     //gets the L or L_sub matrices for use in multiplying by
     //  the metric
     inline const MatX& getLMatrix() const {return L; }
     inline const MatX& getLsubMatrix() const {return L_sub; }
-   
+    
+    inline const MatX& getBMatrix() const {return b; } 
+    
     //evaluate the gradient of the objective function
     //  at the current trajectory
     template <class Derived>
     void evaluate( const Trajectory & trajectory,
-                   const Eigen::MatrixBase<Derived> & g );
+                   const Eigen::MatrixBase<Derived> & g,
+                   const Trajectory * covariant_trajectory = NULL );
 
     //evaluate the collision gradient supplied by ghelper.
     template <class Derived>
     void evaluateCollision( const Trajectory & trajectory,
-                            const Eigen::MatrixBase<Derived> & g );
+                            const Eigen::MatrixBase<Derived> & g,
+                            bool is_covariant = false );
 
     //evaluate the smoothness gradient
     template <class Derived>
     void evaluateSmoothness( const Trajectory & trajectory,
-                             const Eigen::MatrixBase<Derived> & g );
-
+                             const Eigen::MatrixBase<Derived> & g,
+                             bool is_covariant = false );
+    
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.
-    double evaluateObjective( const Trajectory & trajectory ) const;
+    double evaluateObjective( const Trajectory & trajectory,
+                              bool is_covariant = false ) const;
     
   private:
 

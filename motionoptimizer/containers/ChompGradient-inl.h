@@ -22,15 +22,22 @@ inline void ChompGradient::subsampleGradient(int N_sub,
 template <class Derived>
 inline void ChompGradient::evaluate(
                            const Trajectory & trajectory,
-                           const Eigen::MatrixBase<Derived> & g)
+                           const Eigen::MatrixBase<Derived> & g,
+                           const Trajectory * covariant_trajectory )
 {
     debug_status( TAG, "evaluate", "start" );
-
+    
+    const bool is_covariant = ( covariant_trajectory != NULL );
+    
     if ( trajectory.isSubsampled() ){
         g_full.resize( trajectory.fullN(), trajectory.M() );
 
         //compute the smoothness gradient on a full-size trajectory.
-        evaluateSmoothness( trajectory, g_full );
+        if ( is_covariant ){
+            evaluateSmoothness( *covariant_trajectory, g_full, true);
+        }else {
+            evaluateSmoothness( trajectory, g_full, false );
+        }
 
         //There is no reason to compute collision gradients
         //  on a subsampled trajectory, because even if there are
@@ -41,9 +48,13 @@ inline void ChompGradient::evaluate(
         subsampleGradient(trajectory.N(), g );
         
     } else {
-
-        evaluateSmoothness( trajectory, g );
-        evaluateCollision( trajectory, g );
+        if ( is_covariant ){
+            evaluateSmoothness( *covariant_trajectory, g, true);
+        }else {
+            evaluateSmoothness( trajectory, g, false );
+        }
+        
+        evaluateSmoothness( trajectory, g, is_covariant );
     }
         
     debug_status( TAG, "evaluate", "end" );
@@ -52,35 +63,41 @@ inline void ChompGradient::evaluate(
 template <class Derived>
 inline void ChompGradient::evaluateSmoothness(
                     const Trajectory & trajectory,
-                    const Eigen::MatrixBase<Derived> & g_const)
+                    const Eigen::MatrixBase<Derived> & g_const,
+                    bool is_covariant)
 {
     debug_status( TAG, "computeSmoothnessGradient", "start" );
     
     //cast away the const-ness of g_const
-    Eigen::MatrixBase<Derived>& grad = 
+    Eigen::MatrixBase<Derived>& g = 
         const_cast<Eigen::MatrixBase<Derived>&>(g_const);
+    
+    if (is_covariant){
+        g = trajectory.getFullXi() + b;
+    }else {
+        
+        //Performs the operation: A * x.
+        //  (fill the matrix Ax, with the results.
 
-    //Performs the operation: A * x.
-    //  (fill the matrix Ax, with the results.
-    //
-    const MatMap & xi = trajectory.getFullXi();
-    
-    if( use_goalset ){
-        diagMul(coeffs, coeffs_goalset, xi, Ax);
-    } else { 
-        diagMul(coeffs, xi, Ax);
+        if( use_goalset ){
+            diagMul(coeffs, coeffs_goalset, trajectory.getFullXi(), Ax);
+        } else { 
+            diagMul(coeffs, trajectory.getFullXi(), Ax);
+        }
+        
+        //add in the b matrix to get the contribution from the
+        //  endpoints, and set this equal to the gradient.
+        g = Ax + b; 
     }
-    
-    //add in the b matrix to get the contribution from the
-    //  endpoints, and set this equal to the gradient.
-    grad = Ax + b; 
 
     debug_status( TAG, "computeSmoothnessGradient", "end" );
 }
 
 template <class Derived>
-inline void ChompGradient::evaluateCollision( const Trajectory & trajectory,
-                        const Eigen::MatrixBase<Derived> & g_const )
+inline void ChompGradient::evaluateCollision(
+                        const Trajectory & trajectory,
+                        const Eigen::MatrixBase<Derived> & g_const,
+                        bool is_covariant )
 {
 
     //If there is a gradient helper, add in the contribution from
@@ -88,14 +105,16 @@ inline void ChompGradient::evaluateCollision( const Trajectory & trajectory,
     //  associated with the additional gradient.
     if (ghelper) {
         //TODO : this method seems hacky, and is unfortunately slow.
-        MatX g_temp = MatX::Zero( g_const.rows(), g_const.cols() );
-        fextra = ghelper->addToGradient(trajectory, g_temp);
+        MatX g_full = MatX::Zero( g_const.rows(), g_const.cols() );
+        fextra = ghelper->addToGradient(trajectory, g_full);
 
             //cast away the const-ness of g_const
         Eigen::MatrixBase<Derived>& g = 
             const_cast<Eigen::MatrixBase<Derived>&>(g_const);
-
-        g += g_temp;
+        
+        //if the problem is covariant, get the covariant gradient step
+        if ( is_covariant ) { skylineCholMultiplyInverse( L, g_full ); }
+        g += g_full;
         
     } else {
         fextra = 0;

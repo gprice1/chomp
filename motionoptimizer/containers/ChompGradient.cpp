@@ -144,7 +144,8 @@ ChompGradient::ChompGradient() :
 const char* ChompGradient::TAG = "ChompGradient";
 
 void ChompGradient::prepareRun(const Trajectory & trajectory,
-                               bool use_goalset)
+                               bool use_goalset,
+                               bool is_covariant)
 {
     debug_status( TAG, "prepareRun", "start" );
 
@@ -181,14 +182,22 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
     if( trajectory.isSubsampled() ){
         skylineChol( trajectory.N(), coeffs_sub, L_sub); 
     }
+
+    if( is_covariant ){ skylineCholMultiplyInverse( L, b ); }
+    
     debug_status( TAG, "prepareRun", "start" );
 }
 
     
 
 
-double ChompGradient::evaluateObjective(const Trajectory & trajectory) const
+double ChompGradient::evaluateObjective(const Trajectory & trajectory,
+                                        bool is_covariant) const
 {
+    if ( is_covariant ){
+        return 0.5 * mydot( trajectory.getFullXi(), trajectory.getFullXi() )
+               + mydot( trajectory.getFullXi(), b ) + c + fextra;
+    }
     return 0.5 * mydot(trajectory.getFullXi(), Ax) + 
            mydot(trajectory.getFullXi(), b) +
            c + fextra;

@@ -596,36 +596,47 @@ void Trajectory::print() const{
     std::cout << toString();
 }
 
-void Trajectory::translate( MatX translation_matrix,
-                            Trajectory & other ) const
+void Trajectory::getNonCovariantTrajectory( const MatX & translation_matrix,
+                                            Trajectory & other ) const
 {
+    copyDataToOther( other );
+    skylineCholMultiplyInverseTranspose( translation_matrix,
+                                         other.full_xi );
+}
 
+void Trajectory::getCovariantTrajectory( const MatX & translation_matrix,
+                                         Trajectory & other ) const
+{
+    copyDataToOther( other );
+    skylineCholMultiplyTranspose( translation_matrix, other.full_xi );
+}
+
+void Trajectory::copyDataToOther( Trajectory & other ) const{
+    
+    //set up the shape of the matrix
     if ( other.fullN() != this->fullN() ){
 
         if (other.data){  delete other.data; }
 
         const int N = this->fullN();
+        const int N_sub = this->N();
         const int M = this->M();
 
         other.data = new double [ N * M ];
-        other.remapXi( N, N, M );
+        other.remapXi( N, N_sub, M );
 
         other.dt = this->dt;
         other.total_time = this->total_time;
 
+    }else if ( other.N() != this->N() ){
+        other.remapXi( this->fullN(), this->N(), this->M());
     }
 
-    other.q0 = this->q0;
-    other.q1 = this->q1;
-
-    other.is_subsampled = other.is_subsampled;
-    other.objective_type = other.objective_type;
-
-    other.cached_data = NULL;
+    other.is_subsampled = this->is_subsampled;
+    other.objective_type = this->objective_type;
 
     //copy over the data.
     other.full_xi = this->full_xi;
-    skylineCholMultiplyInverse( translation_matrix, other.full_xi );
 }
 
 
