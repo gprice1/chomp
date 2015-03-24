@@ -48,7 +48,7 @@ class ChompLocalOptimizer : public ChompOptimizerBase {
                          size_t max_iter = size_t(-1)); 
 
   protected:
-    void optimize(const MatX & grad );
+    void optimize();
 
 };
 

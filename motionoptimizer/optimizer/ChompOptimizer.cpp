@@ -54,7 +54,7 @@ ChompOptimizer::ChompOptimizer(ProblemDescription & problem,
 }
 
 // single iteration of chomp
-void ChompOptimizer::optimize( const MatX & g) { 
+void ChompOptimizer::optimize() { 
     
     debug_status( TAG, "optimize", "start" );
     const MatX& L = problem.getLMatrix();
@@ -64,6 +64,8 @@ void ChompOptimizer::optimize( const MatX & g) {
     if ( problem.isConstrained() ){
         constraint_magnitude = problem.evaluateConstraint(h, H);
     }
+    
+    debug_status( TAG, "optimize", "after getting constraints" );
 
     //If there are no constraints,
     //  run the update without constraints.
@@ -83,16 +85,23 @@ void ChompOptimizer::optimize( const MatX & g) {
         
     //chomp update with constraints
     } else {
+        debug_status( TAG, "optimize", "simple stuff" );
       
         const int M = problem.M();
         const int N = problem.N();
+        
+        debug_status( TAG, "optimize", "before equals" );
 
         P = H;
+
+        debug_status( TAG, "optimize", "after equals" );
         
         // TODO: see if we can make this more efficient?
         for (int i=0; i<P.cols(); i++){ 
             skylineCholSolveMulti(L, P.col(i));
         }
+
+        debug_status( TAG, "optimize", "after first skyline" );
 
         //debug << "H = \n" << H << "\n";
         //debug << "P = \n" << P << "\n";
@@ -118,6 +127,8 @@ void ChompOptimizer::optimize( const MatX & g) {
 
         Y = cholSolver.solve(h);
 
+        debug_status( TAG, "optimize", "middle constraint step eval" );
+        
         //handle momentum if we need to.
         if (use_momentum){
             MatMap momentum_flat( momentum.data(), newsize, 1);

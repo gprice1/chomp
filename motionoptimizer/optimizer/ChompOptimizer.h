@@ -61,7 +61,7 @@ class ChompOptimizer : public ChompOptimizerBase {
     ~ChompOptimizer(){}
     
   protected: 
-    void optimize( const MatX & g);
+    void optimize();
 
 };
 

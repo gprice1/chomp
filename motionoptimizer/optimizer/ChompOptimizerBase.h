@@ -33,7 +33,7 @@ class ChompOptimizerBase : public OptimizerBase{
     size_t min_iter;
    
     bool use_momentum;
-    MatX grad, momentum;
+    MatX g, momentum;
     
     //an HMC object for performing the Hamiltonian Monte Carlo method
     HMC * hmc;
@@ -53,7 +53,7 @@ class ChompOptimizerBase : public OptimizerBase{
 
   protected:
 
-    virtual void optimize( const MatX & grad)=0;
+    virtual void optimize()=0;
 
   private:
     

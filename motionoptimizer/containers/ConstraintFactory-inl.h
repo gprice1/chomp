@@ -24,16 +24,13 @@ double ConstraintFactory::evaluate(
     int N = trajectory.rows();
     H_tot.setZero();    
     
-    debug << "N: " << N << " --- Constraints: "
-          << constraints.size() << std::endl; 
     debug_assert(size_t( N ) == constraints.size());
 
     MatX h, H; // individual constraints at time t
     
     debug_status( TAG, "evaluate", "end" );
     
-    //TODO there was a "Floating point exception: 8" error
-    //in this block of code between here 
+
     for (int i=0, row=0; size_t(i) < constraints.size(); ++i) {
 
         Constraint* c = constraints[i];
@@ -63,9 +60,10 @@ double ConstraintFactory::evaluate(
         }
     }  
 
-    //TODO return the magnitude of the constraint violations
-    return 0;
     debug_status( TAG, "evaluate", "end" );
+    
+    //TODO return the magnitude of the constraint violations
+    return h.lpNorm<Eigen::Infinity>();
 }
 
 
@@ -99,7 +97,7 @@ double ConstraintFactory::evaluate(
     }  
     
     //TODO return the magnitude of the constraint violations
-    return 0;
+    return h.lpNorm<Eigen::Infinity>();
 
 }
 

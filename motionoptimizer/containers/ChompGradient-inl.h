@@ -42,9 +42,8 @@ inline void ChompGradient::evaluate(
         
     } else {
 
-        //TODO : the evaluateCollision thing needs to be working
         evaluateSmoothness( trajectory, g );
-        //evaluateCollision( trajectory, g );
+        evaluateCollision( trajectory, g );
     }
         
     debug_status( TAG, "evaluate", "end" );
@@ -81,16 +80,23 @@ inline void ChompGradient::evaluateSmoothness(
 
 template <class Derived>
 inline void ChompGradient::evaluateCollision( const Trajectory & trajectory,
-                        const Eigen::MatrixBase<Derived> & g )
+                        const Eigen::MatrixBase<Derived> & g_const )
 {
 
     //If there is a gradient helper, add in the contribution from
     //  that source, and set the fextra variable to the cost
     //  associated with the additional gradient.
-    g.setZero();
-    
     if (ghelper) {
-        fextra = ghelper->addToGradient(trajectory, g);
+        //TODO : this method seems hacky, and is unfortunately slow.
+        MatX g_temp = MatX::Zero( g_const.rows(), g_const.cols() );
+        fextra = ghelper->addToGradient(trajectory, g_temp);
+
+            //cast away the const-ness of g_const
+        Eigen::MatrixBase<Derived>& g = 
+            const_cast<Eigen::MatrixBase<Derived>&>(g_const);
+
+        g += g_temp;
+        
     } else {
         fextra = 0;
     }

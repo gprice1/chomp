@@ -171,16 +171,16 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
         skylineChol( trajectory.N(), coeffs, coeffs_goalset, L);
         c = createBMatrix( N, coeffs, trajectory.getQ0(), b, dt);
     } else{
-        const MatX & current_coeffs = (trajectory.isSubsampled() ?
-                                       coeffs_sub :
-                                       coeffs ); 
-        skylineChol( trajectory.N(), current_coeffs, L); 
+        skylineChol( N, coeffs, L); 
         c = createBMatrix(N, coeffs,
                           trajectory.getQ0(),
                           trajectory.getQ1(),
                           b, dt);
     }
     
+    if( trajectory.isSubsampled() ){
+        skylineChol( trajectory.N(), coeffs_sub, L_sub); 
+    }
     debug_status( TAG, "prepareRun", "start" );
 }
 

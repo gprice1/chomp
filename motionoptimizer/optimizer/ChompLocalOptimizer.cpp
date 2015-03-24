@@ -53,7 +53,7 @@ ChompLocalOptimizer::ChompLocalOptimizer(ProblemDescription & problem,
 //
 // precondition: prepareChompIter has been called since the last
 // time xi was modified
-void ChompLocalOptimizer::optimize( const MatX & g )
+void ChompLocalOptimizer::optimize()
 {
     
     debug_status( TAG, "optimize", "start" );
@@ -85,7 +85,6 @@ void ChompLocalOptimizer::optimize( const MatX & g )
         //there are no constraints, so just add the negative gradient
         //  into the trajectory (multiplied by the step size, of course.
         else { 
-            debug_status( TAG, "optimize", "gradient" );
             problem.updateTrajectory( alpha * g.row(t), t );
         }
         

@@ -55,7 +55,8 @@ void ChompOptimizerBase::solve(){
         momentum.setZero();
     }
     
-
+    g.resize( problem.N(), problem.M() );
+    
     bool not_finished = true;
 
     debug_status( TAG, "solve", "before evaluateObjective" );
@@ -77,10 +78,10 @@ bool ChompOptimizerBase::iterate(){
     debug_status( TAG, "iterate", "start" );
     
     last_objective = current_objective;
-    current_objective = problem.evaluateGradient( grad );
+    current_objective = problem.evaluateGradient( g );
     
     //perform optimization
-    optimize( grad );
+    optimize();
 
     //check and correct the bounds 
     checkBounds();
@@ -156,7 +157,6 @@ void ChompOptimizerBase::checkBounds()
     if ( !check_upper || !check_lower ){ return; }
 
     bool violation = true;
-    bounds_violations.resize( problem.N(), problem.M() );
 
     //Terminate if it does more than 10 iterations of bounds 
     //  correction (an arbitrary number), or if there are no
@@ -180,7 +180,7 @@ void ChompOptimizerBase::checkBounds()
                 if ( check_lower && value < lower )
                 {
                     const double magnitude = value - lower;
-                    bounds_violations(i,j) = magnitude; 
+                    g(i,j) = magnitude; 
                     
                     //save the max magnitude, and its index.
                     if ( -magnitude > max_violation ){
@@ -191,7 +191,7 @@ void ChompOptimizerBase::checkBounds()
                 //is there a violation of an upper bound?
                 }else if ( check_upper && value > upper ){
                     const double magnitude = value - upper; 
-                    bounds_violations(i,j) = magnitude; 
+                    g(i,j) = magnitude; 
 
                     //save the max magnitude, and its index.
                     if ( magnitude > max_violation ){
@@ -200,7 +200,7 @@ void ChompOptimizerBase::checkBounds()
                         max_index.second = j;
                     }
                 }else {
-                    bounds_violations(i,j) = 0;
+                    g(i,j) = 0;
                 }
             }
         }
@@ -213,19 +213,17 @@ void ChompOptimizerBase::checkBounds()
         //TODO, maybe only check bounds violations on
         //  non-subsampled trajectories
         if( violation ){
-            skylineCholSolve( problem.getLMatrix(),
-                              bounds_violations );
+            skylineCholSolve( problem.getLMatrix(), g);
 
             //scale the bounds_violation matrix so that it sets the
             //  largest violation to zero.
             //  (since we have done skylineCholSolve, the
             //   bounds violation matrix has changed).
-            double current_mag = bounds_violations( max_index.first,
-                                                    max_index.second );
+            double current_mag = g( max_index.first, max_index.second);
             const double scale = (current_mag > 0 ?
                                   max_violation/current_mag :
                                  -max_violation/current_mag  );
-            problem.updateTrajectory( bounds_violations * scale );
+            problem.updateTrajectory( g * scale );
         }
     }
 
