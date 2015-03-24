@@ -118,9 +118,16 @@ double ProblemDescription::evaluateConstraint( const double * xi,
     return factory.evaluate(trajectory, h_map, H_map );
 }
 
-bool evaluateConstraint( MatX & h_t, MatX & H_t, int t )
+bool ProblemDescription::evaluateConstraint( MatX & h_t,
+                                             MatX & H_t,
+                                             int t )
 {
     
+    Constraint * c = factory.getConstraint( t );
+    if ( c == NULL || c->numOutputs() == 0 ) { return false; }
+
+    c->evaluateConstraints( trajectory.row( t ), h_t, H_t );
+    return true;
 }
 
 double ProblemDescription::evaluateObjective()

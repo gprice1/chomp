@@ -76,11 +76,6 @@ public:
     int getConstraintDims();
     
     bool evaluateConstraint( MatX & h_t, MatX & H_t, int t );
-    /*
-    bool evaluateConstraint( const double * x_t, 
-                                   double * h,
-                                   double * H = NULL);
-    */
 
     template <class Derived>
     void updateTrajectory( const Eigen::MatrixBase<Derived> & delta);

@@ -194,7 +194,7 @@ void generateInitialTraj(MotionOptimizer & chomper,
   q0 << p0.x(), p0.y();
   q1 << p1.x(), p1.y();
 
-  chomper.trajectory.initialize( q0, q1, N );
+  chomper.getTrajectory().initialize( q0, q1, N );
   
 }
 
@@ -319,7 +319,8 @@ public:
     cairo_set_line_width(cr, 1.0*cs);
     cairo_set_source_rgb(cr, 0.0, 0.1, 0.5);
 
-    int N = chomper.trajectory.N();
+    const Trajectory & trajectory = chomper.problem.getTrajectory();
+    int N = trajectory.N();
 
     for (int i=0; i<N; ++i) {
       vec3f pi(xi_init(i,0), xi_init(i,1), 0.0);
@@ -327,8 +328,8 @@ public:
       cairo_fill(cr);
     }
 
-    const MatX& q0 = chomper.trajectory.getQ0();
-    const MatX& q1 = chomper.trajectory.getQ1();
+    const MatX& q0 = trajectory.getQ0();
+    const MatX& q1 = trajectory.getQ1();
 
     cairo_set_source_rgb(cr, 0.5, 0.0, 1.0);
     cairo_arc(cr, q0(0), q0(1), 4*cs, 0.0, 2*M_PI);
@@ -337,7 +338,7 @@ public:
     cairo_fill(cr);
 
     for (int i=0; i<N; ++i) {
-      vec3f pi(chomper.trajectory(i,0), chomper.trajectory(i,1), 0.0);
+      vec3f pi(trajectory(i,0), trajectory(i,1), 0.0);
       cairo_arc(cr, pi.x(), pi.y(), 2*cs, 0.0, 2*M_PI);
       cairo_fill(cr);
     }
@@ -466,11 +467,11 @@ int main(int argc, char** argv) {
   MotionOptimizer chomper( NULL, errorTol, 0, max_iter );
   generateInitialTraj(chomper, N, map, p0, p1, q0, q1);
     
-  chomper.trajectory.setObjectiveType( otype );
-  chomper.gradient.setGradientHelper( &cghelper );
+  chomper.getTrajectory().setObjectiveType( otype );
+  chomper.setGradientHelper( &cghelper );
 
   DebugChompObserver dobs;
-  chomper.observer = &dobs;
+  chomper.setObserver( &dobs );
 
   chomper.setAlpha( alpha );
 
@@ -486,8 +487,8 @@ int main(int argc, char** argv) {
             p0.x(), p0.y(), p1.x(), p1.y());
 
 
-    pe = new PdfEmitter(map, chomper.trajectory.getXi(), pdf, buf);
-    chomper.observer = pe;
+    pe = new PdfEmitter(map, chomper.getTrajectory().getXi(), pdf, buf);
+    chomper.setObserver( pe );
   }
 
 #endif
