@@ -20,8 +20,6 @@ double ConstraintFactory::evaluate(
     Eigen::MatrixBase<Derived2>& H_tot = 
         const_cast<Eigen::MatrixBase<Derived2>&>(H_tot_const);
     
-    debug_status( TAG, "evaluate", "start" );
-
     int M = trajectory.cols();
     int N = trajectory.rows();
     H_tot.setZero();    
@@ -34,6 +32,8 @@ double ConstraintFactory::evaluate(
     
     debug_status( TAG, "evaluate", "end" );
     
+    //TODO there was a "Floating point exception: 8" error
+    //in this block of code between here 
     for (int i=0, row=0; size_t(i) < constraints.size(); ++i) {
 
         Constraint* c = constraints[i];
