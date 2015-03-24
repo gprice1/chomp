@@ -97,7 +97,13 @@ class MotionOptimizer {
                     const double * upper,
                     int M );
 
-    //simple getters and setters
+    //add a constraint starting at start_time, and
+    //  ending at end_time
+    void addConstraint( Constraint * c,
+                        double start_time,
+                        double end_time);
+
+    //simple getters and setters, all of which are inline
     inline void setNMax( int n_max ){ N_max = n_max; }
     inline int  getNMax( ){ return N_max; }
 
@@ -146,6 +152,7 @@ class MotionOptimizer {
     inline void setObserver( ChompObserver * obs ){ observer = obs; }
     inline ChompObserver * getObserver(){ return observer; }
     inline const ChompObserver * getObserver() const { return observer; }
+
 
 };
 

@@ -139,17 +139,19 @@ public:
     cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
     cairo_arc(cr, MAPX(0), MAPY(0), 2*scl, 0, 2*M_PI);
     cairo_stroke(cr);
-
-    for (int i=-1; i<=chomper.trajectory.N(); ++i) {
+    
+    const Trajectory & trajectory = chomper.problem.getTrajectory();
+    
+    for (int i=-1; i<=trajectory.N(); ++i) {
       MatX pi;
       if (i < 0) { 
-        pi = chomper.trajectory.getQ0();
-      } else if (i >= chomper.trajectory.N()) {
-        pi = chomper.trajectory.getQ1();
+        pi = trajectory.getQ0();
+      } else if (i >= trajectory.N()) {
+        pi = trajectory.getQ1();
       } else {
-        pi = chomper.trajectory.row(i);
+        pi = trajectory.row(i);
       }
-      double u = double(i+1) / (chomper.trajectory.N()+1);
+      double u = double(i+1) / (trajectory.N()+1);
       cairo_set_source_rgb(cr, 1-u, 0, u);
       cairo_arc(cr, MAPX(pi(0)), MAPY(pi(1)), 2, 0, 2*M_PI);
       cairo_stroke(cr);
@@ -276,17 +278,16 @@ int main(int argc, char** argv) {
   MotionOptimizer chomper( &obs );
 
   CircleConstraint c;
-  chomper.factory.addConstraint( &c, 0.25, 0.75 );
+  chomper.addConstraint( &c, 0.25, 0.75 );
   chomper.setMaxIterations( 30 );
 
   MatX q0(1,2), q1(1,2);
   q0 << -3, 5;
   q1 << 5, -3;
 
-  chomper.trajectory.initialize( q0, q1, N );  
+  chomper.getTrajectory().initialize( q0, q1, N );  
   chomper.setNMax( Nmax );
   
-
 
 #ifdef MZ_HAVE_CAIRO
   PdfEmitter* pobs = NULL;
@@ -303,7 +304,7 @@ int main(int argc, char** argv) {
     pobs = new PdfEmitter(filename);
 
     pobs->dumpOpt = (doMultigrid == false);
-    chomper.observer = pobs;
+    chomper.setObserver( pobs );
   }
 #endif
 

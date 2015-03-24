@@ -181,6 +181,9 @@ class ChompGradient {
     
 };
 
+//include all of the templated inline functions (or else linking
+//  error occur)
+#include "ChompGradient-inl.h"
 
 }//namespace chomp
 

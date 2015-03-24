@@ -75,14 +75,7 @@ double ProblemDescription::evaluateGradient( const double * xi,
     return gradient.evaluateObjective( trajectory );
 }
 
-double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
-{
-    if ( factory.empty() ) {return 0; }
 
-    if ( !ok_to_run ){ prepareRun(); }
-    
-    return factory.evaluate( trajectory, h, H );
-}
 
 double ProblemDescription::evaluateConstraint( MatX & h )
 {
@@ -90,9 +83,22 @@ double ProblemDescription::evaluateConstraint( MatX & h )
 
     if ( !ok_to_run ){ prepareRun(); }
     
+    h.resize( factory.numOutput(), 1 );
+
     return factory.evaluate( trajectory, h);
 }
 
+double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
+{
+    if ( factory.empty() ) {return 0; }
+
+    if ( !ok_to_run ){ prepareRun(); }
+
+    h.resize( factory.numOutput(), 1 );
+    H.resize( size(), factory.numOutput() );
+    
+    return factory.evaluate( trajectory, h, H );
+}
 
 double ProblemDescription::evaluateConstraint( const double * xi, 
                                                      double * h,
@@ -110,6 +116,11 @@ double ProblemDescription::evaluateConstraint( const double * xi,
     MatMap H_map( H, trajectory.size(), factory.numOutput() );
 
     return factory.evaluate(trajectory, h_map, H_map );
+}
+
+bool evaluateConstraint( MatX & h_t, MatX & H_t, int t )
+{
+    
 }
 
 double ProblemDescription::evaluateObjective()
@@ -130,6 +141,11 @@ double ProblemDescription::evaluateObjective( const double * xi )
     return gradient.evaluateObjective( trajectory );
 }
 
+int ProblemDescription::getConstraintDims()
+{
+    if( !ok_to_run ){ prepareRun(); }
+    return factory.numOutput();
+}
 
 void ProblemDescription::startGoalset(){ 
 

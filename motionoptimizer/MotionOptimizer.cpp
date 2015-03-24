@@ -200,5 +200,12 @@ void MotionOptimizer::setBounds( const double* lower,
     setUpperBounds( upper, M );
 }
 
+void MotionOptimizer::addConstraint( Constraint * c,
+                                     double start_time,
+                                     double end_time)
+{
+    problem.factory.addConstraint( c, start_time, end_time );
+}
+
 
 }//namespace

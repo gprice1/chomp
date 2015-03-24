@@ -7,6 +7,10 @@
 namespace chomp{
 
 class OptimizerBase{
+   
+    //this allows the observer to peak at the 
+    //  problem member function
+    friend class ChompObserver;
     
   public:
     
