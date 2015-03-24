@@ -4,6 +4,7 @@
 
 #include "utils/utils.h"
 
+#include "containers/ProblemDescription.h"
 #include "containers/Trajectory.h"
 #include "containers/ChompGradient.h"
 
@@ -39,30 +40,26 @@ enum OptimizationAlgorithm {
 nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg );
 
 class MotionOptimizer {
+    
 
-  public:
+  private:
 
-    Trajectory trajectory; //the trajectory
-    ChompGradient gradient;
-    ConstraintFactory factory;
+    ProblemDescription problem;
     
     ChompObserver * observer;
 
     int N_max, N_min;
 
-    bool use_goalset, full_global_at_final, do_subsample;
-
-    Constraint * goalset;
+    bool full_global_at_final, do_subsample;
 
     double obstol, timeout_seconds, alpha;
     size_t max_iterations;
 
-    MatX lower_bounds, upper_bounds;
-    
     OptimizationAlgorithm algorithm1, algorithm2;
 
     const static char* TAG;
     
+  public:
     //constructor.
     MotionOptimizer( ChompObserver * observer = NULL,
                      double obstol = 1e-8,
@@ -76,43 +73,37 @@ class MotionOptimizer {
 
     void solve();
     
+  private:
     //sets up the factory, gradient, and optimizer for the current
     //  resolution.
     void optimize( OptimizerBase * optimizer, bool subsample = false);
     OptimizerBase * getOptimizer( OptimizationAlgorithm algorithm );
-
-    //setbounds;
-
-    //setTime.
-
-    //setGoalSet
-    void setGoalset( Constraint * goalset );
-
-  private: 
-    void prepareGoalSet();
-    void finishGoalSet();
-
     
   public:
 
     //Functions for setting the upper and lower bounds of MotionOptimizer.
     void setLowerBounds( const MatX & lower );
     void setLowerBounds( const std::vector<double> & lower);
-    void setLowerBounds( const double * lower);
+    void setLowerBounds( const double * lower, int M);
 
     void setUpperBounds(const MatX & upper );
     void setUpperBounds(const std::vector<double> & upper );
-    void setUpperBounds(const double * upper );
+    void setUpperBounds(const double * upper, int M );
 
     void setBounds( const MatX & lower, const MatX & upper );
     void setBounds( const std::vector<double> & lower,
                     const std::vector<double> & upper );
     void setBounds( const double * lower,
-                            const double * upper );
+                    const double * upper,
+                    int M );
 
     //simple getters and setters
     inline void setNMax( int n_max ){ N_max = n_max; }
     inline int  getNMax( ){ return N_max; }
+
+    inline void setGoalset( Constraint * goal){ problem.setGoalset(goal);}
+    inline const Constraint * getGoalset() const 
+                              {return problem.getGoalset();}
 
     inline void   setTimeoutSeconds( double s ){ timeout_seconds = s; }
     inline double getTimeoutSeconds(){ return timeout_seconds; }
@@ -138,6 +129,23 @@ class MotionOptimizer {
     
     inline void setAlpha( double a ){ alpha = a; }
     inline double getAlpha(){ return alpha; }
+
+    inline void doFullGlobalAtFinal(){ full_global_at_final = true; }
+    inline void dontFullGlobalAtFinal(){ full_global_at_final = false; }
+    inline bool getFullGlobalAtFinal(){ return full_global_at_final; }
+
+    inline Trajectory & getTrajectory(){ return problem.trajectory; }
+    inline const Trajectory & getTrajectory() const 
+                              { return problem.getTrajectory();}
+    inline void setTrajectory( const Trajectory & trajectory )
+                { problem.trajectory = trajectory; }
+
+    inline void setGradientHelper(ChompGradientHelper * helper)
+                        { problem.gradient.setGradientHelper(helper); }
+    
+    inline void setObserver( ChompObserver * obs ){ observer = obs; }
+    inline ChompObserver * getObserver(){ return observer; }
+    inline const ChompObserver * getObserver() const { return observer; }
 
 };
 

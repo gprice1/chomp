@@ -32,29 +32,21 @@
 */
 
 #include "ChompLocalOptimizer.h"
-#include "../containers/ConstraintFactory.h"
-#include "../containers/Constraint.h"
-#include "../containers/ChompGradient.h"
 #include <float.h>
 #include <cmath>
 
 namespace chomp {
 
-ChompLocalOptimizer::ChompLocalOptimizer( Trajectory & traj,
-                                        ConstraintFactory * factory,
-                                        ChompGradient * gradient,
+ChompLocalOptimizer::ChompLocalOptimizer(ProblemDescription & problem,
                                         ChompObserver * observer,
                                         double obstol,
                                         double timeout_seconds,
-                                        size_t max_iter,
-                                        const MatX & lower_bounds,
-                                        const MatX & upper_bounds) : 
-    ChompOptimizerBase( traj, factory, gradient, observer,
-                   obstol, timeout_seconds, max_iter,
-                   lower_bounds, upper_bounds )
+                                        size_t max_iter) : 
+    ChompOptimizerBase( problem, observer,
+                        obstol, timeout_seconds,
+                        max_iter)
 {
     event = CHOMP_LOCAL_ITER;
-
 }
 
 // single iteration of local smoothing
@@ -68,41 +60,33 @@ void ChompLocalOptimizer::optimize( const MatX & g )
 
     MatX h_t, H_t, P_t, P_t_inv, delta_t;
 
-    hmag = 0;
+    constraint_magnitude = 0;
     
     debug_status( TAG, "optimize", "pre-for-loop" );
 
-    for (int t=0; t<trajectory.N(); ++t){
+    for (int t=0; t < problem.N(); ++t){
+        
+        bool is_constrained = problem.evaluateConstraint( h_t, H_t, t );
 
-        Constraint* c = factory->constraints.empty() ?
-                        NULL : factory->constraints[t];
-        
-        //if this timestep could be constrained,
-        //  evaluate the constraints
-        if (c && c->numOutputs() > 0) {
-            
-            c->evaluateConstraints(trajectory.row(t), h_t, H_t);
-        
-            hmag = std::max(hmag, h_t.lpNorm<Eigen::Infinity>());
+        if ( is_constrained ){        
+            constraint_magnitude = std::max(constraint_magnitude,
+                                            h_t.lpNorm<Eigen::Infinity>());
             
             P_t_inv = ( H_t*H_t.transpose() ).inverse();
 
-            const int M = trajectory.M();
-            trajectory.update(
+            const int M = problem.M();
+            problem.updateTrajectory(
                 (alpha *(MatX::Identity(M,M) - H_t.transpose()*P_t_inv*H_t )
                   * g.row(t).transpose()
                 + H_t.transpose()*P_t_inv*h_t).transpose(),
                 t );
-                   
         }
 
-        
         //there are no constraints, so just add the negative gradient
         //  into the trajectory (multiplied by the step size, of course.
         else { 
             debug_status( TAG, "optimize", "gradient" );
-            
-            trajectory.update( alpha * g.row(t), t );
+            problem.updateTrajectory( alpha * g.row(t), t );
         }
         
     }

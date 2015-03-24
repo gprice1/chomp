@@ -136,13 +136,155 @@ double ChompCollGradHelper::addToGradient( const Trajectory & trajectory,
     return computeGradient( trajectory, g );
 }
 
-ChompGradient::ChompGradient( Trajectory & trajectory ) :
-    trajectory( trajectory ),
+ChompGradient::ChompGradient() :
     ghelper(NULL)
+{}
 
-{   
-    ChompObjectiveType objective_type = trajectory.getObjectiveType();
+
+const char* ChompGradient::TAG = "ChompGradient";
+
+void ChompGradient::prepareRun(const Trajectory & trajectory,
+                               bool use_goalset)
+{
+    debug_status( TAG, "prepareRun", "start" );
+
+    if ( coeffs.size() == 0 ){
+        setCoefficients( trajectory.getObjectiveType());
+    }
     
+    this->use_goalset = use_goalset;
+
+    //resize the g, b, and ax matrices.
+    const int N = trajectory.fullN();
+    const int M = trajectory.M();
+
+    Ax.resize(N,M);
+    b.resize(N,M);
+    
+    const double dt = trajectory.getDt();
+    
+    //get the b matrix, and get its contribution to the
+    //  objective function.
+    //  Also, compute the L matrix (lower triangluar cholesky 
+    //  decomposition). 
+    if (use_goalset){
+        skylineChol( trajectory.N(), coeffs, coeffs_goalset, L);
+        c = createBMatrix( N, coeffs, trajectory.getQ0(), b, dt);
+    } else{
+        const MatX & current_coeffs = (trajectory.isSubsampled() ?
+                                       coeffs_sub :
+                                       coeffs ); 
+        skylineChol( trajectory.N(), current_coeffs, L); 
+        c = createBMatrix(N, coeffs,
+                          trajectory.getQ0(),
+                          trajectory.getQ1(),
+                          b, dt);
+    }
+    
+    debug_status( TAG, "prepareRun", "start" );
+}
+
+    
+template <class Derived>
+void ChompGradient::subsampleGradient(int N_sub, 
+        const Eigen::MatrixBase<Derived> & g_sub_const)
+{   
+    debug_status( TAG, "getSubsampledGradient", "start" );
+    
+    //cast away the const to edit the g_sub matrix
+    Eigen::MatrixBase<Derived>& g_sub = 
+        const_cast<Eigen::MatrixBase<Derived>&>(g_sub_const);
+
+    
+    for ( int i = 0; i < g_sub.rows(); i ++ ){
+        g_sub.row( i ) = g_full.row( i * 2 );
+    }
+
+    debug_status( TAG, "getSubsampledGradient", "end" );
+    
+}
+
+
+double ChompGradient::evaluateObjective(const Trajectory & trajectory) const
+{
+    return 0.5 * mydot(trajectory.getFullXi(), Ax) + 
+           mydot(trajectory.getFullXi(), b) +
+           c + fextra;
+}
+
+
+template <class Derived>
+inline void ChompGradient::evaluate(
+                           const Trajectory & trajectory,
+                           const Eigen::MatrixBase<Derived> & g)
+{
+    debug_status( TAG, "evaluate", "start" );
+
+    if ( trajectory.isSubsampled() ){
+        g_full.resize( trajectory.fullN(), trajectory.M() );
+        evaluateSmoothness( trajectory, g_full );
+
+        //There is no reason to compute collision gradients
+        //  on a subsampled trajectory, because even if there are
+        //  obstacles, a subsampled matrix doesn't have the
+        //  freedom of motion to avoid them.
+        subsampledGradient(trajectory.N(), g );
+        
+    } else {
+        evaluateSmoothness( trajectory, g );
+        evaluateSmoothness( trajectory, g );
+    }
+        
+    debug_status( TAG, "evaluate", "end" );
+}
+
+template <class Derived>
+inline void ChompGradient::evaluateSmoothness(
+                    const Trajectory & trajectory,
+                    const Eigen::MatrixBase<Derived> & g_const)
+{
+    debug_status( TAG, "computeSmoothnessGradient", "start" );
+    
+    //cast away the const-ness of g_const
+    Eigen::MatrixBase<Derived>& grad = 
+        const_cast<Eigen::MatrixBase<Derived>&>(g_const);
+
+    //Performs the operation: A * x.
+    //  (fill the matrix Ax, with the results.
+    //
+    const MatMap & xi = trajectory.getFullXi();
+    
+    if( use_goalset ){
+        diagMul(coeffs, coeffs_goalset, xi, Ax);
+    } else { 
+        diagMul(coeffs, xi, Ax);
+    }
+    
+    //add in the b matrix to get the contribution from the
+    //  endpoints, and set this equal to the gradient.
+    grad = Ax + b; 
+
+    debug_status( TAG, "computeSmoothnessGradient", "end" );
+}
+
+template <class Derived>
+inline void ChompGradient::evaluateCollision( const Trajectory & trajectory,
+                        const Eigen::MatrixBase<Derived> & g )
+{
+
+    //If there is a gradient helper, add in the contribution from
+    //  that source, and set the fextra variable to the cost
+    //  associated with the additional gradient.
+    g.setZero();
+    
+    if (ghelper) {
+        fextra = ghelper->addToGradient(trajectory, g);
+    } else {
+        fextra = 0;
+    }
+}
+
+void ChompGradient::setCoefficients(ChompObjectiveType objective_type){
     if (objective_type == MINIMIZE_VELOCITY) {
         coeffs.resize(1,2);
         coeffs_sub.resize(1,1);
@@ -160,194 +302,6 @@ ChompGradient::ChompGradient( Trajectory & trajectory ) :
         coeffs_sub << 1, 6;
         coeffs_goalset << 6, -3,
                          -3,  2 ;
-    }
-
-}
-
-const char* ChompGradient::TAG = "ChompGradient";
-
-void ChompGradient::prepareRun(bool use_goalset)
-{
-    debug_status( TAG, "prepareRun", "start" );
-
-    this->use_goalset = use_goalset;
-
-    //resize the g, b, and ax matrices.
-    const int N = trajectory.fullN();
-    const int M = trajectory.M();
-
-    g.resize(N,M);
-    Ax.resize(N,M);
-    b.resize(N,M);
-    
-    //set b to zero to prepare for creating the b matrix
-    
-    const double dt = trajectory.getDt();
-    //get the b matrix, and get its contribution to the
-    //  objective function.
-    //  Also, compute the L matrix (lower triangluar cholesky 
-    //  decomposition). 
-    if (use_goalset){
-        skylineChol( trajectory.N(), coeffs, coeffs_goalset, L);
-        c = createBMatrix( N, coeffs, trajectory.getQ0(), b, dt);
-    } else{
-        const MatX & current_coeffs = (trajectory.isSubsampled() ?
-                                       coeffs_sub :
-                                       coeffs ); 
-        skylineChol( trajectory.N(), current_coeffs, L); 
-        c = createBMatrix(N, coeffs, trajectory.getQ0(), trajectory.getQ1(), b, dt);
-    }
-    
-    double inv_dt = 1/dt;
-
-    if ( trajectory.getObjectiveType() == MINIMIZE_VELOCITY ){
-        fscl = inv_dt * inv_dt;
-    } else { 
-        fscl = inv_dt * inv_dt * inv_dt;
-    }
-
-    debug_status( TAG, "prepareRun", "start" );
-}
-
-MatX& ChompGradient::getInvAMatrix(){ return L; }
-
-MatX& ChompGradient::getCollisionGradient()
-{
-    g.setZero();
-    computeCollisionGradient( g );
-    return g;
-}
-
-MatX& ChompGradient::getGradient()
-{
-    debug_status( TAG, "getGradient", "start" );
-    
-    computeSmoothnessGradient( g );
-    computeCollisionGradient( g );
-    
-    if ( trajectory.isSubsampled() ){ return getSubsampledGradient(trajectory.N());}
-    debug_status( TAG, "getGradient", "end" );
-    
-    return g;
-
-}
-
-MatX& ChompGradient::getSmoothnessGradient(  )
-{
-    
-    computeSmoothnessGradient( g );
-    return g;
-}
-
-MatX& ChompGradient::getSubsampledGradient(int N_sub)
-{   
-    debug_status( TAG, "getSubsampledGradient", "start" );
-    
-    g_sub.resize( N_sub, trajectory.M() );
-
-    for ( int i = 0; i < g_sub.rows(); i ++ ){
-        g_sub.row( i ) = g.row( i * 2 );
-    }
-
-    debug_status( TAG, "getSubsampledGradient", "end" );
-    
-    return g_sub;
-}
-
-double ChompGradient::getGradient( unsigned n_by_m,
-                                   const double * xi,
-                                   double * grad)
-{
-    trajectory.setData( xi );
-    
-    const int N = trajectory.N();
-    const int M = trajectory.M();
-
-    if ( grad != NULL ){
-
-        assert( unsigned(N*M) == n_by_m );
-        MatMap g_mat( grad, N, M);
-        
-        g_mat.setZero();
-        
-        if ( trajectory.isSubsampled() ){
-            computeSmoothnessGradient( g );
-            computeCollisionGradient( g );
-            g_mat = getSubsampledGradient(trajectory.N());
-            
-        }
-        else {
-            computeSmoothnessGradient( g_mat );
-            computeCollisionGradient(  g_mat );
-        }
-        
-    }else{
-        computeSmoothnessGradient( g );
-        computeCollisionGradient( g );
-    }
-
-
-    return evaluateObjective( );
-    
-}
-
-double ChompGradient::evaluateObjective( ) const
-{
-    return 0.5 * mydot(trajectory.getFullXi(), Ax) + 
-           mydot(trajectory.getFullXi(), b) +
-           c + fextra;
-}
-
-
-template <class Derived>
-inline void ChompGradient::computeSmoothnessGradient(
-                    const Eigen::MatrixBase<Derived> & g_const)
-{
-    debug_status( TAG, "computeSmoothnessGradient", "start" );
-    //cast away the const-ness of g_const
-    Eigen::MatrixBase<Derived>& grad = 
-        const_cast<Eigen::MatrixBase<Derived>&>(g_const);
-
-    //Performs the operation: A * x.
-    //  (fill the matrix Ax, with the results.
-    //
-    const MatMap & xi = trajectory.getFullXi();
-    if( use_goalset ){
-        diagMul(coeffs, coeffs_goalset, xi, Ax);
-    } else { 
-        diagMul(coeffs, xi, Ax);
-    }
-    
-    //add in the b matrix to get the contribution from the
-    //  endpoints, and set this equal to the gradient.
-    grad = Ax + b; 
-
-    debug_status( TAG, "computeSmoothnessGradient", "end" );
-}
-
-void ChompGradient::computeCollisionGradient(MatMap & grad)
-{
-
-    //If there is a gradient helper, add in the contribution from
-    //  that source, and set the fextra variable to the cost
-    //  associated with the additional gradient.
-    if (ghelper) {
-        fextra = ghelper->addToGradient(trajectory, grad);
-    } else {
-        fextra = 0;
-    }
-}
-
-void ChompGradient::computeCollisionGradient(MatX & grad)
-{
-
-    //If there is a gradient helper, add in the contribution from
-    //  that source, and set the fextra variable to the cost
-    //  associated with the additional gradient.
-    if (ghelper) {
-        fextra = ghelper->addToGradient(trajectory, grad);
-    } else {
-        fextra = 0;
     }
 }
 

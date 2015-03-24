@@ -199,7 +199,7 @@ Trajectory & Trajectory::operator= (const Trajectory & other)
 
 // increase the size of the trajectory by one waypoint, and
 //  add in q1 as the last point of the trajectory.
-void Trajectory::startGoalSet(){
+void Trajectory::startGoalset(){
     
     const int N = xi.rows();
     const int M = xi.cols();
@@ -222,7 +222,7 @@ void Trajectory::startGoalSet(){
 }
 
 
-void Trajectory::endGoalSet(){
+void Trajectory::endGoalset(){
     
     const int N = xi.rows();
     const int M = xi.cols();
@@ -442,7 +442,7 @@ void Trajectory::upsampleTo( int Nmax ){
     while ( xi.rows() < Nmax ){ upsample(); }
 }
 
-void Trajectory::constrainedUpsample(ConstraintFactory * factory,
+void Trajectory::constrainedUpsample(ConstraintFactory & factory,
                                      double htol,
                                      double hstep)
 {
@@ -450,11 +450,8 @@ void Trajectory::constrainedUpsample(ConstraintFactory * factory,
     
     //if there is no factory, or there are no constraints,
     //    do not evaluate the constraints.
-    if ( factory && !factory->constraints.empty()  ){
-        factory->getAll( xi.rows() ); 
-    } else{ 
-        return; 
-    }
+    if ( !factory.empty()  ){ factory.getAll( xi.rows() ); }
+    else{ return; }
 
 
     MatX h, H, delta;
@@ -462,7 +459,7 @@ void Trajectory::constrainedUpsample(ConstraintFactory * factory,
 
     for (int i=0; i < xi.rows(); i+=2) {
   
-        Constraint* c = factory->constraints[i];
+        Constraint* c = factory.getConstraint(i);
 
         if (!c || !c->numOutputs()) { continue; }
       
@@ -479,7 +476,7 @@ void Trajectory::constrainedUpsample(ConstraintFactory * factory,
     }
 }
 
-void Trajectory::constrainedUpsampleTo( ConstraintFactory * factory,
+void Trajectory::constrainedUpsampleTo(ConstraintFactory & factory,
                                        double htol,
                                        double hstep,
                                        int Nmax)
@@ -599,6 +596,37 @@ void Trajectory::print() const{
     std::cout << toString();
 }
 
+void Trajectory::translate( MatX translation_matrix,
+                            Trajectory & other ) const
+{
+
+    if ( other.fullN() != this->fullN() ){
+
+        if (other.data){  delete other.data; }
+
+        const int N = this->fullN();
+        const int M = this->M();
+
+        other.data = new double [ N * M ];
+        other.remapXi( N, N, M );
+
+        other.dt = this->dt;
+        other.total_time = this->total_time;
+
+    }
+
+    other.q0 = this->q0;
+    other.q1 = this->q1;
+
+    other.is_subsampled = other.is_subsampled;
+    other.objective_type = other.objective_type;
+
+    other.cached_data = NULL;
+
+    //copy over the data.
+    other.full_xi = this->full_xi;
+    skylineCholMultiplyInverse( translation_matrix, other.full_xi );
+}
 
 
 }//namespace

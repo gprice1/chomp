@@ -248,6 +248,16 @@ template <class Derived1, class Derived2>
 void skylineChol(int n, const Eigen::MatrixBase<Derived1>& coeffs,
                  Eigen::PlainObjectBase<Derived2>& L);
 
+
+//Perform a multiplication operation with the L matrix. 
+//  L is a lower triangular matrix stored in a skyline format.
+//  x_const = L * x_const;
+template <class Derived1, class Derived2>
+void skylineCholMultiply(const Eigen::MatrixBase<Derived1>& L,
+                         const Eigen::MatrixBase<Derived2>& x_const);
+
+
+
 //Perform an inverse transpose multiplication operation with the L matrix. 
 //  L is a lower triangular matrix stored in a skyline format.
 //  x_const = L^-T * x_const;
@@ -394,6 +404,68 @@ void skylineChol(int n,
     }
 
 }
+
+
+//Perform a multiplication operation with the L matrix. 
+//  L is a lower triangular matrix stored in a skyline format.
+//  x_const = L * x_const;
+template <class Derived1, class Derived2>
+void skylineCholMultiply(const Eigen::MatrixBase<Derived1>& L,
+                         const Eigen::MatrixBase<Derived2>& x_const)
+{
+    const int n = L.rows();
+    assert(x_const.rows() == n);
+
+    Eigen::MatrixBase<Derived2>& x = 
+        const_cast<Eigen::MatrixBase<Derived2>&>(x_const);
+
+    const int nc = L.cols();
+    const int o = nc-1;
+    
+    // i is the column index 
+    // j is the 
+    for (int i=n-1; i>=0; --i) {
+        
+        x.row(i) *= L(i, o);
+        
+        const int j1 = std::max( 0, i - nc);
+        for (int j = i-1; j > j1; j--) {
+            x.row(i) += L(i, o+j-i) * x.row( j ); //
+        }
+    }
+}
+
+//Perform a multiplication operation with the L matrix. 
+//  L is a lower triangular matrix stored in a skyline format.
+//  x_const = L * x_const;
+template <class Derived1, class Derived2>
+void skylineCholMultiplyTranspose(const Eigen::MatrixBase<Derived1>& L,
+                               const Eigen::MatrixBase<Derived2>& x_const)
+{
+    const int n = L.rows();
+    assert(x_const.rows() == n);
+
+    Eigen::MatrixBase<Derived2>& x = 
+        const_cast<Eigen::MatrixBase<Derived2>&>(x_const);
+
+    const int nc = L.cols();
+    const int final_column_index = nc-1;
+    
+    // i is the column index 
+    // j indexes into the correct row of xi
+    for (int i=0 ; i < n ; i++ )
+    {
+
+        x.row(i) *= L(i, final_column_index);
+        
+        const int j1 = std::min( n, i+final_column_index );
+        for (int j = i+1; j < j1; j++) {
+            const int L_col_index = final_column_index - j + i ;
+            x.row(i) += L(j, L_col_index ) * x.row( j ); //
+        }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////
 //This is used by the HMC class to generate random smooth momenta.
 template <class Derived1, class Derived2>

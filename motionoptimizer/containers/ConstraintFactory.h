@@ -67,9 +67,7 @@ private:
     */
 
 
-public:
-
-    Trajectory & trajectory;
+private:
 
     std::vector<ConstraintInterval> constraint_intervals;
     bool interval_is_sorted;
@@ -79,22 +77,36 @@ public:
     int constraint_dims;
 
     static const char* TAG;
-    ConstraintFactory( Trajectory & trajectory ); 
 
-    //base constructor, if constraints is non-empty, it deletes all
-    //  of the constraints which are non-NULL.
+public:
+
+    ConstraintFactory(); 
+
     ~ConstraintFactory(); 
 
-    void clearConstraints();
-    
     void addConstraint( Constraint * constraint, 
                         double start,
                         double stop );
 
-    inline bool empty(){ return constraint_intervals.empty(); }
+    inline void addGoalset( Constraint * goalset ){
+        constraints.push_back( goalset );
+    }
+    inline void removeGoalset(){
+        constraints.resize( constraints.size() - 1 );
+    }
+
+    inline bool empty() const { return constraint_intervals.empty(); }
     
-    Constraint* getConstraint(size_t t, size_t total);
+    Constraint* createConstraint(size_t t, size_t total);
+
+    inline Constraint* getConstraint( size_t t ) const {
+        return constraints[t];
+    }
     
+    inline const std::vector<Constraint*> & getConstraints() const {
+        return constraints;
+    }
+
     //TODO consider renaming this to prepareRun, for
     //  consistency with ConstraintFactory
     void getAll(size_t total);
@@ -106,29 +118,15 @@ public:
     void calculateConstraintDimension();
     
     template <class Derived1, class Derived2>
-    void evaluate( const Eigen::MatrixBase<Derived1> & h_tot,
+    double evaluate( const Trajectory & trajectory,
+                   const Eigen::MatrixBase<Derived1> & h_tot,
                    const Eigen::MatrixBase<Derived2> & H_tot);
 
     
     template <class Derived>
-    void evaluate( const Eigen::MatrixBase<Derived> & h_tot);
+    double evaluate(const Trajectory & trajectory,
+                  const Eigen::MatrixBase<Derived> & h_tot);
 
-    void evaluate( unsigned constraint_dim,
-                   double* result,
-                   unsigned n_by_m,
-                   const double * x,
-                   double* grad );
-
-    static void NLoptConstraint(unsigned constraint_dim,
-                                double* result,
-                                unsigned n_by_m,
-                                const double * x,
-                                double* grad,
-                                void *data) 
-    {
-        reinterpret_cast<ConstraintFactory*>(data) 
-            ->evaluate( constraint_dim, result, n_by_m, x, grad);
-    }
 
 private:
     void sortIntervals();

@@ -67,7 +67,6 @@ class ChompCollisionHelper {
                                             // of cost wrt workspace pos
                                             //  (ncspace-by-1)
     
-    
     size_t ncspace;
     size_t nwkspace;
     size_t nbodies;
@@ -105,76 +104,81 @@ class ChompCollGradHelper: public ChompGradientHelper {
 class ChompGradient {
 
   private:
-    Trajectory & trajectory;
     static const char* TAG;
-    
-  private:
-    
+     
     ChompGradientHelper* ghelper;
-    
-    //TODO decide to keep this here and take it out of trajectory,
-    //  or remove this. 
     
     MatX Ax; // A*x of size N-by-M
   
     MatX coeffs; // coeffs for A e.g. [1, -4, 6] of size D-by-1 for accel
     MatX coeffs_sub; // coeffs for downsampled A e.g. [1, 6] for accel
-    MatX coeffs_goalset;
+    MatX coeffs_goalset; // coeffs for doing goalset chomp
 
-    double fscl; // dynamic scaling factor for f, e.g. (N+1)*(N+2) for accel
     double fextra; // extra objective function from gradient helper
 
     MatX L, L_sub; // skyline Cholesky coeffs of A of size N-by-D
 
-    MatX g; // gradient terms (Ax + b) of size N-by-M
-    MatX g_sub;
-
+    MatX g_full; // a working variable for use when calculating
+                 // the gradient of a subsampled trajectory
     MatX b; // endpoint vectors for this problem of size N-by-M
-
     double c; // c value for objective function
 
     bool use_goalset;
     
   public:
-    ChompGradient( Trajectory & traj );
+    ChompGradient();
 
     ~ChompGradient(){}
     
     inline void setGradientHelper( ChompGradientHelper* help ){
         ghelper = help;
     }
-
     inline ChompGradientHelper * getGradientHelper(){ return ghelper; }
+    inline const ChompGradientHelper * getGradientHelper() const 
+                                       { return ghelper; }
 
     //prepares chomp to be run at a resolution level
-    void prepareRun(bool use_goalset=false);
+    void prepareRun( const Trajectory & trajectory,
+                     bool use_goalset=false);
 
-    const MatX& getInvAMatrix();
+    //gets the L or L_sub matrices for use in multiplying by
+    //  the metric
+    inline const MatX& getLMatrix() const {return L; }
+    inline const MatX& getLsubMatrix() const {return L_sub; }
    
-    MatX& getGradient();
+    //evaluate the gradient of the objective function
+    //  at the current trajectory
+    template <class Derived>
+    void evaluate( const Trajectory & trajectory,
+                   const Eigen::MatrixBase<Derived> & g );
 
-    MatX& getSmoothnessGradient();
+    //evaluate the collision gradient supplied by ghelper.
+    template <class Derived>
+    void evaluateCollision( const Trajectory & trajectory,
+                            const Eigen::MatrixBase<Derived> & g );
 
-    MatX& getCollisionGradient();
+    //evaluate the smoothness gradient
+    template <class Derived>
+    void evaluateSmoothness( const Trajectory & trajectory,
+                             const Eigen::MatrixBase<Derived> & g );
 
-    MatX& getSubsampledGradient(int N_sub);
-
-    double getGradient( unsigned n_by_m, 
-                        const double * xi,
-                        double * grad);
-    
     // evaluates the objective function for cur. thing.
     // only works if prepareChompIter has been called since last
     // modification of xi.
-    double evaluateObjective() const;
+    double evaluateObjective( const Trajectory & trajectory ) const;
     
   private:
-    template <class Derived>
-    void computeSmoothnessGradient(const Eigen::MatrixBase<Derived> & g );
-    
-    void computeCollisionGradient( MatMap & grad);
-    void computeCollisionGradient( MatX & grad  );
 
+    //If the trajectory is subsampled, subsample the gradient,
+    //because the gradient is computed at a higher resolution
+    template <class Derived>
+    void subsampleGradient(int N_sub, 
+                           const Eigen::MatrixBase<Derived> & g_sub_const);
+    
+    //set the coefficients for solving and creating the smoothness
+    //  metric
+    void setCoefficients( ChompObjectiveType objective_type );
+    
 };
 
 

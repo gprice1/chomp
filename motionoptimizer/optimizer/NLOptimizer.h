@@ -18,21 +18,15 @@ class NLOptimizer : public OptimizerBase{
     //the type of end that the optimizer comes to.
     nlopt::result result;
 
-    int iteration;
-
     static const char * TAG;
 
     static const ChompEventType event = NLOPT_ITER;
 
-    NLOptimizer( Trajectory & traj,
-                 ConstraintFactory * factory,
-                 ChompGradient * gradient,
+    NLOptimizer( ProblemDescription & problem,
                  ChompObserver * observer,
                  double obstol = 1e-8,
                  double timeout_seconds = 0,
-                 size_t max_iter = size_t(-1),
-                 const MatX & lower_bounds=MatX(0,0),
-                 const MatX & upper_bounds=MatX(0,0)); 
+                 size_t max_iter = size_t(-1)); 
 
     ~NLOptimizer();
 
@@ -54,6 +48,12 @@ class NLOptimizer : public OptimizerBase{
                                     const double * x,
                                     double* grad,
                                     void *data);
+    static void constraintFunction(unsigned constraint_dim,
+                                   double * h,
+                                   unsigned n_by_m,
+                                   const double * x,
+                                   double* H,
+                                   void *data);
 
 };
 

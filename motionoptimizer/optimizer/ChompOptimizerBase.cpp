@@ -8,28 +8,18 @@ namespace chomp {
 
 const char* ChompOptimizerBase::TAG = "ChompOptimizerBase";
 
-ChompOptimizerBase::ChompOptimizerBase( Trajectory & traj,
-                                        ConstraintFactory * factory,
-                                        ChompGradient * gradient,
-                                        ChompObserver * observer,
-                                        double obstol,
-                                        double timeout_seconds,
-                                        size_t max_iter,
-                                        const MatX & lower_bounds,
-                                        const MatX & upper_bounds) : 
-    OptimizerBase( traj, factory, gradient, observer,
-                   obstol, timeout_seconds, max_iter,
-                   lower_bounds, upper_bounds ),
+ChompOptimizerBase::ChompOptimizerBase( ProblemDescription & problem,
+                                         ChompObserver * observer,
+                                         double obstol,
+                                         double timeout_seconds,
+                                         size_t max_iter) : 
+    OptimizerBase( problem, observer,
+                   obstol, timeout_seconds, max_iter),
     alpha( 0.1 ),
-    hmag( 0 ), 
-    last_objective( HUGE_VAL ),
-    current_objective( HUGE_VAL ),
-    curr_iter( 0 ),
     min_iter( 0 ),
     use_momentum( false ),
     hmc( NULL )
 {
-    
     if ( timeout_seconds <= 0 ){ canTimeout = false; }
     else {
         canTimeout = true;
@@ -44,9 +34,8 @@ void ChompOptimizerBase::solve(){
 
     debug_status( TAG, "solve", "start" );
     
-    last_objective = gradient->evaluateObjective(  );
     
-    if (notify(CHOMP_INIT, 0, last_objective, -1, hmag)) { return; }
+    if (notify(CHOMP_INIT)) { return; }
 
     if ( timeout_seconds <= 0 ){ canTimeout = false; }
     else {
@@ -57,12 +46,12 @@ void ChompOptimizerBase::solve(){
     
     if ( hmc ){ 
         use_momentum = true;
-        hmc->setupHMC( trajectory.getObjectiveType(), alpha );
+        hmc->setupHMC( problem.getTrajectory().getObjectiveType(), alpha );
         hmc->setupRun();
     }
 
     if ( use_momentum ){
-        momentum.resize( trajectory.N(), trajectory.M() );
+        momentum.resize( problem.N(), problem.M() );
         momentum.setZero();
     }
     
@@ -79,8 +68,7 @@ void ChompOptimizerBase::solve(){
     
     while (not_finished) { not_finished = iterate(); }
     
-    notify(CHOMP_FINISH, 0, last_objective, -1, hmag);
-
+    notify(CHOMP_FINISH);
 
     debug_status( TAG, "solve", "end" );
 } 
@@ -88,7 +76,8 @@ void ChompOptimizerBase::solve(){
 bool ChompOptimizerBase::iterate(){
     debug_status( TAG, "iterate", "start" );
     
-    MatX & grad = gradient->getGradient();
+    last_objective = current_objective;
+    current_objective = problem.evaluateGradient( grad );
     
     //perform optimization
     optimize( grad );
@@ -97,15 +86,18 @@ bool ChompOptimizerBase::iterate(){
     checkBounds();
     
     //increment the iteration.
-    curr_iter ++;
+    current_iteration ++;
 
+    //TODO add back in the HMC once everything is figured out.
+    /*
     if ( hmc ) {
         //TODO make sure that we are doing Global Chomp,
         //  or add momentum into local chomp
-        hmc->iteration( curr_iter, trajectory, momentum,
-                        gradient->getInvAMatrix(),
+        hmc->iteration( curr_iter, problemtrajectory, momentum,
+                        problem.getLMatrix(),
                         last_objective );
     }
+    */
 
     //check whether optimization is completed.
 
@@ -118,32 +110,25 @@ bool ChompOptimizerBase::checkFinished(ChompEventType event)
 {
     
     //get the new value of the objective
-    current_objective = gradient->evaluateObjective();
 
 
     if ( canTimeout && stop_time < TimeStamp::now() ) {
-        notify(CHOMP_TIMEOUT, curr_iter, current_objective,
-                                         last_objective, hmag);
+        notify(CHOMP_TIMEOUT);
         return false;
     }
 
 
     //test for termination conditions
-    bool greater_than_min = curr_iter > min_iter;
-    bool greater_than_max = curr_iter > max_iter;
+    bool greater_than_min = current_iteration > min_iter;
+    bool greater_than_max = current_iteration > max_iter;
     bool converged = goodEnough( last_objective, current_objective );
-    bool observer_flag = notify(event, curr_iter,
-                                current_objective,
-                                last_objective,
-                                hmag);
+    bool observer_flag = notify(event);
 
     if (greater_than_max || ( greater_than_min && converged ) ||
         observer_flag )
     {
         return false;
     } 
-
-    last_objective = current_objective;
 
     return true;
 }
@@ -160,85 +145,90 @@ void ChompOptimizerBase::checkBounds()
 {
 
     debug_status( TAG, "checkBounds", "start" );
-    const bool check_upper = (upper_bounds.size() == trajectory.M());
-    const bool check_lower = (lower_bounds.size() == trajectory.M());
+    
+    const MatX & lower_bound = problem.getLowerBounds();
+    const MatX & upper_bound = problem.getUpperBounds();
+
+    const bool check_lower = (lower_bound.size() == problem.M());
+    const bool check_upper = (upper_bound.size() == problem.M());
 
     //if there are bounds to check, check for the violations.
+    if ( !check_upper || !check_lower ){ return; }
 
-    if ( check_upper || check_lower ){
+    bool violation = true;
+    bounds_violations.resize( problem.N(), problem.M() );
+
+    //Terminate if it does more than 10 iterations of bounds 
+    //  correction (an arbitrary number), or if there are no
+    //  more bounds violations
+    for ( int count = 0; count < 10 && violation; count ++ ){
         
-        bool violation;
-        bounds_violations.resize( trajectory.rows(), trajectory.cols() );
+        double max_violation = 0.0;
+        std::pair< int, int > max_index;
 
-        const int max_checks = 10;
-        int count = 0;
+        //iterate over all of the points, and make a matrix which
+        //  has the magnitude of all the bounds violations
+        //  for each variable in the trajectory
+        for ( int j = 0; j < problem.N(); j ++ ) {
+            const double upper = (check_upper ? upper_bound(j) : HUGE_VAL);
+            const double lower = (check_lower ? lower_bound(j) :-HUGE_VAL);
+            
+            for( int i = 0; i < problem.N(); i ++ ){
 
-        do{
-            count ++;
-            double max_violation = 0.0;
-            std::pair< int, int > max_index;
-
-            for ( int j = 0; j < trajectory.cols(); j ++ ) {
-                const double upper = (check_upper ? upper_bounds(j) : 0 );
-                const double lower = (check_upper ? lower_bounds(j) : 0 );
-                
-                for( int i = 0; i < trajectory.rows(); i ++ ){
-
-                    //is there a violation of a lower bound?
-                    if ( check_lower && trajectory(i,j) < lower ){
-                        const double magnitude = trajectory(i,j) - lower;
-                        bounds_violations(i,j) = magnitude; 
-                        
-                        //save the max magnitude, and its index.
-                        if ( -magnitude > max_violation ){
-                            max_violation = -magnitude;
-                            max_index.first = i;
-                            max_index.second = j;
-                        }
-                    //is there a violation of an upper bound?
-                    }else if ( check_upper && trajectory(i,j) > upper ){
-                        const double magnitude = trajectory(i,j) - upper; 
-                        bounds_violations(i,j) = magnitude; 
-
-                        //save the max magnitude, and its index.
-                        if ( magnitude > max_violation ){
-                            max_violation = magnitude;
-                            max_index.first = i;
-                            max_index.second = j;
-                        }
-                    }else {
-                        bounds_violations(i,j) = 0;
+                //is there a violation of a lower bound?
+                const double value = problem.getTrajectory()(i,j);
+                if ( check_lower && value < lower )
+                {
+                    const double magnitude = value - lower;
+                    bounds_violations(i,j) = magnitude; 
+                    
+                    //save the max magnitude, and its index.
+                    if ( -magnitude > max_violation ){
+                        max_violation = -magnitude;
+                        max_index.first = i;
+                        max_index.second = j;
                     }
-                }
-            }
-            
+                //is there a violation of an upper bound?
+                }else if ( check_upper && value > upper ){
+                    const double magnitude = value - upper; 
+                    bounds_violations(i,j) = magnitude; 
 
-            //There are violations in the largest violation does not
-            //  have a magnitude of zero.
-            violation = ( max_violation > 0.0 );
-            
-            if( violation ){
-                //smooth out the bounds violation matrix. With
-                //  the appropriate smoothing matrix.
-                if ( bounds_violations.rows() == trajectory.rows() ){
-                    skylineCholSolve( gradient->L, bounds_violations );
+                    //save the max magnitude, and its index.
+                    if ( magnitude > max_violation ){
+                        max_violation = magnitude;
+                        max_index.first = i;
+                        max_index.second = j;
+                    }
                 }else {
-                    assert( gradient->L_sub.rows() == trajectory.rows() );
-                    skylineCholSolve( gradient->L_sub, bounds_violations );
+                    bounds_violations(i,j) = 0;
                 }
-
-                //scale the bounds_violation matrix so that it sets the
-                //  largest violation to zero.
-                double current_mag = bounds_violations( max_index.first,
-                                                        max_index.second );
-                const double scale = (current_mag > 0 ?
-                                      max_violation/current_mag :
-                                     -max_violation/current_mag  );
-                trajectory.update( bounds_violations * scale );
             }
-        //continue to check and fix limit violations as long as they exist.
-        }while( violation && count < max_checks );
+        }
+        
+
+        //There are bounds violations if the largest
+        //violation does not have a magnitude of zero.
+        violation = ( max_violation > 0.0 );
+        
+        //TODO, maybe only check bounds violations on
+        //  non-subsampled trajectories
+        if( violation ){
+            skylineCholSolve( problem.getLMatrix(),
+                              bounds_violations );
+
+            //scale the bounds_violation matrix so that it sets the
+            //  largest violation to zero.
+            //  (since we have done skylineCholSolve, the
+            //   bounds violation matrix has changed).
+            double current_mag = bounds_violations( max_index.first,
+                                                    max_index.second );
+            const double scale = (current_mag > 0 ?
+                                  max_violation/current_mag :
+                                 -max_violation/current_mag  );
+            problem.updateTrajectory( bounds_violations * scale );
+        }
     }
+
 
     debug_status( TAG, "checkBounds", "end" );
 }

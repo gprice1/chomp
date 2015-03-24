@@ -3,6 +3,7 @@ set( SOURCE
     ${CMAKE_CURRENT_SOURCE_DIR}/ChompGradient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Constraint.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ConstraintFactory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ProblemDescription.cpp
    )
 
 add_library(containers ${LIBRARY_TYPE}  ${SOURCE} )

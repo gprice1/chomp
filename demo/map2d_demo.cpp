@@ -467,7 +467,7 @@ int main(int argc, char** argv) {
   generateInitialTraj(chomper, N, map, p0, p1, q0, q1);
     
   chomper.trajectory.setObjectiveType( otype );
-  chomper.gradient.ghelper = &cghelper;
+  chomper.gradient.setGradientHelper( &cghelper );
 
   DebugChompObserver dobs;
   chomper.observer = &dobs;

@@ -61,8 +61,8 @@ class Trajectory {
     ~Trajectory();    
     Trajectory & operator= (const Trajectory & other);
     
-    void startGoalSet();
-    void endGoalSet();
+    void startGoalset();
+    void endGoalset();
 
     //restores the data to the original after 
     //  it had been replaced in a call to setData.
@@ -137,19 +137,20 @@ class Trajectory {
     inline void setObjectiveType( ChompObjectiveType otype){
         objective_type = otype;
     }
-    inline ChompObjectiveType getObjectiveType(){return objective_type;}
+    inline ChompObjectiveType getObjectiveType() const {
+        return objective_type;
+    }
 
-    
     //upsample the trajectory by two times.
     void upsample();
     //upsample the trajectory until it is greater than Nmax.
     void upsampleTo( int Nmax );
     
     //upsample, respecting the given constraints.
-    void constrainedUpsample( ConstraintFactory * factory,
+    void constrainedUpsample( ConstraintFactory & factory,
                               double htol,
                               double hstep);
-    void constrainedUpsampleTo( ConstraintFactory * factory,
+    void constrainedUpsampleTo( ConstraintFactory & factory,
                                 double htol,
                                 double hstep,
                                 int Nmax );
@@ -191,6 +192,8 @@ class Trajectory {
     //  string, and then printing it.
     std::string toString() const;
     void print() const;
+
+    void translate( MatX translation_matrix, Trajectory & other ) const;
 
   private:
     void createInitialTrajectory(); 

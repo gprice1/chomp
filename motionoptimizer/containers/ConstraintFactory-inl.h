@@ -4,14 +4,15 @@
 
 //THe definitions of the templated functions
 template <class Derived1, class Derived2>
-void ConstraintFactory::evaluate(
+double ConstraintFactory::evaluate(
+        const Trajectory & trajectory,
         const Eigen::MatrixBase<Derived1> & h_tot_const,
         const Eigen::MatrixBase<Derived2> & H_tot_const)
 {
     
     debug_status( TAG, "evaluate", "start" );
 
-    if (empty()){ return; }
+    if (empty()){ return 0; }
     
     Eigen::MatrixBase<Derived1>& h_tot = 
         const_cast<Eigen::MatrixBase<Derived1>&>(h_tot_const);
@@ -21,7 +22,6 @@ void ConstraintFactory::evaluate(
     
     debug_status( TAG, "evaluate", "start" );
 
-    //TODO - Make the trajectory aware of subsampled matrices.
     int M = trajectory.cols();
     int N = trajectory.rows();
     H_tot.setZero();    
@@ -63,15 +63,19 @@ void ConstraintFactory::evaluate(
         }
     }  
 
-
+    //TODO return the magnitude of the constraint violations
+    return 0;
     debug_status( TAG, "evaluate", "end" );
 }
 
 
 template <class Derived>
-void ConstraintFactory::evaluate( 
+double ConstraintFactory::evaluate( 
+        const Trajectory & trajectory,
         const Eigen::MatrixBase<Derived> & h_tot_const)
 {
+    if (empty()){ return 0; }
+    
     Eigen::MatrixBase<Derived>& h_tot = 
         const_cast<Eigen::MatrixBase<Derived>&>(h_tot_const);
 
@@ -93,6 +97,10 @@ void ConstraintFactory::evaluate(
             h_tot(row) = h(r);
         }
     }  
+    
+    //TODO return the magnitude of the constraint violations
+    return 0;
+
 }
 
 

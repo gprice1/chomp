@@ -9,7 +9,7 @@ namespace chomp{
 class ChompOptimizerBase : public OptimizerBase{
     
   public:
-
+    
     //either global or local iteration, depending
     //on the type of the optimization, this should be assigned in 
     // inheriting class constructor    
@@ -21,13 +21,6 @@ class ChompOptimizerBase : public OptimizerBase{
 
     MatX bounds_violations;
     
-    //TODO set hmag to zero in the initializer.
-    // The magnitude of the constraint violations
-    double hmag;
-    
-    //the previous and current objective function values.
-    double last_objective, current_objective;
-    
     //timeout_seconds : the amount of time from the start of chomp
     //                  to a forced timeout.
     //canTimeout : is timing out a possible termination condition?
@@ -37,25 +30,19 @@ class ChompOptimizerBase : public OptimizerBase{
     TimeStamp stop_time;
 
     //TODO set to zero.
-    size_t curr_iter, min_iter;
+    size_t min_iter;
    
     bool use_momentum;
-    MatX momentum;
+    MatX grad, momentum;
     
     //an HMC object for performing the Hamiltonian Monte Carlo method
     HMC * hmc;
     
-
-
-    ChompOptimizerBase(  Trajectory & traj,
-                         ConstraintFactory * factory,
-                         ChompGradient * gradient,
-                         ChompObserver * observer,
-                         double obstol = 1e-8,
-                         double timeout_seconds = 0,
-                         size_t max_iter = size_t(-1),
-                         const MatX & lower_bounds=MatX(0,0),
-                         const MatX & upper_bounds=MatX(0,0)); 
+    ChompOptimizerBase(ProblemDescription & problem,
+                       ChompObserver * observer = NULL,
+                       double obstol = 1e-8,
+                       double timeout_seconds = 0,
+                       size_t max_iter = size_t(-1)); 
 
     virtual ~ChompOptimizerBase(){};
     

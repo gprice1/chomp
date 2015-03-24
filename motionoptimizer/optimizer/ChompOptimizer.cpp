@@ -42,18 +42,13 @@ namespace chomp {
 
 const char* ChompOptimizer::TAG = "ChompOptimizer";
 
-ChompOptimizer::ChompOptimizer( Trajectory & traj,
-                                ConstraintFactory * factory,
-                                ChompGradient * gradient,
-                                ChompObserver * observer,
-                                double obstol,
-                                double timeout_seconds,
-                                size_t max_iter,
-                                const MatX & lower_bounds,
-                                const MatX & upper_bounds) : 
-    ChompOptimizerBase( traj, factory, gradient, observer,
-                        obstol, timeout_seconds, max_iter,
-                        lower_bounds, upper_bounds )
+ChompOptimizer::ChompOptimizer(ProblemDescription & problem,
+                               ChompObserver * observer,
+                               double obstol,
+                               double timeout_seconds,
+                               size_t max_iter) : 
+    ChompOptimizerBase( problem, observer,
+                        obstol, timeout_seconds, max_iter)
 {
     event = CHOMP_GLOBAL_ITER;
 }
@@ -62,34 +57,12 @@ ChompOptimizer::ChompOptimizer( Trajectory & traj,
 void ChompOptimizer::optimize( const MatX & g) { 
     
     debug_status( TAG, "optimize", "start" );
-    const MatX& L = gradient->getInvAMatrix();
-
+    const MatX& L = problem.getLMatrix();
+    
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
-    if ( factory && !factory->empty() ){
-
-        const int constraint_dims = factory->numOutput();
-        
-        //resize the constraint matrices if they are not
-        //  the correct size
-        if ( h.rows() != constraint_dims ||
-             h.cols() != 1)
-        {
-            h.resize( constraint_dims, 1 );
-        }
-        if ( H.rows() != constraint_dims ||
-             H.cols() != trajectory.size() )
-        {
-            H.resize(  trajectory.size(), constraint_dims );
-        }
-
-        factory->evaluate(h, H);
-
-        if (h.rows()) {
-            hmag = h.lpNorm<Eigen::Infinity>();
-        } else {
-            hmag = 0;
-        }
+    if ( problem.isConstrained() ){
+        constraint_magnitude = problem.evaluateConstraint(h, H);
     }
 
     //If there are no constraints,
@@ -102,18 +75,17 @@ void ChompOptimizer::optimize( const MatX & g) {
         //  momentum.
         if ( use_momentum ) {
             momentum += g * alpha;
-            trajectory.update( momentum );
+            problem.updateTrajectory( momentum );
         }
-        else { trajectory.update( g * alpha ) ; }
+        else { problem.updateTrajectory( g * alpha ) ; }
 
         debug_status( TAG, "optimize" , "end unconstrained" );
         
     //chomp update with constraints
     } else {
       
-        const int M = trajectory.M();
-        const int N = trajectory.N();
-
+        const int M = problem.M();
+        const int N = problem.N();
 
         P = H;
         
@@ -162,7 +134,7 @@ void ChompOptimizer::optimize( const MatX & g) {
         //debug << "delta = \n" << delta << "\n";
         //debug << "delta_rect = \n" << delta_rect << "\n";
         
-        trajectory.update( delta_rect );
+        problem.updateTrajectory( delta_rect );
     }
 
     debug_status( TAG, "optimize", "end" );

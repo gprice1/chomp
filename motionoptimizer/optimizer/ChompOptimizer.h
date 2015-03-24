@@ -52,15 +52,11 @@ class ChompOptimizer : public ChompOptimizerBase {
     
     static const char* TAG;
 
-    ChompOptimizer( Trajectory & traj,
-                    ConstraintFactory * factory,
-                    ChompGradient * gradient,
+    ChompOptimizer( ProblemDescription & problem,
                     ChompObserver * observer=NULL,
                     double obstol = 1e-8,
                     double timeout_seconds = 0,
-                    size_t max_iter = size_t(-1),
-                    const MatX & lower_bounds=MatX(0,0),
-                    const MatX & upper_bounds=MatX(0,0)); 
+                    size_t max_iter = size_t(-1)); 
 
     ~ChompOptimizer(){}
     

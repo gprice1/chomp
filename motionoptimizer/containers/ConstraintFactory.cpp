@@ -38,27 +38,16 @@ namespace chomp {
 
 const char* ConstraintFactory::TAG = "ConstraintFactory";
 
-ConstraintFactory::ConstraintFactory( Trajectory & trajectory ):
-    trajectory( trajectory ),
+ConstraintFactory::ConstraintFactory():
     interval_is_sorted( false ),
     constraint_dims(-1)
 {
 }
 
-ConstraintFactory::~ConstraintFactory(){
+ConstraintFactory::~ConstraintFactory()
+{
 }
 
-//TODO this may not be needed anymore
-void ConstraintFactory::clearConstraints() {
-
-    for ( std::vector<Constraint*>::iterator it = constraints.begin(); 
-        it != constraints.end();
-        it ++ )
-    {
-        if (*it){ delete *it; }
-    }
-    constraints.clear();
-}
 
 void ConstraintFactory::sortIntervals(){
 
@@ -82,7 +71,7 @@ void ConstraintFactory::addConstraint( Constraint * constraint,
 }
 
 //TODO make this able to take more constraint
-Constraint* ConstraintFactory::getConstraint(size_t t, size_t total){
+Constraint* ConstraintFactory::createConstraint(size_t t, size_t total){
     
     if ( constraint_intervals.size() == 0 ){ return NULL; }
 
@@ -151,27 +140,5 @@ void ConstraintFactory::calculateConstraintDimension()
     }
 }
 
-void ConstraintFactory::evaluate( unsigned constraint_dim,
-                                double* result,
-                                unsigned n_by_m,
-                                const double * x,
-                                double* grad )
-{
-    debug_assert( int( n_by_m ) == trajectory.size() );
-    debug_assert( int(constraint_dim) == numOutput() );
-
-    //put the data into matrix maps.
-    trajectory.setData( x );
-    MatMap h_total(result, constraint_dim, 1);
-
-    if ( grad == NULL ){
-        evaluate( h_total );
-    }else{
-        MatMap H_total( grad, n_by_m, constraint_dim);
-
-        //evaluate the data.
-        evaluate( h_total, H_total);
-    }
-}
 
 } //namespace
