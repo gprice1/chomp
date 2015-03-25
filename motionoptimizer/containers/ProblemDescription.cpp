@@ -5,10 +5,10 @@
 namespace chomp {
 ProblemDescription::ProblemDescription() :
     goalset( NULL ),
-    ok_to_run( false ),
     ok_to_sample( true ),
     use_goalset( false ),
-    is_covariant( false )
+    is_covariant( false ),
+    doing_covariant( false )
 {
 }
 ProblemDescription::~ProblemDescription(){}
@@ -18,71 +18,61 @@ void ProblemDescription::prepareSample()
 {
     ok_to_sample = true;
     if( use_goalset ){ stopGoalset(); }
-    
-    if ( is_covariant ){
-        covariant_trajectory.restoreData();
-    } else {
-        trajectory.restoreData();
-    }
 }
 
 void ProblemDescription::prepareRun()
 {
     
-    ok_to_run = true;
+    debug_status( "ProblemDescription", "prepareRun", "start");
     
     if( use_goalset ){ stopGoalset(); }
-
+    
+    //if the factory is not empty of constraints,
+    //  get all of the constraints for the current resolution
     if ( !factory.empty() ){ factory.getAll( trajectory.N() ); }
 
     //are we going to use the goalset on this iteration?
     //  If we are subsampling, then even if there is a goalset
     //  to use, do not use it.
     bool use_goalset = goalset && !trajectory.isSubsampled();
-    
     if ( use_goalset ){ startGoalset(); }
+    
+    doing_covariant = ( is_covariant && !trajectory.isSubsampled() );
 
-    gradient.prepareRun( trajectory, use_goalset );
-
-    if ( is_covariant ){
+    //prepare the gradient for a run at this resolution
+    gradient.prepareRun( trajectory, use_goalset, doing_covariant );
+    
+    //are we doing covariant optimization at this stage of optimiation?
+    //  do not do covariant optimization if there is subsampling
+    if ( doing_covariant ){
         trajectory.getCovariantTrajectory(gradient.getLMatrix(),
                                           covariant_trajectory);
     }
+
+    debug_status( "ProblemDescription", "prepareRun", "end");
 }
 
 
 void ProblemDescription::upsample()
 {
-    
     if( !ok_to_sample ){ prepareSample(); }
-    
-    ok_to_run = false;
-
     trajectory.upsample();
 }
 
 void ProblemDescription::subsample()
 {
-
     if( !ok_to_sample ){ prepareSample(); }
-    
-    ok_to_run = false;
-
     trajectory.subsample();
 }
 
 void ProblemDescription::stopSubsample()
 {
-
-    ok_to_run = false;
-    
     trajectory.endSubsample();
 }
 
 double ProblemDescription::evaluateGradient( MatX & g )
 {
-    if ( !ok_to_run ){ prepareRun(); }
-    if ( is_covariant ){ 
+    if ( doing_covariant ){ 
         prepareCovariant();
         gradient.evaluate( trajectory, g, &covariant_trajectory );
         return gradient.evaluateObjective( covariant_trajectory, true );
@@ -95,22 +85,15 @@ double ProblemDescription::evaluateGradient( MatX & g )
 double ProblemDescription::evaluateGradient( const double * xi,
                                                    double * g )
 {
-    if ( !ok_to_run ){ prepareRun(); }
-    if ( is_covariant ){
-        prepareCovariant( xi );
-    } else {
-        trajectory.setData( xi );
-    }
     
-    //setData() is a dangerous call that will throw segfaults
-    //  if sampling occurs on top of it.
-    ok_to_sample = false;
-
+    if ( doing_covariant ){ prepareCovariant( xi ); }
+    else { trajectory.setData( xi ); }
+    
     if ( !g ){ return gradient.evaluateObjective( trajectory ); }
             
     MatMap g_map( g, trajectory.N(), trajectory.M() );
 
-    if ( is_covariant ){
+    if ( doing_covariant ){
         gradient.evaluate( trajectory, g_map, &covariant_trajectory );
         return gradient.evaluateObjective( covariant_trajectory, true );
     }
@@ -124,8 +107,7 @@ double ProblemDescription::evaluateGradient( const double * xi,
 double ProblemDescription::evaluateConstraint( MatX & h )
 {
     if ( factory.empty() ) {return 0; }
-    if ( !ok_to_run ){ prepareRun(); }
-    if ( is_covariant ){ prepareCovariant(); }
+    if ( doing_covariant ){ prepareCovariant(); }
     
     h.resize( factory.numOutput(), 1 );
 
@@ -136,16 +118,19 @@ double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
 {
     if ( factory.empty() ) {return 0; }
 
-    if ( !ok_to_run ){ prepareRun(); }
-    
-    if ( is_covariant ){ prepareCovariant(); }
+    if ( doing_covariant ){ prepareCovariant(); }
 
     h.resize( factory.numOutput(), 1 );
     H.resize( size(), factory.numOutput() );
     
     double magnitude = factory.evaluate( trajectory, h, H );
 
-    skylineCholMultiplyInverse( getLMatrix(), H );
+    if ( doing_covariant ){ 
+        //TODO find out if this is correct
+        MatMap H_map( H.data(), trajectory.N(),
+                      trajectory.M()*factory.numOutput() );
+        skylineCholMultiplyInverse( gradient.getLMatrix(), H );
+    }
 
     return magnitude;
     
@@ -155,19 +140,11 @@ double ProblemDescription::evaluateConstraint( const double * xi,
                                                      double * h,
                                                      double * H )
 {
-    if ( !ok_to_run ){ prepareRun(); }
     if ( factory.empty() ) {return 0; }
     assert( h ); // make sure that h is not NULL
     
-    if ( is_covariant ){
-        prepareCovariant( xi );
-    }else {
-        trajectory.setData( xi );
-    }
-
-    //setData() is a dangerous call that will throw segfaults
-    //  if sampling occurs on top of it.
-    ok_to_sample = false;
+    if ( doing_covariant ){ prepareCovariant( xi );}
+    else { trajectory.setData( xi ); }
 
     MatMap h_map( h, factory.numOutput(), 1 );
 
@@ -175,7 +152,17 @@ double ProblemDescription::evaluateConstraint( const double * xi,
         
     MatMap H_map( H, trajectory.size(), factory.numOutput() );
 
-    return factory.evaluate(trajectory, h_map, H_map );
+    double magnitude = factory.evaluate(trajectory, h_map, H_map );
+
+    if( doing_covariant ){
+        //TODO find out if this is correct
+        MatMap H_map2( H, trajectory.N(),
+                       trajectory.M()*factory.numOutput() );
+        skylineCholMultiplyInverse( gradient.getLMatrix(), 
+                                             H_map2 );
+    }
+
+    return magnitude;
 }
 
 bool ProblemDescription::evaluateConstraint( MatX & h_t,
@@ -197,8 +184,7 @@ bool ProblemDescription::evaluateConstraint( MatX & h_t,
 
 double ProblemDescription::evaluateObjective()
 {
-    if ( !ok_to_run ){ prepareRun(); }
-    if ( is_covariant ){ prepareCovariant(); }
+    if ( doing_covariant ){ prepareCovariant(); }
 
     //TODO include the fextra term
     return gradient.evaluateObjective( trajectory );
@@ -206,25 +192,19 @@ double ProblemDescription::evaluateObjective()
 
 double ProblemDescription::evaluateObjective( const double * xi )
 {
-    if ( !ok_to_run ){ prepareRun(); }
-    
-    if ( is_covariant ){ 
-        prepareCovariant();
-    } else {
-        trajectory.setData( xi );
-    }
-    
-    //setData() is a dangerous call that will throw segfaults
-    //  if sampling occurs on top of it.
-    ok_to_sample = false;
 
+    if ( doing_covariant ){ 
+        covariant_trajectory.setData(xi);
+        return gradient.evaluateObjective( covariant_trajectory, true );
+    }
+
+    trajectory.setData( xi );
     //TODO include the fextra term.
     return gradient.evaluateObjective( trajectory );
 }
 
 int ProblemDescription::getConstraintDims()
 {
-    if( !ok_to_run ){ prepareRun(); }
     return factory.numOutput();
 }
 
@@ -240,8 +220,6 @@ void ProblemDescription::startGoalset()
     //add the goal constraint to the constraints vector.
     factory.addGoalset( goalset );
     
-    use_goalset = true;
-
     ok_to_sample = false;
 }
     
@@ -249,8 +227,8 @@ void ProblemDescription::stopGoalset()
 { 
 
     use_goalset = false;
-    if( !ok_to_sample ){ prepareSample(); }
     
+    //Restore the trajectory to the non-goalset type
     trajectory.endGoalset();
 
     //remove the goal constraint, so that it is not deleted along
@@ -261,13 +239,33 @@ void ProblemDescription::stopGoalset()
     
 void ProblemDescription::copyToTrajectory( const double * data )
 {
+    if( doing_covariant ){
+        covariant_trajectory.copyToData( data );
+        covariant_trajectory.getNonCovariantTrajectory( 
+                                    gradient.getLMatrix(), 
+                                    trajectory );
+    }else {
+        trajectory.copyToData( data );
+    }
+
     if( !ok_to_sample ){ prepareSample(); }
-    trajectory.copyToData( data );
+    
 }
+
 void ProblemDescription::copyToTrajectory( const std::vector<double> data )
 {
+
+    if( doing_covariant ){
+        covariant_trajectory.copyToData( data );
+        covariant_trajectory.getNonCovariantTrajectory( 
+                                    gradient.getLMatrix(), 
+                                    trajectory );
+    }else {
+        trajectory.copyToData( data );
+    }
+
     if( !ok_to_sample ){ prepareSample(); }
-    trajectory.copyToData( data );
+    
 }
 
 void ProblemDescription::prepareCovariant(const double * xi )
@@ -278,7 +276,6 @@ void ProblemDescription::prepareCovariant(const double * xi )
     
     covariant_trajectory.getNonCovariantTrajectory( gradient.getLMatrix(), 
                                                     trajectory );
-    
 }
     
 

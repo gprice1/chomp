@@ -93,14 +93,9 @@ void ChompOptimizer::optimize() {
         debug_status( TAG, "optimize", "before equals" );
 
         P = H;
-
-        debug_status( TAG, "optimize", "after equals" );
         
-        // TODO: see if we can make this more efficient?
-        for (int i=0; i<P.cols(); i++){ 
-            skylineCholSolveMulti(L, P.col(i));
-        }
-
+        skylineCholSolve( L, MatMap( P.data(), N, M * P.cols() ) );
+        
         debug_status( TAG, "optimize", "after first skyline" );
 
         //debug << "H = \n" << H << "\n";
@@ -123,7 +118,8 @@ void ChompOptimizer::optimize() {
         ConstMatMap g_flat(g.data(), newsize, 1);
         W = (MatX::Identity(newsize,newsize) - H * Y)
             * g_flat * alpha;
-        skylineCholSolveMulti(L, W);
+
+        skylineCholSolve(L, MatMap( W.data(), N, M * W.cols() ) );
 
         Y = cholSolver.solve(h);
 

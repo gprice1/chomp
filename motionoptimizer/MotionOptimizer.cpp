@@ -98,6 +98,8 @@ void MotionOptimizer::optimize( OptimizerBase * optimizer,
     debug_status( TAG, "optimize", "start");
 
     if( subsample ){ problem.subsample(); }
+
+    problem.prepareRun();
     
     optimizer->solve();
 

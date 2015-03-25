@@ -185,7 +185,7 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
 
     if( is_covariant ){ skylineCholMultiplyInverse( L, b ); }
     
-    debug_status( TAG, "prepareRun", "start" );
+    debug_status( TAG, "prepareRun", "end" );
 }
 
     

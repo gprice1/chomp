@@ -68,7 +68,7 @@ class MotionOptimizer {
                      const MatX & lower_bounds=MatX(0,0),
                      const MatX & upper_bounds=MatX(0,0),
                      OptimizationAlgorithm algorithm1 = VAR2_NLOPT,
-                     OptimizationAlgorithm algorithm2 = NONE,
+                     OptimizationAlgorithm algorithm2 = VAR2_NLOPT,
                      int N_max = 0);
 
     void solve();
@@ -159,6 +159,7 @@ class MotionOptimizer {
                 { problem.dontCovariantOptimization(); }
     inline bool isCovariantOptimization()
                 { return problem.isCovariantOptimization(); }
+
 
 };
 

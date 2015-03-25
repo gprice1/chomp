@@ -74,7 +74,9 @@ void NLOptimizer::solve()
     //  trajectories, so catch the failures and return the trajectory,
     //  even if failure occurs.
     try{
-        result = optimizer.optimize(optimization_vector, current_objective);
+        double objective_value;
+        result = optimizer.optimize(optimization_vector, objective_value);
+        current_objective = objective_value;
     }catch( std::exception & e ){
         std::cout << "Caught exception: " << e.what() << std::endl;
     }

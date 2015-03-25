@@ -243,11 +243,9 @@ void Trajectory::endGoalset(){
 }
 
 void Trajectory::restoreData(){
-    if (cached_data){
-        data = cached_data;
-        cached_data = NULL;
-        remapXi( fullN(), fullN(), M() );
-    }
+    data = cached_data;
+    cached_data = NULL;
+    remapXi( N(), fullN(), M() );
 }
 
 
@@ -293,21 +291,26 @@ void Trajectory::setData( double * new_data ){
     }
 }
 
-void Trajectory::copyToData( const std::vector<double> & vec ){
-    std::copy( vec.begin(), vec.end(), data );
+void Trajectory::copyToData( const std::vector<double> & vec )
+{
+    if ( cached_data ){ restoreData(); }
+    xi = ConstMatMap( vec.data(), N(), M() );
 }
-void Trajectory::copyToData( const double * new_data ){
-    std::copy( new_data, new_data + size(), data );
+void Trajectory::copyToData( const double * new_data )
+{
+    if ( cached_data ){ restoreData(); }
+    xi = ConstMatMap( new_data, N(), M() );
 }
 
-
-void Trajectory::copyDataTo( double * copy) const {
-    std::copy( data, data + size(), copy );
+void Trajectory::copyDataTo( double * copy) const 
+{
+    MatMap( copy, N(), M() ) = xi;
 }
-//This is dangerous, and it may be a bad idea.
-void Trajectory::copyDataTo( std::vector<double> & vec ) const {
+
+void Trajectory::copyDataTo( std::vector<double> & vec ) const
+{
     vec.resize( size() );
-    std::copy( data, data + size(), vec.begin() );
+    MatMap( vec.data(), N(), M() ) = xi;
 }
 
 
@@ -370,6 +373,9 @@ void Trajectory::getState( double * array, int i ) const
 void Trajectory::upsample()
 {
     
+    //TODO this should be an error. After a set of calls to
+    //  setData, the data should have been restored.
+    //  
     assert( !cached_data );
     
     debug_status( TAG, "upsample", "start" );
@@ -426,12 +432,11 @@ void Trajectory::upsample()
 
     //clean up the old data array.
     delete data;
+    data = upsampled_data;
     
     //create the new matrix map, and set the data variable to the
     //  new data array. 
-    new (&xi) DynamicMatMap( upsampled_data, N_up, M,
-                             DynamicStride( N_up, 1 ));
-    data = upsampled_data;
+    new (&xi) DynamicMatMap( data, N_up, M, DynamicStride( N_up, 1 ));
     
     dt = total_time / xi.rows()+1;
 
@@ -599,44 +604,54 @@ void Trajectory::print() const{
 void Trajectory::getNonCovariantTrajectory( const MatX & translation_matrix,
                                             Trajectory & other ) const
 {
+    debug_status( TAG, "getNonCovariantTrajectory", "start" );
     copyDataToOther( other );
     skylineCholMultiplyInverseTranspose( translation_matrix,
                                          other.full_xi );
+    debug_status( TAG, "getNonCovariantTrajectory", "end" );
 }
 
 void Trajectory::getCovariantTrajectory( const MatX & translation_matrix,
                                          Trajectory & other ) const
 {
+    debug_status( TAG, "getCovariantTrajectory", "start" );
     copyDataToOther( other );
     skylineCholMultiplyTranspose( translation_matrix, other.full_xi );
+    debug_status( TAG, "getCovariantTrajectory", "end" );
 }
 
 void Trajectory::copyDataToOther( Trajectory & other ) const{
     
+    debug_status( TAG, "copyDataToOther", "start" );
     //set up the shape of the matrix
+    //
     if ( other.fullN() != this->fullN() ){
 
         if (other.data){  delete other.data; }
 
-        const int N = this->fullN();
-        const int N_sub = this->N();
+        const int fullN = this->fullN();
+        const int N = this->N();
         const int M = this->M();
 
-        other.data = new double [ N * M ];
-        other.remapXi( N, N_sub, M );
+        other.data = new double [ fullN * M ];
+        other.remapXi( N, fullN, M );
 
         other.dt = this->dt;
         other.total_time = this->total_time;
 
     }else if ( other.N() != this->N() ){
-        other.remapXi( this->fullN(), this->N(), this->M());
+        other.remapXi( this->N(), this->fullN(), this->M());
     }
 
     other.is_subsampled = this->is_subsampled;
     other.objective_type = this->objective_type;
 
+    debug_status( TAG, "copyDataToOther", "beforeAssign" );
+    
     //copy over the data.
     other.full_xi = this->full_xi;
+
+    debug_status( TAG, "copyDataToOther", "end" );
 }
 
 

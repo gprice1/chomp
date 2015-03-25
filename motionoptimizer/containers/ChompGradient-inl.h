@@ -54,7 +54,7 @@ inline void ChompGradient::evaluate(
             evaluateSmoothness( trajectory, g, false );
         }
         
-        evaluateSmoothness( trajectory, g, is_covariant );
+        evaluateCollision( trajectory, g, is_covariant );
     }
         
     debug_status( TAG, "evaluate", "end" );

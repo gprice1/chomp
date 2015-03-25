@@ -27,10 +27,11 @@ private:
     
     Constraint * goalset;
 
-    //This is true, if prepareRun has been called since the
-    //  last change to the trajectory, or goalset has been made.
-    bool ok_to_run, ok_to_sample, use_goalset, is_covariant;
+    bool ok_to_sample, use_goalset;
+    bool is_covariant, doing_covariant;
 
+    MatX g_full;
+    
 public:
     
     ProblemDescription();
@@ -44,8 +45,7 @@ public:
 
     inline bool isConstrained() const { return !factory.empty(); }
 
-    inline void setGoalset( Constraint * goal )
-            {goalset = goal; ok_to_run = false;}
+    inline void setGoalset( Constraint * goal ){goalset = goal;}
     inline const Constraint * getGoalset() const { return goalset; }
     
     inline int N(){ return trajectory.N(); }
@@ -95,7 +95,6 @@ public:
     
     inline void doCovariantOptimization(){ is_covariant = true; }
     inline void dontCovariantOptimization(){ is_covariant = false; }
-
     inline bool isCovariantOptimization(){ return is_covariant; }
 
 private:

@@ -475,6 +475,8 @@ int main(int argc, char** argv) {
 
   chomper.setAlpha( alpha );
 
+  chomper.doCovariantOptimization();
+
 #ifdef MZ_HAVE_CAIRO
 
   PdfEmitter* pe = NULL;

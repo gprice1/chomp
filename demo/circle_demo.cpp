@@ -142,16 +142,16 @@ public:
     
     const Trajectory & trajectory = chomper.problem.getTrajectory();
     
-    for (int i=-1; i<=trajectory.N(); ++i) {
+    for (int i=-1; i<=trajectory.fullN(); ++i) {
       MatX pi;
       if (i < 0) { 
         pi = trajectory.getQ0();
-      } else if (i >= trajectory.N()) {
+      } else if (i >= trajectory.fullN()) {
         pi = trajectory.getQ1();
       } else {
-        pi = trajectory.row(i);
+        pi = trajectory.getFullXi().row(i);
       }
-      double u = double(i+1) / (trajectory.N()+1);
+      double u = double(i+1) / (trajectory.fullN()+1);
       cairo_set_source_rgb(cr, 1-u, 0, u);
       cairo_arc(cr, MAPX(pi(0)), MAPY(pi(1)), 2, 0, 2*M_PI);
       cairo_stroke(cr);
@@ -279,8 +279,8 @@ int main(int argc, char** argv) {
 
   CircleConstraint c;
   chomper.addConstraint( &c, 0.25, 0.75 );
-  chomper.setMaxIterations( 30 );
-
+  chomper.setMaxIterations( 200 );
+  
   MatX q0(1,2), q1(1,2);
   q0 << -3, 5;
   q1 << 5, -3;
@@ -288,7 +288,11 @@ int main(int argc, char** argv) {
   chomper.getTrajectory().initialize( q0, q1, N );  
   chomper.setNMax( Nmax );
   
-
+  chomper.getTrajectory().setObjectiveType( MINIMIZE_VELOCITY );
+  
+  chomper.dontSubsample();
+  chomper.doCovariantOptimization();
+  
 #ifdef MZ_HAVE_CAIRO
   PdfEmitter* pobs = NULL;
 

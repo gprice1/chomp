@@ -1,7 +1,7 @@
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-set(LIBRARY_TYPE STATIC)
+set(LIBRARY_TYPE SHARED)
 
 if(APPLE)
   include_directories(/opt/local/include) # MacPorts

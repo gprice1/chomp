@@ -548,24 +548,6 @@ void skylineCholSolve(const Eigen::MatrixBase<Derived1>& L,
 }
 
 
-template <class Derived1, class Derived2>
-void skylineCholSolveMulti( const Eigen::MatrixBase<Derived1>& L, 
-                            const Eigen::MatrixBase<Derived2>& xx_const)
-{
-    int n = L.rows();
-    int m = xx_const.rows() / n;
-    assert(xx_const.rows() == m*n);
-
-    Eigen::MatrixBase<Derived2>& xx = 
-      const_cast<Eigen::MatrixBase<Derived2>&>(xx_const);
-
-    for (int i=0; i<m; ++i) {
-        skylineCholSolve(L, xx.block(n*i, 0, n, xx.cols()));
-    }
-    
-}
-
-
 template <class Derived1, class Derived2, class Derived3>
 double createBMatrix(int n, 
                      const Eigen::MatrixBase<Derived1>& coeffs,
