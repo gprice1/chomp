@@ -13,7 +13,7 @@
 
 #include "optimizer/ChompLocalOptimizer.h"
 #include "optimizer/ChompOptimizer.h"
-
+#include "optimizer/ChompCovariantOptimizer.h"
 
 #ifdef NLOPT_FOUND
     #include <nlopt.hpp>
@@ -25,6 +25,7 @@ namespace chomp {
 enum OptimizationAlgorithm {
     LOCAL_CHOMP,
     GLOBAL_CHOMP,
+    COVARIANT_CHOMP,
     MMA_NLOPT,
     CCSAQ_NLOPT,
     SLSQP_NLOPT,
@@ -67,8 +68,8 @@ class MotionOptimizer {
                      size_t max_iter = size_t(-1),
                      const MatX & lower_bounds=MatX(0,0),
                      const MatX & upper_bounds=MatX(0,0),
-                     OptimizationAlgorithm algorithm1 = VAR2_NLOPT,
-                     OptimizationAlgorithm algorithm2 = VAR2_NLOPT,
+                     OptimizationAlgorithm algorithm1 = LBFGS_NLOPT,
+                     OptimizationAlgorithm algorithm2 = LBFGS_NLOPT,
                      int N_max = 0);
 
     void solve();

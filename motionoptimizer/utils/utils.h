@@ -102,7 +102,9 @@ enum ChompEventType {
     NLOPT_ITER,
     CHOMP_FINISH,
     CHOMP_TIMEOUT,
-    CHOMP_GOALSET_ITER
+    CHOMP_GOALSET_ITER,
+    CHOMP_COVARIANT_ITER
+
 };
 
 
@@ -137,16 +139,24 @@ class DebugChompObserver: public ChompObserver {
          std::string event_string;
 
          switch (e) {
-            case CHOMP_INIT: event_string = "CHOMP_INIT"; break;
+            case CHOMP_INIT:
+                 event_string = "CHOMP_INIT"; break;
             case CHOMP_GLOBAL_ITER:
-                 event_string =  "CHOMP_GLOBAL_ITER";
-                 break;
-            case CHOMP_LOCAL_ITER: event_string ="CHOMP_LOCAL_ITER"; break;
-            case NLOPT_ITER: event_string ="NLOPT_ITER"; break;
-            case CHOMP_FINISH: event_string =  "CHOMP_FINISH"; break;
-            case CHOMP_TIMEOUT: event_string =  "CHOMP_TIMEOUT";break;
-            case CHOMP_GOALSET_ITER: event_string =  "CHOMP_GOALSET_ITER";break;
-            default: event_string =  "[INVALID]"; break;
+                 event_string = "CHOMP_GLOBAL_ITER"; break;
+            case CHOMP_LOCAL_ITER:
+                 event_string = "CHOMP_LOCAL_ITER"; break;
+            case NLOPT_ITER:
+                 event_string = "NLOPT_ITER"; break;
+            case CHOMP_FINISH:
+                 event_string = "CHOMP_FINISH"; break;
+            case CHOMP_TIMEOUT:
+                 event_string = "CHOMP_TIMEOUT"; break;
+            case CHOMP_GOALSET_ITER: 
+                 event_string = "CHOMP_GOALSET_ITER"; break;
+            case CHOMP_COVARIANT_ITER:
+                 event_string = "CHOMP_COVARIANT_ITER"; break;
+            default:
+                 event_string = "[INVALID]"; break;
          }
 
          std::cout << "chomp debug: "
@@ -158,7 +168,7 @@ class DebugChompObserver: public ChompObserver {
               << ((lastObjective-curObjective)/curObjective) << ", "
               << "constraint=" << std::setprecision(10)
               << constraintViolation << "\n";
-        if ( e != CHOMP_INIT && 
+        if ( e != CHOMP_INIT && e != CHOMP_FINISH && 
             (std::isnan(curObjective) || std::isinf(curObjective) ||
              std::isnan(lastObjective) || std::isinf(lastObjective)) )
         {
@@ -200,7 +210,6 @@ inline void vecToMat( const std::vector<double> & vec,
     assert( int( vec.size() ) == N * M );
     mat = ConstMatMap( vec.data(), N, M );
 }
-
 
 //this is a function to compute the dot product of matrices
 template <class Derived1, class Derived2>
@@ -450,15 +459,14 @@ void skylineCholMultiplyTranspose(const Eigen::MatrixBase<Derived1>& L,
 
     const int nc = L.cols();
     const int final_column_index = nc-1;
-    
+     
     // i is the column index 
     // j indexes into the correct row of xi
     for (int i=0 ; i < n ; i++ )
     {
-
         x.row(i) *= L(i, final_column_index);
-        
-        const int j1 = std::min( n, i+final_column_index );
+
+        const int j1 = std::min( n, i+nc);
         for (int j = i+1; j < j1; j++) {
             const int L_col_index = final_column_index - j + i ;
             x.row(i) += L(j, L_col_index ) * x.row( j ); //

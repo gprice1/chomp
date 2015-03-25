@@ -96,7 +96,9 @@ public:
     inline void doCovariantOptimization(){ is_covariant = true; }
     inline void dontCovariantOptimization(){ is_covariant = false; }
     inline bool isCovariantOptimization(){ return is_covariant; }
-
+    
+    inline bool isSubsampled(){ return trajectory.isSubsampled(); }
+    
 private:
 
     void prepareRun();
@@ -120,11 +122,22 @@ template <class Derived>
 inline void ProblemDescription::updateTrajectory( 
                                 const Eigen::MatrixBase<Derived> & delta) 
 {
+    if ( doing_covariant ){
+        covariant_trajectory.update( delta );
+        prepareCovariant();
+    }
     trajectory.update( delta );
 }
 
 inline void ProblemDescription::updateTrajectory( const double * delta )
 {
+    if ( doing_covariant ){
+        covariant_trajectory.update( ConstMatMap(delta, 
+                                                 trajectory.N(),
+                                                 trajectory.M() ) );
+        prepareCovariant();
+    }
+
     trajectory.update( ConstMatMap(delta, trajectory.N(), trajectory.M()));
 }
 
@@ -133,12 +146,14 @@ inline void ProblemDescription::updateTrajectory(
                                 const Eigen::MatrixBase<Derived> & delta,
                                 int t) 
 {
+    debug_assert( !doing_covariant );
     trajectory.update( delta, t );
 }
 
 inline void ProblemDescription::updateTrajectory( const double * delta,
                                                   int t )
 {
+    debug_assert( !doing_covariant );
     trajectory.update( 
                 ConstMatMap(delta, trajectory.N(), trajectory.M()),
                 t);

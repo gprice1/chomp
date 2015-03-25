@@ -477,11 +477,12 @@ int main(int argc, char** argv) {
 
   chomper.doCovariantOptimization();
 
+
 #ifdef MZ_HAVE_CAIRO
 
   PdfEmitter* pe = NULL;
 
-  if (pdf >= 0) {
+  if (pdf > 0) {
     char buf[1024];
     sprintf(buf, "map2d_n%d_g%f_a%f_e%f_m%d_o%s_%f,%f,%f,%f.pdf",
             N, gamma, alpha, errorTol, (int)max_iter,

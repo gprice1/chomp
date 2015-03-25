@@ -114,9 +114,27 @@ void MotionOptimizer::optimize( OptimizerBase * optimizer,
 OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
 {
     //create the optimizer
-    //TODO include other optimization schemes
 
-    if ( alg == GLOBAL_CHOMP ){
+    //If the algorith is CovariantChomp, or if the Algorithm is a
+    //  chomp variant with a covaraint trajectory, do CovariantChomp
+    if ( ((alg == GLOBAL_CHOMP || alg == LOCAL_CHOMP) &&
+         problem.isCovariantOptimization() ) &&
+         !problem.isSubsampled() )
+    {
+        alg = COVARIANT_CHOMP;
+    }
+
+    if ( alg == COVARIANT_CHOMP ){
+        problem.doCovariantOptimization();
+        ChompCovariantOptimizer * opt = new ChompCovariantOptimizer(
+                                  problem,
+                                  observer, 
+                                  obstol, timeout_seconds,
+                                  max_iterations);
+        if (alpha > 0){ opt->setAlpha( alpha ); }
+        return opt;
+
+    } else if ( alg == GLOBAL_CHOMP ){
         ChompOptimizer * opt = new ChompOptimizer(
                                   problem,
                                   observer, 

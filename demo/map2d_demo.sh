@@ -1,8 +1,8 @@
-SETTINGS_V1="-n 127 -g 0.5 -a 0.02 -e 1e-6 -m 200 -o vel"
-SETTINGS_V0="-n  63 -g 0.8 -a 0.03 -e 1e-6 -m 200 -o vel"
+SETTINGS_V1="-n 127 -g 0.5 -a 0.02 -e 1e-6 -m 200 -o vel -p 1"
+SETTINGS_V0="-n  63 -g 0.8 -a 0.03 -e 1e-6 -m 200 -o vel -p 1"
 
-SETTINGS_A1="-n 127 -g 0.03 -a 0.001 -e 1e-12 -m 400 -o accel"
-SETTINGS_A0="-n  63 -g 0.08 -a 0.002 -e 1e-12 -m 400 -o accel"
+SETTINGS_A1="-n 127 -g 0.006 -a 0.001 -e 1e-12 -m 400 -o accel -p 1"
+SETTINGS_A0="-n  63 -g 0.016 -a 0.002 -e 1e-12 -m 400 -o accel -p 1"
 
 
 MAP3A="-c 2.7,-2.7,-2.7,2.7 ../maps/map3.txt"

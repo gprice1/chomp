@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
   chomper.getTrajectory().setObjectiveType( MINIMIZE_VELOCITY );
   
   chomper.dontSubsample();
-  chomper.doCovariantOptimization();
+  //chomper.doCovariantOptimization();
   
 #ifdef MZ_HAVE_CAIRO
   PdfEmitter* pobs = NULL;

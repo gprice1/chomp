@@ -459,8 +459,36 @@ int tertiary( int argc, char ** argv ){
 
 
 }
+
+void quaternary(){
+
+    int n = 7;
+    int m = 2;
+
+    MatX original = MatX::Random( n, m );
+    MatX L_mat = MatX::Identity(n, m );
+    
+    MatX coeffs;
+    coeffs.resize(1,3);
+    coeffs << 1, -4, 6;
+
+    MatX L;
+    skylineChol(n, coeffs, L);
+    
+    MatX copy = original;
+    skylineCholMultiplyTranspose( L, copy );
+
+    skylineCholMultiplyInverseTranspose( L, copy );
+
+    std::cout << original << std::endl;
+    std::cout << copy << std::endl;
+    assert( relErr( original, copy ) < 1e-5 );
+
+}
+
 int main(int argc, char** argv) { 
-    return primary( argc, argv );
+    quaternary();
+    //return primary( argc, argv );
     //secondary( argc, argv );
     //tertiary( argc, argv );
 }
