@@ -34,7 +34,7 @@
 #include "Map2D.h"
 #include <png.h>
 #include <getopt.h>
-#include "MotionOptimizer.cpp"
+#include "MotionOptimizer.h"
 
 using namespace chomp;
 

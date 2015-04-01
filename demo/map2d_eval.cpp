@@ -481,8 +481,9 @@ int main(int argc, char** argv) {
   chomper.setObserver( &dobs );
 
   chomper.setAlpha( alpha );
-
+  
   chomper.setAlgorithm( alg ); 
+  
   
   if (do_covariant ){ chomper.doCovariantOptimization(); }
 

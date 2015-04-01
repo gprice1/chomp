@@ -38,7 +38,6 @@ for alg in ${ALGORITHMS[@]}; do
                 ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o accel
                 ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o vel
                 echo "../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o vel"
-
             done
         else 
             ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o accel -a 0.1 $MAP3A
