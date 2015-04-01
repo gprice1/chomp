@@ -41,6 +41,8 @@ else()
     add_definitions( -DRELEASE )
 endif()
 
+add_definitions( -DDO_TIMING )
+
 set(CMAKE_C_FLAGS "-Wall -g")
 set(CMAKE_CXX_FLAGS "-Wall -g")
 

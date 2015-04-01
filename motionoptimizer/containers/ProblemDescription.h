@@ -5,6 +5,18 @@
 #include "ChompGradient.h"
 #include "ConstraintFactory.h"
 
+#ifdef DO_TIMING
+    #include "../utils/timer.h"
+    #include <sstream>
+    #define TIMER_START( x )        timer.start( x )   
+    #define TIMER_STOP( x )         timer.stop( x )    
+    #define TIMER_GET_TOTAL( x )    timer.getTotal( x )
+#else 
+    #define TIMER_START( x )     (void)0 
+    #define TIMER_STOP( x )      (void)0
+    #define TIMER_GET_TOTAL( x ) (void)0
+#endif 
+
 namespace chomp {
     
 class ProblemDescription {
@@ -31,6 +43,14 @@ private:
     bool is_covariant, doing_covariant;
 
     MatX g_full;
+    
+    //Defines for timing things
+#ifdef DO_TIMING
+    Timer timer;
+    static const std::string gradient_timer;
+    static const std::string copy_timer;
+    static const std::string constraint_timer;
+#endif
     
 public:
     
@@ -98,6 +118,14 @@ public:
     inline bool isCovariantOptimization(){ return is_covariant; }
     
     inline bool isSubsampled(){ return trajectory.isSubsampled(); }
+
+
+    void getTimes( 
+        std::vector< std::pair<std::string, double> > & times ) const ;
+    
+    void printTimes( bool verbose=true ) const ;
+
+    std::string getTimesString( bool verbose=true ) ;
     
 private:
 

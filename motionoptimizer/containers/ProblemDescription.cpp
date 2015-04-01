@@ -10,6 +10,7 @@ ProblemDescription::ProblemDescription() :
     is_covariant( false ),
     doing_covariant( false )
 {
+    TIMER_START( "total" );
 }
 ProblemDescription::~ProblemDescription(){}
 
@@ -72,6 +73,9 @@ void ProblemDescription::stopSubsample()
 
 double ProblemDescription::evaluateGradient( MatX & g )
 {
+
+    TIMER_START( "gradient" );
+    
     if ( doing_covariant ){ 
         prepareCovariant();
         gradient.evaluate( trajectory, g, &covariant_trajectory );
@@ -79,27 +83,43 @@ double ProblemDescription::evaluateGradient( MatX & g )
     }
     
     gradient.evaluate( trajectory, g );
-    return gradient.evaluateObjective(trajectory);
+
+    const double val = gradient.evaluateObjective(trajectory);
+
+    TIMER_STOP( "gradient" );
+    
+    return val;
 }
 
 double ProblemDescription::evaluateGradient( const double * xi,
                                                    double * g )
 {
-    
+    TIMER_START( "gradient" );
     if ( doing_covariant ){ prepareCovariant( xi ); }
     else { trajectory.setData( xi ); }
     
-    if ( !g ){ return gradient.evaluateObjective( trajectory ); }
+    if ( !g ){ 
+        const double val = gradient.evaluateObjective( trajectory );
+        TIMER_STOP( "gradient" );
+        return val;
+    }
             
     MatMap g_map( g, trajectory.N(), trajectory.M() );
 
     if ( doing_covariant ){
         gradient.evaluate( trajectory, g_map, &covariant_trajectory );
-        return gradient.evaluateObjective( covariant_trajectory, true );
+        const double val = 
+            gradient.evaluateObjective( covariant_trajectory, true );
+        TIMER_STOP( "gradient" );
+        return val;
     }
 
     gradient.evaluate( trajectory, g_map );
-    return gradient.evaluateObjective( trajectory );
+    const double val = gradient.evaluateObjective( trajectory );
+
+    TIMER_STOP( "gradient" );
+
+    return val;
 }
 
 
@@ -107,16 +127,24 @@ double ProblemDescription::evaluateGradient( const double * xi,
 double ProblemDescription::evaluateConstraint( MatX & h )
 {
     if ( factory.empty() ) {return 0; }
+
+    TIMER_START( "constraint" );
     if ( doing_covariant ){ prepareCovariant(); }
     
     h.resize( factory.numOutput(), 1 );
 
-    return factory.evaluate( trajectory, h);
+    const double value = factory.evaluate( trajectory, h);
+
+    TIMER_STOP( "constraint" );
+
+    return value;
 }
 
 double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
 {
     if ( factory.empty() ) {return 0; }
+
+    TIMER_START( "constraint" );
 
     if ( doing_covariant ){ prepareCovariant(); }
 
@@ -131,6 +159,8 @@ double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
                       trajectory.M()*factory.numOutput() );
         skylineCholMultiplyInverse( gradient.getLMatrix(), H );
     }
+    
+    TIMER_STOP( "constraint" );
 
     return magnitude;
     
@@ -141,6 +171,9 @@ double ProblemDescription::evaluateConstraint( const double * xi,
                                                      double * H )
 {
     if ( factory.empty() ) {return 0; }
+
+    TIMER_START( "constraint" );
+    
     assert( h ); // make sure that h is not NULL
     
     if ( doing_covariant ){ prepareCovariant( xi );}
@@ -148,7 +181,11 @@ double ProblemDescription::evaluateConstraint( const double * xi,
 
     MatMap h_map( h, factory.numOutput(), 1 );
 
-    if ( !H ){ return factory.evaluate( trajectory, h_map ); }
+    if ( !H ){ 
+        const double val = factory.evaluate( trajectory, h_map );
+        TIMER_STOP( "constraint" );
+        return val;
+    }
         
     MatMap H_map( H, trajectory.size(), factory.numOutput() );
 
@@ -161,7 +198,8 @@ double ProblemDescription::evaluateConstraint( const double * xi,
         skylineCholMultiplyInverse( gradient.getLMatrix(), 
                                              H_map2 );
     }
-
+    
+    TIMER_STOP( "constraint" );
     return magnitude;
 }
 
@@ -169,6 +207,8 @@ bool ProblemDescription::evaluateConstraint( MatX & h_t,
                                              MatX & H_t,
                                              int t )
 {
+    TIMER_START( "constraint" );
+    
     //TODO make this throw an error
     //  A covariant constraint jacobian H should not be local to
     //  the timestep, so we cannot use this method
@@ -176,9 +216,15 @@ bool ProblemDescription::evaluateConstraint( MatX & h_t,
     assert( !is_covariant );
     
     Constraint * c = factory.getConstraint( t );
-    if ( c == NULL || c->numOutputs() == 0 ) { return false; }
+    if ( c == NULL || c->numOutputs() == 0 ) {
+        TIMER_STOP( "constraint" );
+        return false;
+    }
 
     c->evaluateConstraints( trajectory.row( t ), h_t, H_t );
+
+    TIMER_STOP( "constraint" );
+    
     return true;
 }
 
@@ -278,6 +324,82 @@ void ProblemDescription::prepareCovariant(const double * xi )
                                                     trajectory );
 }
     
+void ProblemDescription::getTimes( 
+        std::vector< std::pair<std::string, double> > & times ) const
+{
+#ifdef DO_TIMING
+    timer.getAllTotal( times );
+#else 
+    std::cout << "Timing information is not available"
+              << " because it was disabled at compile time.\n";
+#endif
+}
+
+void ProblemDescription::printTimes( bool verbose ) const
+{
+#ifdef DO_TIMING
+    std::vector< std::pair<std::string, double> > times;
+    timer.getAllTotal( times );
+
+    if (times.size() > 0 ){
+        for ( size_t i = 0; i < times.size() ; i ++ )
+        {
+            if (verbose){ std::cout << times[i].first << ": "; }
+            std::cout << times[i].second;
+            if ( i != times.size() - 1 ){ std::cout << ", "; }
+        }
+    }else {
+        std::cout << "No timing information available.";
+    }
+
+#else 
+    std::cout << "Timing information is not available"
+              << " because it was disabled at compile time.\n";
+#endif
+
+}
+std::string ProblemDescription::getTimesString( bool verbose )
+{
+#ifdef DO_TIMING
+    std::ostringstream stream;
+    std::vector< std::pair<std::string, double> > times;
+    timer.stop("total");
+    timer.start("total");
+    timer.getAllTotal( times );
+
+    if (times.size() > 0 ){
+        for ( size_t i = 0; i < times.size() ; i ++ )
+        {
+            if (verbose){ stream << times[i].first << ":"; }
+            stream << times[i].second;
+            if ( i != times.size() - 1 ){ stream << ", "; }
+        }
+    }else {
+        stream << "No timing information available.";
+    }
+
+    return stream.str();
+
+#else 
+    std::cout << "Timing information is not available"
+              << " because it was disabled at compile time.\n";
+    return std::string();
+#endif
+
+}
+
+//undefine the timer macros
+#ifdef TIMER_START
+    #undef TIMER_START
+#endif
+
+#ifdef TIMER_STOP        
+    #undef TIMER_STOP
+#endif
+
+#ifdef TIMER_GET_TOTAL
+    #undef TIMER_GET_TOTAL
+#endif
 
 
 }//namespace

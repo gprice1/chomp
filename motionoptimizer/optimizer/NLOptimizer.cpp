@@ -87,7 +87,7 @@ void NLOptimizer::solve()
 
     //notify the observer of the happenings.
     notify( CHOMP_FINISH );
-    std::cout << "Finished with exit code: "
+    debug << "Finished with exit code: "
               << getNLoptReturnString(result) << "\n";
 
     debug_status( TAG, "solve", "end" );

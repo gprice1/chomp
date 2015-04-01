@@ -40,6 +40,10 @@ enum OptimizationAlgorithm {
 
 nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg );
 
+std::string algorithmToString( OptimizationAlgorithm alg );
+
+OptimizationAlgorithm algorithmFromString( const std::string & str );
+
 class MotionOptimizer {
     
 

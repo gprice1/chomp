@@ -3,24 +3,6 @@
 
 namespace chomp {
 
-nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg ){
-
-    switch (alg){
-    case MMA_NLOPT: return nlopt::LD_MMA;
-    case CCSAQ_NLOPT: return nlopt::LD_CCSAQ;
-    case SLSQP_NLOPT: return nlopt::LD_SLSQP;
-    case LBFGS_NLOPT: return nlopt::LD_LBFGS;
-    case TNEWTON_PRECOND_RESTART_NLOPT:
-        return nlopt::LD_TNEWTON_PRECOND_RESTART;
-    case TNEWTON_RESTART_NLOPT: return nlopt::LD_TNEWTON_RESTART;
-    case TNEWTON_NLOPT: return nlopt::LD_TNEWTON;
-    case VAR1_NLOPT: return nlopt::LD_VAR1;
-    case VAR2_NLOPT: return nlopt::LD_VAR2;
-
-    //TODO Throw error.
-    default: return nlopt::LD_MMA;
-    }
-}
 
 const char* MotionOptimizer::TAG = "MotionOptimizer";
 
@@ -227,5 +209,82 @@ void MotionOptimizer::addConstraint( Constraint * c,
     problem.factory.addConstraint( c, start_time, end_time );
 }
 
+nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg )
+{
+
+    switch (alg){
+    case MMA_NLOPT: return nlopt::LD_MMA;
+    case CCSAQ_NLOPT: return nlopt::LD_CCSAQ;
+    case SLSQP_NLOPT: return nlopt::LD_SLSQP;
+    case LBFGS_NLOPT: return nlopt::LD_LBFGS;
+    case TNEWTON_PRECOND_RESTART_NLOPT:
+        return nlopt::LD_TNEWTON_PRECOND_RESTART;
+    case TNEWTON_RESTART_NLOPT: return nlopt::LD_TNEWTON_RESTART;
+    case TNEWTON_NLOPT: return nlopt::LD_TNEWTON;
+    case VAR1_NLOPT: return nlopt::LD_VAR1;
+    case VAR2_NLOPT: return nlopt::LD_VAR2;
+
+    //TODO Throw error.
+    default: return nlopt::LD_MMA;
+    }
+}
+
+std::string algorithmToString( OptimizationAlgorithm alg )
+{
+
+    switch (alg){
+    case LOCAL_CHOMP:   return "LOCAL_CHOMP";
+    case GLOBAL_CHOMP:  return "GLOBAL_CHOMP";
+    case MMA_NLOPT:     return "MMA";
+    case CCSAQ_NLOPT:   return "CCSAQ";
+    case SLSQP_NLOPT:   return "SLSQP";
+    case LBFGS_NLOPT:   return "LBFGS";
+    case TNEWTON_NLOPT: return "NEWTON";
+    case VAR1_NLOPT:    return "VAR1";
+    case VAR2_NLOPT:    return "VAR2";
+    case NONE:          return "NONE";
+                        
+    case COVARIANT_CHOMP:
+        return "COVARIANT_CHOMP";
+    case TNEWTON_PRECOND_RESTART_NLOPT:
+        return "TNEWTON_PRECOND_RESTART";
+    case TNEWTON_RESTART_NLOPT:
+        return "TNEWTON_RESTART";
+    //TODO Throw error.
+    default: 
+        return "ERROR";
+    }
+}
+
+OptimizationAlgorithm algorithmFromString( const std::string & str )
+{
+    if ( str == "LOCAL_CHOMP" ){
+        return LOCAL_CHOMP;
+    }else if ( str == "GLOBAL_CHOMP" ){
+        return GLOBAL_CHOMP;
+    }else if ( str == "COVARIANT_CHOMP" ){
+        return COVARIANT_CHOMP;
+    }else if ( str == "MMA" ){
+        return MMA_NLOPT;
+    }else if ( str == "CCSAQ" ){
+        return CCSAQ_NLOPT;
+    }else if ( str == "SLSQP" ){
+        return SLSQP_NLOPT;
+    }else if ( str == "LBFGS" ){
+        return LBFGS_NLOPT;
+    }else if ( str == "TNEWTON_PRECOND_RESTART" ){
+        return TNEWTON_PRECOND_RESTART_NLOPT;
+    }else if ( str == "TNEWTON_RESTART" ){
+        return TNEWTON_RESTART_NLOPT;
+    }else if ( str == "NEWTON" ){
+        return TNEWTON_NLOPT;
+    }else if ( str == "VAR1" ){
+        return VAR1_NLOPT;
+    }else if ( str == "VAR2" ){
+        return VAR2_NLOPT;
+    }else {
+        return NONE;
+    }
+}
 
 }//namespace

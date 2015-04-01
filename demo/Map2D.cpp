@@ -197,17 +197,11 @@ void Map2D::load(const char* filename) {
     exit(1);
   }
 
-  std::cout << "got scene " << xmin << " " << ymin << " " << xsz << " " << ysz << " " << csz << "\n";
-
   vec3f min(xmin, ymin, -0.5*csz);
   vec3f max = min + vec3f(xsz, ysz, 0.5*csz);
   
 
   grid.resize(min, max, DtGridf::AXIS_Z, csz);
-
-  std::cout << "grid origin " << grid.origin() << " " 
-            << "with size " << grid.nx() << "x" << grid.ny() << "x" << grid.nz() 
-            << "\n";
 
   std::string otag;
 
@@ -216,15 +210,9 @@ void Map2D::load(const char* filename) {
       std::string ofile;
       Image img;
       if (!(istr >> ofile >> img.ox >> img.oy >> img.sx >> img.sy)) {
-        std::cout << "couldn't read obs2d stuff!\n";
+        std::cerr << "couldn't read obs2d stuff!\n";
         exit(1);
       } else {
-        std::cout << "got obs2d " << ofile << " " 
-                  << img.ox << " " 
-                  << img.oy << " " 
-                  << img.sx << " " 
-                  << img.sy << "\n";
-
         if (!dir.empty()) {
           ofile = dir + "/" + ofile;
         }
@@ -249,7 +237,6 @@ void Map2D::load(const char* filename) {
       if (!(istr >> eps)) {
         std::cerr << "error reading eps\n";
       }
-      std::cout << "read eps " << eps << "\n";
     } else {
       std::cerr << "bad tag " << otag << "\n";
       exit(1);
