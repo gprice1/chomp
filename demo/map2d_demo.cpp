@@ -43,6 +43,7 @@ using namespace chomp;
 #include <cairo/cairo-pdf.h>
 #endif
 
+
 // Utility function to visualize maps
 bool savePNG_RGB24(const std::string& filename,
                    size_t ncols, size_t nrows, 
@@ -229,7 +230,7 @@ class PdfEmitter: public DebugChompObserver {
 public:
 
   const Map2D& map;
-  const MatX& xi_init;
+  const MatX xi_init;
   
   int dump_every;
   int count;
@@ -241,6 +242,7 @@ public:
   cairo_t* cr;
   int width, height;
   float mscl;
+  std::vector<unsigned char> mapbuf;
 
   PdfEmitter(const Map2D& m, const MatX& x, int de, const char* f):
     map(m), xi_init(x), dump_every(de), count(0), filename(f)
@@ -261,10 +263,9 @@ public:
     
     size_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_RGB24, map.grid.nx());
 
-    std::vector<unsigned char> buf;
-    map.rasterize(Map2D::RASTER_OCCUPANCY, buf, stride);
+    map.rasterize(Map2D::RASTER_OCCUPANCY, mapbuf, stride);
     
-    image = cairo_image_surface_create_for_data(&(buf[0]), 
+    image = cairo_image_surface_create_for_data(&(mapbuf[0]), 
                                                 CAIRO_FORMAT_RGB24,
                                                 map.grid.nx(), map.grid.ny(),
                                                 stride);
