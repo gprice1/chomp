@@ -34,7 +34,7 @@
 #include "Map2D.h"
 #include <png.h>
 #include <getopt.h>
-#include "MotionOptimizer.cpp"
+#include "MotionOptimizer.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -482,7 +482,7 @@ int main(int argc, char** argv) {
 
   chomper.setAlpha( alpha );
 
-  chomper.setAlgorithm( algorithmFromString( alg ) ); 
+  chomper.setAlgorithm( alg ); 
   
   if (do_covariant ){ chomper.doCovariantOptimization(); }
 
