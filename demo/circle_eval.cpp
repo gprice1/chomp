@@ -101,7 +101,7 @@ public:
                                        sz+2*m, sz+2*m);
 
     cr = cairo_create(surface);
-
+    ostream << f << "{";
   }
   
 
@@ -118,6 +118,7 @@ public:
   {
       std::ofstream myfile;
       myfile.open (filename, std::ios::app );
+      
       myfile << ostream.str() << "}\n";
 
       myfile.close();
@@ -363,11 +364,15 @@ int main(int argc, char** argv) {
   chomper.solve();
   
 #ifdef MZ_HAVE_CAIRO
-  std::string filename = "circle_data.txt";
-  pobs->appendInfoToFile( filename );
 
 
-  if ( pobs ){ delete pobs; }
+
+  if ( pobs ){
+      std::string filename = "circle_data.txt";
+      pobs->appendInfoToFile( filename );
+      
+      delete pobs;
+  }
 #endif
 
   return 0;

@@ -287,7 +287,7 @@ public:
   {
       std::ofstream myfile;
       myfile.open (filename, std::ios::app );
-      myfile << ostream.str() << "}\n";
+      myfile << filename << "{" << ostream.str() << "}\n";
 
       myfile.close();
   }

@@ -43,7 +43,7 @@ class ChompCovariantOptimizer : public ChompOptimizerBase {
   private:
       MatX h, H; // constraint and constraint jacobian matrices.
 
-      MatX P_inv; // a working matrix
+      MatX P_inv, delta; // working matrices
       
   public:
 

@@ -62,14 +62,24 @@ void ChompCovariantOptimizer::optimize()
     if( problem.isConstrained() ){
 
         constraint_magnitude = problem.evaluateConstraint( h, H );
-        P_inv = ( H*H.transpose() ).inverse();
+        debug_status( TAG, "optimize", "got_constraint" );
+        
+        P_inv = ( H.transpose()*H ).inverse();
+        
+        debug_status( TAG, "optimize", "got P_inv" );
 
         const int n_by_m = problem.size();
         
-        problem.updateTrajectory(
-            (alpha*(MatX::Identity(n_by_m, n_by_m) - H.transpose()*P_inv*H )
-              * g.transpose()
-            + H.transpose()*P_inv*h).transpose());
+        delta = (alpha*(MatX::Identity(n_by_m, n_by_m)
+                 - H*P_inv*H.transpose() )
+                * MatMap( g.data(), n_by_m , 1 )
+                + H*P_inv*h).transpose();
+        
+        problem.updateTrajectory( MatMap( delta.data(),
+                                  problem.N(),
+                                  problem.M() ) );
+        
+        debug_status( TAG, "optimize", "finished constraint eval" );
 
     }else {
 

@@ -153,11 +153,10 @@ double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
     
     double magnitude = factory.evaluate( trajectory, h, H );
 
-    if ( doing_covariant ){ 
-        //TODO find out if this is correct
-        MatMap H_map( H.data(), trajectory.N(),
-                      trajectory.M()*factory.numOutput() );
-        gradient.getMetric().multiplyLowerInverse( H );
+    if ( doing_covariant ){
+        gradient.getMetric().multiplyLowerInverse( 
+                MatMap ( H.data(), trajectory.N(),
+                         trajectory.M()*factory.numOutput() ) );
     }
     
     TIMER_STOP( "constraint" );
