@@ -13,7 +13,7 @@
 
 #include "optimizer/ChompLocalOptimizer.h"
 #include "optimizer/ChompOptimizer.h"
-#include "optimizer/ChompCovariantOptimizer.h"
+#include "optimizer/TestOptimizer.h"
 
 #ifdef NLOPT_FOUND
     #include <nlopt.hpp>
@@ -25,7 +25,7 @@ namespace chomp {
 enum OptimizationAlgorithm {
     LOCAL_CHOMP,
     GLOBAL_CHOMP,
-    COVARIANT_CHOMP,
+    TEST,
     MMA_NLOPT,
     CCSAQ_NLOPT,
     SLSQP_NLOPT,

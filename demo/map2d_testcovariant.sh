@@ -8,10 +8,16 @@ alpha1="0.02"
 gamma2="0.2"
 alpha2="0.03"
 
-../build/map2d_eval -A GLOBAL_CHOMP    -g $gamma1 $SETTINGS -a $alpha1 $MAP3B -o accel
-../build/map2d_eval -A COVARIANT_CHOMP -g $gamma1 $SETTINGS -a $alpha1 $MAP3B -o accel
-../build/map2d_eval -A GLOBAL_CHOMP    -g $gamma2 $SETTINGS -a $alpha2 $MAP3B -o vel 
-../build/map2d_eval -A COVARIANT_CHOMP -g $gamma2 $SETTINGS -a $alpha2 $MAP3B -o vel
+../build/map2d_eval -A GLOBAL_CHOMP -g $gamma1 $SETTINGS -a $alpha1  -o accel    $MAP3B
+../build/map2d_eval -A GLOBAL_CHOMP -g $gamma1 $SETTINGS -a $alpha1  -o accel -C $MAP3B 
+../build/map2d_eval -A GLOBAL_CHOMP -g $gamma2 $SETTINGS -a $alpha2  -o vel      $MAP3B
+../build/map2d_eval -A GLOBAL_CHOMP -g $gamma2 $SETTINGS -a $alpha2  -o vel   -C $MAP3B
+
+../build/map2d_eval -A TEST         -g $gamma1 $SETTINGS -a $alpha1  -o accel    $MAP3B
+../build/map2d_eval -A TEST         -g $gamma1 $SETTINGS -a $alpha1  -o accel -C $MAP3B 
+../build/map2d_eval -A TEST         -g $gamma2 $SETTINGS -a $alpha2  -o vel      $MAP3B
+../build/map2d_eval -A TEST         -g $gamma2 $SETTINGS -a $alpha2  -o vel   -C $MAP3B
+
 
 
 

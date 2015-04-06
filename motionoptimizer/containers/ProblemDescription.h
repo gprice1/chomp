@@ -65,7 +65,8 @@ public:
     const Metric & getMetric();
 
     inline bool isConstrained() const { return !factory.empty(); }
-
+    inline bool isCovariant() const { return doing_covariant; }
+    
     inline void setGoalset( Constraint * goal ){goalset = goal;}
     inline const Constraint * getGoalset() const { return goalset; }
     

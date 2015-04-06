@@ -259,6 +259,9 @@ int main(int argc, char** argv) {
     case 'n':
       N = atoi(optarg);
       break;
+    case 'a':
+      alpha = atof( optarg );
+      break;
     case 't':
       Nmax = atoi(optarg);
       break;
@@ -272,6 +275,7 @@ int main(int argc, char** argv) {
       else if ( std::strcmp( optarg, "vel") == 0 ){
         objective = MINIMIZE_VELOCITY;
       }else {
+          std::cout << "SHOULD NOTBE HAPPENING" << std::endl;
           usage(1);
       }
       break;
@@ -294,6 +298,7 @@ int main(int argc, char** argv) {
       usage(0);
       break;
     default:
+      std::cout << "opt: " << opt << "\n";
       usage(1);
       break;
     }

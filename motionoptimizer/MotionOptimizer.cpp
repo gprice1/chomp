@@ -99,24 +99,14 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
 
     //If the algorith is CovariantChomp, or if the Algorithm is a
     //  chomp variant with a covaraint trajectory, do CovariantChomp
-    if ( ((alg == GLOBAL_CHOMP || alg == LOCAL_CHOMP) &&
-         problem.isCovariantOptimization() ) &&
+    if ( alg == LOCAL_CHOMP &&
+         problem.isCovariantOptimization() &&
          !problem.isSubsampled() )
     {
-        alg = COVARIANT_CHOMP;
+        alg = GLOBAL_CHOMP;
     }
 
-    if ( alg == COVARIANT_CHOMP ){
-        problem.doCovariantOptimization();
-        ChompCovariantOptimizer * opt = new ChompCovariantOptimizer(
-                                  problem,
-                                  observer, 
-                                  obstol, timeout_seconds,
-                                  max_iterations);
-        if (alpha > 0){ opt->setAlpha( alpha ); }
-        return opt;
-
-    } else if ( alg == GLOBAL_CHOMP ){
+    if ( alg == GLOBAL_CHOMP ){
         ChompOptimizer * opt = new ChompOptimizer(
                                   problem,
                                   observer, 
@@ -244,8 +234,8 @@ std::string algorithmToString( OptimizationAlgorithm alg )
     case VAR2_NLOPT:    return "VAR2";
     case NONE:          return "NONE";
                         
-    case COVARIANT_CHOMP:
-        return "COVARIANT_CHOMP";
+    case TEST:
+        return "TEST";
     case TNEWTON_PRECOND_RESTART_NLOPT:
         return "TNEWTON_PRECOND_RESTART";
     case TNEWTON_RESTART_NLOPT:
@@ -262,8 +252,8 @@ OptimizationAlgorithm algorithmFromString( const std::string & str )
         return LOCAL_CHOMP;
     }else if ( str == "GLOBAL_CHOMP" ){
         return GLOBAL_CHOMP;
-    }else if ( str == "COVARIANT_CHOMP" ){
-        return COVARIANT_CHOMP;
+    }else if ( str == "TEST" ){
+        return TEST;
     }else if ( str == "MMA" ){
         return MMA_NLOPT;
     }else if ( str == "CCSAQ" ){

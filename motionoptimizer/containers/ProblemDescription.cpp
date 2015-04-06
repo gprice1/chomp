@@ -292,8 +292,6 @@ void ProblemDescription::copyToTrajectory( const double * data )
         trajectory.copyToData( data );
     }
 
-    if( !ok_to_sample ){ prepareSample(); }
-    
 }
 
 void ProblemDescription::copyToTrajectory( const std::vector<double> data )
@@ -307,16 +305,12 @@ void ProblemDescription::copyToTrajectory( const std::vector<double> data )
     }else {
         trajectory.copyToData( data );
     }
-
-    if( !ok_to_sample ){ prepareSample(); }
     
 }
 
 void ProblemDescription::prepareCovariant(const double * xi )
 {
-    if (xi){ 
-        covariant_trajectory.setData( xi );
-    }
+    if (xi){ covariant_trajectory.setData( xi ); }
     
     covariant_trajectory.getNonCovariantTrajectory( gradient.getMetric(), 
                                                     trajectory );

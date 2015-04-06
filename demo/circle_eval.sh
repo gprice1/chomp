@@ -1,4 +1,4 @@
-SETTINGS="-m 400 -e 1e-12"
+SETTINGS="-p -e 1e-12"
 
 
 ALGORITHMS=(

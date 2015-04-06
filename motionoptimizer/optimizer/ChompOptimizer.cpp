@@ -57,7 +57,6 @@ ChompOptimizer::ChompOptimizer(ProblemDescription & problem,
 void ChompOptimizer::optimize() { 
     
     debug_status( TAG, "optimize", "start" );
-    const Metric & metric = problem.getMetric();
     
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
@@ -71,7 +70,9 @@ void ChompOptimizer::optimize() {
     //  run the update without constraints.
     if (H.rows() == 0) {
         debug_status( TAG, "optimize" , "start unconstrained" );
-        metric.solve( g );
+        if ( !problem.isCovariant() ){
+            problem.getMetric().solve( g );
+        }
       
         //if we are using momentum, add the gradient into the
         //  momentum.
@@ -90,58 +91,71 @@ void ChompOptimizer::optimize() {
         const int M = problem.M();
         const int N = problem.N();
         
-        debug_status( TAG, "optimize", "before equals" );
+        if (problem.isCovariant() ){
+            
+            cholSolver.compute( H.transpose()*H );
+            
+            debug_status( TAG, "optimize", "got P_inv" );
 
-        P = H;
-        
-        metric.solve( MatMap( P.data(), N, M * P.cols() ) );
-        
-        debug_status( TAG, "optimize", "after first skyline" );
+            const int n_by_m = problem.size();
+             
+            delta = (alpha*(MatX::Identity(n_by_m, n_by_m)
+                     - H*cholSolver.solve( H.transpose() ) )
+                    * MatMap( g.data(), n_by_m , 1 )
+                    + H*cholSolver.solve(h));
 
-        //debug << "H = \n" << H << "\n";
-        //debug << "P = \n" << P << "\n";
-      
-        HP = H.transpose()*P;
-
-        cholSolver.compute(HP);
-        Y = cholSolver.solve(P.transpose());
-
-        //debug << "HP*Y = \n" << HP*Y << "\n";
-        //debug << "P.transpose() = \n" << P.transpose() << "\n";
-        debug_assert( P.transpose().isApprox( HP*Y ));
-
-        int newsize = H.rows();
-        
-        assert(newsize == N * M);
-        assert(g.rows() == N && g.cols() == M);
-        
-        ConstMatMap g_flat(g.data(), newsize, 1);
-        W = (MatX::Identity(newsize,newsize) - H * Y)
-            * g_flat * alpha;
-
-        metric.solve( MatMap( W.data(), N, M * W.cols() ) );
-
-        Y = cholSolver.solve(h);
-
-        debug_status( TAG, "optimize", "middle constraint step eval" );
-        
-        //handle momentum if we need to.
-        if (use_momentum){
-            MatMap momentum_flat( momentum.data(), newsize, 1);
-            momentum_flat += W;
-            delta = momentum_flat + P * Y;
         }else {
-            delta = W + P * Y;
+            debug_status( TAG, "optimize", "constrained case" );
+
+            P = H;
+            
+            problem.getMetric().solve( MatMap(P.data(), N, M * P.cols()) );
+            
+            debug_status( TAG, "optimize", "after first skyline" );
+
+            //debug << "H = \n" << H << "\n";
+            //debug << "P = \n" << P << "\n";
+          
+            HP = H.transpose()*P;
+
+            cholSolver.compute(HP);
+            Y = cholSolver.solve(P.transpose());
+
+            //debug << "HP*Y = \n" << HP*Y << "\n";
+            //debug << "P.transpose() = \n" << P.transpose() << "\n";
+            debug_assert( P.transpose().isApprox( HP*Y ));
+
+            int newsize = H.rows();
+            
+            assert(newsize == N * M);
+            assert(g.rows() == N && g.cols() == M);
+            
+            W = (MatX::Identity(newsize,newsize) - H * Y)
+                * MatMap(g.data(), newsize, 1) * alpha;
+
+            problem.getMetric().solve(
+                    MatMap(W.data(), N, M * W.cols()) );
+
+            Y = cholSolver.solve(h);
+
+            debug_status( TAG, "optimize", "middle constraint step eval" );
+            
+            //handle momentum if we need to.
+            if (use_momentum){
+                MatMap momentum_flat( momentum.data(), newsize, 1);
+                momentum_flat += W;
+                delta = momentum_flat + P * Y;
+            }else {
+                delta = W + P * Y;
+            }
+
+            assert(delta.rows() == newsize && delta.cols() == 1);
+
         }
+            
+        //update the trajectory with the found values.
+        problem.updateTrajectory( MatMap(delta.data(), N, M) );
 
-        assert(delta.rows() == newsize && delta.cols() == 1);
-
-        ConstMatMap delta_rect(delta.data(), N, M);
-        
-        //debug << "delta = \n" << delta << "\n";
-        //debug << "delta_rect = \n" << delta_rect << "\n";
-        
-        problem.updateTrajectory( delta_rect );
     }
 
     debug_status( TAG, "optimize", "end" );

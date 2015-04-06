@@ -1,10 +1,10 @@
 set( LINK_LIBS )
 
 set( SOURCE 
-     ${CMAKE_CURRENT_SOURCE_DIR}/ChompCovariantOptimizer.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/ChompOptimizer.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/ChompLocalOptimizer.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/ChompOptimizerBase.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/TestOptimizer.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/OptimizerBase.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/HMC.cpp
    )

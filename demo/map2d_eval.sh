@@ -4,9 +4,8 @@ MAP3A="-c 2.7,-2.7,-2.7,2.7 ../maps/map3.txt"
 MAP3B="-c -2.7,-2.7,2.7,2.7 ../maps/map3.txt"
 
 ALGORITHMS=(
-    'LOCAL_CHOMP'
     'GLOBAL_CHOMP'
-    'COVARIANT_CHOMP'
+    'TEST'
     'TNEWTON_PRECOND_RESTART'
     'MMA'
     'CCSAQ'
@@ -32,16 +31,19 @@ for alg in ${ALGORITHMS[@]}; do
         
         if [ $alg == 'LOCAL_CHOMP'    ] ||
            [ $alg == 'GLOBAL_CHOMP'   ] ||
-           [ $alg == 'COVARIANT_CHOMP' ]; then
+           [ $alg == 'TEST' ]; then
             
             for alpha in ${ALPHAS[@]}; do
-                ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o accel
-                ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o vel
+                ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha  -o accel    $MAP3A
+                ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha  -o vel      $MAP3A
+                ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha  -o accel -C $MAP3A
+                ../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha  -o vel   -C $MAP3A
+
                 echo "../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o vel"
             done
         else 
-            ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o accel -a 0.1 $MAP3A
-            ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o vel   -a 0.1 $MAP3A
+            ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o accel -a 0.1    $MAP3A
+            ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o vel   -a 0.1    $MAP3A
             ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o accel -a 0.1 -C $MAP3A
             ../build/map2d_eval -A $alg -g $gamma $SETTINGS -o vel   -a 0.1 -C $MAP3A
 
