@@ -4,9 +4,10 @@ MAP3A="-c 2.7,-2.7,-2.7,2.7 ../maps/map3.txt"
 MAP3B="-c -2.7,-2.7,2.7,2.7 ../maps/map3.txt"
 
 ALGORITHMS=(
-    'TNEWTON_PRECOND_RESTART'
     'LOCAL_CHOMP'
     'GLOBAL_CHOMP'
+    'COVARIANT_CHOMP'
+    'TNEWTON_PRECOND_RESTART'
     'MMA'
     'CCSAQ'
     'SLSQP'
@@ -14,7 +15,6 @@ ALGORITHMS=(
     'NEWTON'
     'VAR1'
     'VAR2'
-    'COVARIANT_CHOMP'
     'TNEWTON_RESTART'
     )
 

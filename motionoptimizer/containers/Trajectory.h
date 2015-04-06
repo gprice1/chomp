@@ -4,6 +4,7 @@
 #define _TRAJECTORY_H_
 
 #include "../utils/utils.h"
+#include "Metric.h"
 
 namespace chomp{
 
@@ -16,8 +17,6 @@ class Trajectory {
 
     MatX q0, q1;
 
-    //TODO : remove this from the trajectory. This should be in
-    //  the gradient.
     ChompObjectiveType objective_type;
     
     static const char* TAG;
@@ -116,10 +115,10 @@ class Trajectory {
     inline int size() const { return xi.size();}
 
     inline const MatX & getQ0() const { return q0; }
-    inline const MatX & getStart() const { return q0; }
+    inline const MatX & getStartPoint() const { return q0; }
 
     inline const MatX & getQ1() const { return q1; };
-    inline const MatX & getEnd() const { return q1; }
+    inline const MatX & getEndPoint() const { return q1; }
 
     //get individual matrix blocks or rows
     inline Row row( int i ) { return xi.row(i); }
@@ -194,10 +193,11 @@ class Trajectory {
     void print() const;
     
 
-    void getCovariantTrajectory( const MatX & translation_matrix,
+    void getCovariantTrajectory( const Metric & metric,
                                  Trajectory & other ) const;
-    void getNonCovariantTrajectory( const MatX & translation_matrix,
+    void getNonCovariantTrajectory( const Metric & metric,
                                     Trajectory & other) const; 
+    
     void copyDataToOther(Trajectory & other ) const;
 
   private:

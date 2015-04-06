@@ -4,6 +4,7 @@
 #include "Trajectory.h"
 #include "ChompGradient.h"
 #include "ConstraintFactory.h"
+#include "Metric.h"
 
 #ifdef DO_TIMING
     #include "../utils/timer.h"
@@ -30,7 +31,7 @@ private:
     Trajectory trajectory;
     ChompGradient gradient;
     ConstraintFactory factory;
-
+    
     //in the case that we are doing covariant optimization,
     //  this trajectory holds the covariant state
     Trajectory covariant_trajectory;
@@ -61,7 +62,7 @@ public:
     void subsample();
     void stopSubsample();
  
-    const MatX & getLMatrix();
+    const Metric & getMetric();
 
     inline bool isConstrained() const { return !factory.empty(); }
 
@@ -139,11 +140,11 @@ private:
 };//Class ProblemDescription
 
 
-inline const MatX & ProblemDescription::getLMatrix(){
+inline const Metric & ProblemDescription::getMetric(){
     if ( trajectory.isSubsampled() ){
-        return gradient.getLsubMatrix();
+        return gradient.getSubsampledMetric();
     }
-    return gradient.getLMatrix();
+    return gradient.getMetric();
 }
 
 template <class Derived>

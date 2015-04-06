@@ -5,6 +5,7 @@
 #include "mzcommon/gauss.h"
 
 
+
 namespace chomp {
 
 
@@ -14,7 +15,8 @@ void HMC::setSeed( unsigned long seed ){
 
 void HMC::iteration(size_t current_iteration, Trajectory & traj,
                     MatX & momentum,
-                    const MatX L, double lastObjective ){
+                    const Metric & metric, 
+                    double lastObjective ){
     
     //return if there is nothing to do for this iteration
     if(current_iteration != resample_iter){ return; }
@@ -27,10 +29,7 @@ void HMC::iteration(size_t current_iteration, Trajectory & traj,
         getRandomMomentum( momentum, current_iteration );
         
         //TODO should this be here?
-        skylineCholMultiplyInverseTranspose(L, momentum);
-        //std::cout << "\n\nMomentum: \n" << momentum << "\n";
-        
-        //momentum *= alpha;
+        metric.multiplyLowerInverseTranspose( momentum );
 
         traj.update( momentum );
     }

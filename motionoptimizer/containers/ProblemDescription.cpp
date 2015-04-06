@@ -46,7 +46,7 @@ void ProblemDescription::prepareRun()
     //are we doing covariant optimization at this stage of optimiation?
     //  do not do covariant optimization if there is subsampling
     if ( doing_covariant ){
-        trajectory.getCovariantTrajectory(gradient.getLMatrix(),
+        trajectory.getCovariantTrajectory(gradient.getMetric(),
                                           covariant_trajectory);
     }
 
@@ -157,7 +157,7 @@ double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
         //TODO find out if this is correct
         MatMap H_map( H.data(), trajectory.N(),
                       trajectory.M()*factory.numOutput() );
-        skylineCholMultiplyInverse( gradient.getLMatrix(), H );
+        gradient.getMetric().multiplyLowerInverse( H );
     }
     
     TIMER_STOP( "constraint" );
@@ -195,8 +195,7 @@ double ProblemDescription::evaluateConstraint( const double * xi,
         //TODO find out if this is correct
         MatMap H_map2( H, trajectory.N(),
                        trajectory.M()*factory.numOutput() );
-        skylineCholMultiplyInverse( gradient.getLMatrix(), 
-                                             H_map2 );
+        gradient.getMetric().multiplyLowerInverse( H_map2 );
     }
     
     TIMER_STOP( "constraint" );
@@ -288,7 +287,7 @@ void ProblemDescription::copyToTrajectory( const double * data )
     if( doing_covariant ){
         covariant_trajectory.copyToData( data );
         covariant_trajectory.getNonCovariantTrajectory( 
-                                    gradient.getLMatrix(), 
+                                    gradient.getMetric(), 
                                     trajectory );
     }else {
         trajectory.copyToData( data );
@@ -304,7 +303,7 @@ void ProblemDescription::copyToTrajectory( const std::vector<double> data )
     if( doing_covariant ){
         covariant_trajectory.copyToData( data );
         covariant_trajectory.getNonCovariantTrajectory( 
-                                    gradient.getLMatrix(), 
+                                    gradient.getMetric(), 
                                     trajectory );
     }else {
         trajectory.copyToData( data );
@@ -320,7 +319,7 @@ void ProblemDescription::prepareCovariant(const double * xi )
         covariant_trajectory.setData( xi );
     }
     
-    covariant_trajectory.getNonCovariantTrajectory( gradient.getLMatrix(), 
+    covariant_trajectory.getNonCovariantTrajectory( gradient.getMetric(), 
                                                     trajectory );
 }
     

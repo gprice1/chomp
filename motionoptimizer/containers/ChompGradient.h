@@ -36,6 +36,7 @@
 
 #include "../utils/utils.h"
 #include "Trajectory.h"
+#include "Metric.h"
 
 namespace chomp {
 
@@ -116,8 +117,8 @@ class ChompGradient {
 
     double fextra; // extra objective function from gradient helper
 
-    MatX L, L_sub; // skyline Cholesky coeffs of A of size N-by-D
-
+    Metric metric, subsampled_metric; //smoothness metrics for calculating
+                                      // smoothness gradients and values.
     MatX g_full; // a working variable for use when calculating
                  // the gradient of a subsampled trajectory
     MatX b; // endpoint vectors for this problem of size N-by-M
@@ -145,8 +146,9 @@ class ChompGradient {
 
     //gets the L or L_sub matrices for use in multiplying by
     //  the metric
-    inline const MatX& getLMatrix() const {return L; }
-    inline const MatX& getLsubMatrix() const {return L_sub; }
+    inline const Metric& getMetric() const {return metric; }
+    inline const Metric& getSubsampledMetric() const
+           {return subsampled_metric; }
     
     inline const MatX& getBMatrix() const {return b; } 
     
@@ -183,9 +185,6 @@ class ChompGradient {
     void subsampleGradient(int N_sub, 
                            const Eigen::MatrixBase<Derived> & g_sub_const);
     
-    //set the coefficients for solving and creating the smoothness
-    //  metric
-    void setCoefficients( ChompObjectiveType objective_type );
     
 };
 

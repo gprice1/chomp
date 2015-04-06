@@ -32,7 +32,7 @@
 */
 
 #include "../mzcommon/gauss.h"
-#include "utils.h"
+#include "Metric.h"
 #include <assert.h>
 #include <mzcommon/TimeUtil.h>
 
@@ -45,7 +45,7 @@ void regularChol(const MatX& A, MatX& L) {
   L.setZero();
   
   for (int j=0; j<n; ++j) {
-    for (int i=j; i<n; ++i) {
+        for (int i=j; i<n; ++i) {
       double sum = 0;
       for (int k=0; k<j; ++k) { 
         sum += L(i,k) * L(j,k); 
@@ -57,8 +57,6 @@ void regularChol(const MatX& A, MatX& L) {
       }
     }
   }
- 
-
 }
 
 // Ax = b
@@ -177,10 +175,10 @@ int primary( int argc, char ** argv ){
   MatX coeffs(1,3);
   
   coeffs << 1, -4, 6;
+  ChompObjectiveType otype = MINIMIZE_ACCELERATION;
 
   MatX Ainv = A.inverse();
-
-  MatX L, Ls;
+  
   MatX testvec = MatX::Random(n, 2 );
   MatX testvec2 = testvec;
   MatX m1(n,n); m1.setIdentity();
@@ -202,16 +200,16 @@ int primary( int argc, char ** argv ){
   m1 = cholSolver.solve(m1);
 
   TimeStamp t2 = TimeStamp::now();
-
-  skylineChol(n, coeffs, Ls);
-
+  
+  Metric Ls(n, otype);
+  
   TimeStamp t3 = TimeStamp::now();
   
-  skylineCholSolve(Ls, m2);
+  Ls.solve( m2 );
 
   TimeStamp t4 = TimeStamp::now();
 
-  diagMul(coeffs, m4, m3);
+  Ls.multiply( m4, m3);
 
   TimeStamp t5 = TimeStamp::now();
     
@@ -276,10 +274,10 @@ int secondary( int argc, char ** argv ){
   MatX coeffs(1,3);
   
   coeffs << 1, -4, 6;
-
+  ChompObjectiveType otype = MINIMIZE_ACCELERATION;
+  
   MatX Ainv = A.inverse();
 
-  MatX Ls;
   MatX testvec = MatX::Random(n, 2 );
   for ( int i = 0; i < testvec.size() ; i ++ ){
       testvec(i) = gauss_ziggurat_standard();
@@ -302,11 +300,10 @@ int secondary( int argc, char ** argv ){
   m1 = cholSolver.solve(m1);
 
   //our cholesky solver
-  skylineChol(n, coeffs, Ls);
-  skylineCholSolve(Ls, m2);
+  Metric Ls( n, otype );
 
-    
-  diagMul(coeffs, m4, m3);
+  Ls.solve( m2 );
+  Ls.multiply( m4, m3 ); 
 
 
   MatX ell = cholSolver2.matrixL();
@@ -317,13 +314,13 @@ int secondary( int argc, char ** argv ){
   MatX L_inv_trans = L.inverse().transpose();
   MatX L_mult = L_inv_trans * testvec;
 
-  
-  skylineCholMultiplyInverse( Ls, m5 );
-  skylineCholMultiplyInverseTranspose( Ls, testvec);
-  
+  Ls.multiplyLower( m5 );
+  Ls.multiplyLowerInverseTranspose( testvec );
 
   L = cholSolver.matrixL();
+  
   if (n < 20) { 
+
     std::cout << "A =\n" << A << "\n";
     std::cout << "A =\n" << m3 << "\n";
     std::cout << "A.inv() =\n" << A.inverse() << "\n";
@@ -349,15 +346,17 @@ int secondary( int argc, char ** argv ){
     std::cout << "(ELL*ELL^T)^-1 = \n" << (ell*ell.transpose()).inverse()  << "\n\n";
     std::cout << "L*L^T = \n" << L*L.transpose()  << "\n\n";
     std::cout << "Diff = \n" << L - ell.inverse().transpose() << "\n\n";
-
+    Ls.printL();
   }
   
   assert( relErr(A, m3) < 1e-5 );
+  std::cout << "Relative error: " << relErr(testvec, ell_mult)
+            << std::endl;
+  assert( relErr(testvec, L_mult) < 1e-5 );
+  
   assert( relErr(m1, m2) < 1e-5 );
-
-  assert( relErr(m1, m2) < 1e-5 );
-  assert( relErr(testvec, ell_mult) < 1e-5 );
-
+    
+  std::cout << "finished secondary" << std::endl;
   return 0;
 
 }
@@ -377,9 +376,11 @@ int tertiary( int argc, char ** argv ){
   
   MatX coeffs, gs_coeffs;
 
-  bool acceleration = false;
-
+  bool acceleration = true;
+  
+  ChompObjectiveType otype;
   if ( acceleration ){
+    otype = MINIMIZE_ACCELERATION;
     coeffs.resize(1,3);
     gs_coeffs.resize(2,2);
   
@@ -395,6 +396,7 @@ int tertiary( int argc, char ** argv ){
       if (i > 1) { A(i,i-2) = 1; }
     }
   }else {
+    otype = MINIMIZE_VELOCITY;
     coeffs.resize(1,2);
     gs_coeffs.resize(1,1);
   
@@ -419,10 +421,11 @@ int tertiary( int argc, char ** argv ){
     }
   }
 
+  std::cout << "middle 3" << std::endl;
 
   MatX Ainv = A.inverse();
 
-  MatX L, Ls;
+  MatX L;
   MatX testvec = MatX::Random(n, 2 );
   MatX testvec2 = testvec;
   MatX m1(n,n); m1.setIdentity();
@@ -433,13 +436,14 @@ int tertiary( int argc, char ** argv ){
 
   Eigen::LLT<MatX> cholSolver(A);
   m1 = cholSolver.solve(m1);
+  
+  std::cout << "middle 3 - before Ls creation" << std::endl;
 
+  Metric Ls( n, otype , false, true );
+  Ls.solve( m2 );
+  Ls.multiply( m4, m3 );
 
-  skylineChol(n, coeffs, gs_coeffs, Ls);
-  skylineCholSolve(Ls, m2);
-
-  diagMul(coeffs, gs_coeffs, m4, m3);
-
+  std::cout << "middle 3 - after Ls creation" << std::endl;
     
   
   if (n < 20) { 
@@ -450,9 +454,12 @@ int tertiary( int argc, char ** argv ){
     std::cout << "errm1 = \n" << m1-A.inverse() << "\n";
     std::cout << "m2 =\n" << m2 << "\n";
     std::cout << "errm2 = \n" << m2-A.inverse() << "\n";
+    Ls.printL();
   }
+  std::cout << "middle 3 - later" << std::endl;
   
-  assert( relErr(A, m3) < 1e-5 );
+  //assert( relErr(A, m3) < 1e-5 );
+  std::cout << "\nRelative Error: " << relErr(A, m3) << std::endl;
   assert( relErr(m1, m2) < 1e-5 );
 
   return 0;
@@ -460,37 +467,12 @@ int tertiary( int argc, char ** argv ){
 
 }
 
-void quaternary(){
-
-    int n = 7;
-    int m = 2;
-
-    MatX original = MatX::Random( n, m );
-    MatX L_mat = MatX::Identity(n, m );
-    
-    MatX coeffs;
-    coeffs.resize(1,3);
-    coeffs << 1, -4, 6;
-
-    MatX L;
-    skylineChol(n, coeffs, L);
-    
-    MatX copy = original;
-    skylineCholMultiplyTranspose( L, copy );
-
-    skylineCholMultiplyInverseTranspose( L, copy );
-
-    std::cout << original << std::endl;
-    std::cout << copy << std::endl;
-    assert( relErr( original, copy ) < 1e-5 );
-
-}
 
 int main(int argc, char** argv) { 
-    quaternary();
-    //return primary( argc, argv );
-    //secondary( argc, argv );
-    //tertiary( argc, argv );
+    secondary( argc, argv );
+    tertiary( argc, argv );
+    primary( argc, argv );
+    
 }
 
 

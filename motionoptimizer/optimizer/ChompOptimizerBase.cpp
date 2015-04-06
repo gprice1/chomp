@@ -213,12 +213,10 @@ void ChompOptimizerBase::checkBounds()
         //TODO, maybe only check bounds violations on
         //  non-subsampled trajectories
         if( violation ){
-            skylineCholSolve( problem.getLMatrix(), g);
+            problem.getMetric().solve(g);
 
             //scale the bounds_violation matrix so that it sets the
             //  largest violation to zero.
-            //  (since we have done skylineCholSolve, the
-            //   bounds violation matrix has changed).
             double current_mag = g( max_index.first, max_index.second);
             const double scale = (current_mag > 0 ?
                                   max_violation/current_mag :

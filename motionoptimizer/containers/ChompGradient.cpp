@@ -149,10 +149,6 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
 {
     debug_status( TAG, "prepareRun", "start" );
 
-    if ( coeffs.size() == 0 ){
-        setCoefficients( trajectory.getObjectiveType());
-    }
-    
     this->use_goalset = use_goalset;
 
     //resize the g, b, and ax matrices.
@@ -162,28 +158,25 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
     Ax.resize(N,M);
     b.resize(N,M);
     
-    const double dt = trajectory.getDt();
-    
     //get the b matrix, and get its contribution to the
     //  objective function.
     //  Also, compute the L matrix (lower triangluar cholesky 
     //  decomposition). 
-    if (use_goalset){
-        skylineChol( trajectory.N(), coeffs, coeffs_goalset, L);
-        c = createBMatrix( N, coeffs, trajectory.getQ0(), b, dt);
-    } else{
-        skylineChol( N, coeffs, L); 
-        c = createBMatrix(N, coeffs,
-                          trajectory.getQ0(),
-                          trajectory.getQ1(),
-                          b, dt);
-    }
+    metric.initialize( N, trajectory.getObjectiveType(),
+                       false,
+                       use_goalset );
+    c = metric.createBMatrix(trajectory.getStartPoint(),
+                             trajectory.getEndPoint(),
+                             b,
+                             trajectory.getDt());
     
     if( trajectory.isSubsampled() ){
-        skylineChol( trajectory.N(), coeffs_sub, L_sub); 
+        subsampled_metric.initialize( N,
+                                      trajectory.getObjectiveType(),
+                                      true);
     }
 
-    if( is_covariant ){ skylineCholMultiplyInverse( L, b ); }
+    if( is_covariant ){ metric.multiplyLowerInverse( b ); }
     
     debug_status( TAG, "prepareRun", "end" );
 }
@@ -201,30 +194,6 @@ double ChompGradient::evaluateObjective(const Trajectory & trajectory,
     return 0.5 * mydot(trajectory.getFullXi(), Ax) + 
            mydot(trajectory.getFullXi(), b) +
            c + fextra;
-}
-
-
-
-
-void ChompGradient::setCoefficients(ChompObjectiveType objective_type){
-    if (objective_type == MINIMIZE_VELOCITY) {
-        coeffs.resize(1,2);
-        coeffs_sub.resize(1,1);
-        coeffs_goalset.resize(1,1);
-
-        coeffs << -1, 2;
-        coeffs_sub << 2;
-        coeffs_goalset << 1;
-    } else {
-        coeffs.resize(1,3);
-        coeffs_sub.resize(1,2);
-        coeffs_goalset.resize(2,2);
-        
-        coeffs << 1, -4, 6;
-        coeffs_sub << 1, 6;
-        coeffs_goalset << 6, -3,
-                         -3,  2 ;
-    }
 }
 
 }// namespace

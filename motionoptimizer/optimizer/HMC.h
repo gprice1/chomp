@@ -2,6 +2,7 @@
 #define _HMC_H_
 
 #include "../utils/utils.h"
+#include "../containers/Metric.h"
 
 namespace chomp{
 
@@ -53,7 +54,7 @@ class HMC{
     void iteration( size_t current_iteration,
                     Trajectory & traj,
                     MatX & momentum,
-                    const MatX L,
+                    const Metric & metric,
                     double lastObjective);
     
     //checks the current HMC iteration, and rejects it if the 

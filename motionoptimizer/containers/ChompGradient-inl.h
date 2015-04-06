@@ -78,12 +78,7 @@ inline void ChompGradient::evaluateSmoothness(
         
         //Performs the operation: A * x.
         //  (fill the matrix Ax, with the results.
-
-        if( use_goalset ){
-            diagMul(coeffs, coeffs_goalset, trajectory.getFullXi(), Ax);
-        } else { 
-            diagMul(coeffs, trajectory.getFullXi(), Ax);
-        }
+        metric.multiply( trajectory.getFullXi(), Ax);
         
         //add in the b matrix to get the contribution from the
         //  endpoints, and set this equal to the gradient.
@@ -113,7 +108,7 @@ inline void ChompGradient::evaluateCollision(
             const_cast<Eigen::MatrixBase<Derived>&>(g_const);
         
         //if the problem is covariant, get the covariant gradient step
-        if ( is_covariant ) { skylineCholMultiplyInverse( L, g_full ); }
+        if ( is_covariant ) { metric.multiplyLowerInverse( g_full ); }
         g += g_full;
         
     } else {

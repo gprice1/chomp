@@ -57,7 +57,7 @@ ChompOptimizer::ChompOptimizer(ProblemDescription & problem,
 void ChompOptimizer::optimize() { 
     
     debug_status( TAG, "optimize", "start" );
-    const MatX& L = problem.getLMatrix();
+    const Metric & metric = problem.getMetric();
     
     // If there is a factory, 
     //  get constraints corresponding to the trajectory.
@@ -71,7 +71,7 @@ void ChompOptimizer::optimize() {
     //  run the update without constraints.
     if (H.rows() == 0) {
         debug_status( TAG, "optimize" , "start unconstrained" );
-        skylineCholSolve(L, g);
+        metric.solve( g );
       
         //if we are using momentum, add the gradient into the
         //  momentum.
@@ -94,7 +94,7 @@ void ChompOptimizer::optimize() {
 
         P = H;
         
-        skylineCholSolve( L, MatMap( P.data(), N, M * P.cols() ) );
+        metric.solve( MatMap( P.data(), N, M * P.cols() ) );
         
         debug_status( TAG, "optimize", "after first skyline" );
 
@@ -119,7 +119,7 @@ void ChompOptimizer::optimize() {
         W = (MatX::Identity(newsize,newsize) - H * Y)
             * g_flat * alpha;
 
-        skylineCholSolve(L, MatMap( W.data(), N, M * W.cols() ) );
+        metric.solve( MatMap( W.data(), N, M * W.cols() ) );
 
         Y = cholSolver.solve(h);
 

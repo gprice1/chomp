@@ -601,22 +601,25 @@ void Trajectory::print() const{
     std::cout << toString();
 }
 
-void Trajectory::getNonCovariantTrajectory( const MatX & translation_matrix,
+void Trajectory::getNonCovariantTrajectory( const Metric & metric,
                                             Trajectory & other ) const
 {
     debug_status( TAG, "getNonCovariantTrajectory", "start" );
+    
     copyDataToOther( other );
-    skylineCholMultiplyInverseTranspose( translation_matrix,
-                                         other.full_xi );
+    metric.multiplyLowerInverseTranspose( other.full_xi );
+
     debug_status( TAG, "getNonCovariantTrajectory", "end" );
 }
 
-void Trajectory::getCovariantTrajectory( const MatX & translation_matrix,
+void Trajectory::getCovariantTrajectory( const Metric & metric,
                                          Trajectory & other ) const
 {
     debug_status( TAG, "getCovariantTrajectory", "start" );
+
     copyDataToOther( other );
-    skylineCholMultiplyTranspose( translation_matrix, other.full_xi );
+    metric.multiplyLowerTranspose( other.full_xi );
+
     debug_status( TAG, "getCovariantTrajectory", "end" );
 }
 
