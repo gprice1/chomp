@@ -41,16 +41,16 @@ void TestOptimizer::solve(){
     debug_status( TAG, "solve", "start" );
     
     
-    if (notify(CHOMP_INIT)) { return; }
-
     if ( timeout_seconds <= 0 ){ canTimeout = false; }
     else {
         canTimeout = true;
         stop_time = TimeStamp::now() +
                     Duration::fromDouble( timeout_seconds );
     }
+
+    
     x_data = new double [ problem.size() ];
-    new (&x) MatMap( g_data, problem.N(), problem.M() );
+    new (&x) MatMap( x_data, problem.N(), problem.M() );
     problem.copyTrajectoryTo( x_data );
 
     g_data = new double [ problem.size() ];
@@ -61,9 +61,10 @@ void TestOptimizer::solve(){
         new (&h) MatMap( h_data, problem.getConstraintDims(), 1 );
         
         H_data = new double [ problem.size() * problem.getConstraintDims()];
-        new (&H) MatMap( h_data, problem.size(), 
+        new (&H) MatMap( H_data, problem.size(), 
                          problem.getConstraintDims() );
     }
+    
         
     bool not_finished = true;
 
@@ -77,9 +78,8 @@ void TestOptimizer::solve(){
     
     while (not_finished) { not_finished = iterate(); }
     
-    notify(CHOMP_FINISH);
-
     problem.copyToTrajectory( x_data );
+    
 
     debug_status( TAG, "solve", "end" );
 } 
@@ -116,16 +116,16 @@ void TestOptimizer::optimize()
         
         if (problem.isCovariant() ){
             
-            P = ( H.transpose()*H ).inverse();
+            cholSolver.compute( H.transpose()*H );
             
             debug_status( TAG, "optimize", "got P_inv" );
 
             const int n_by_m = problem.size();
             
-            delta = (alpha*(MatX::Identity(n_by_m, n_by_m)
-                     - H*P*H.transpose() )
+            delta = alpha*(MatX::Identity(n_by_m, n_by_m)
+                     - H * cholSolver.solve( H.transpose() ) )
                     * MatMap( g_data, n_by_m , 1 )
-                    + H*P*h).transpose();
+                    + H * cholSolver.solve(h);
 
         }else {
             P = H;
@@ -175,14 +175,15 @@ bool TestOptimizer::iterate()
 {
     debug_status( TAG, "iterate", "start" );
     
-
     last_objective = current_objective;
     current_objective = problem.evaluateGradient( x_data, g_data );
+    
     if (problem.isConstrained() ){
         constraint_magnitude = problem.evaluateConstraint( x_data,
                                                            h_data,
                                                            H_data);
     }
+    
     
     //perform optimization
     optimize();

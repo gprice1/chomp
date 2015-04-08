@@ -39,8 +39,6 @@ void NLOptimizer::solve()
 {
     debug_status( TAG, "solve", "start" );
 
-    notify(CHOMP_INIT);
-    
     //create the optimizer
     nlopt::opt optimizer( algorithm, problem.size() );
 
@@ -86,7 +84,6 @@ void NLOptimizer::solve()
     problem.copyToTrajectory( optimization_vector );
 
     //notify the observer of the happenings.
-    notify( CHOMP_FINISH );
     debug << "Finished with exit code: "
               << getNLoptReturnString(result) << "\n";
 

@@ -15,18 +15,25 @@ ProblemDescription::ProblemDescription() :
 ProblemDescription::~ProblemDescription(){}
 
 
-void ProblemDescription::prepareSample()
+void ProblemDescription::copyTrajectoryTo( double * data )
 {
-    ok_to_sample = true;
-    if( use_goalset ){ stopGoalset(); }
+    if (doing_covariant){ covariant_trajectory.copyDataTo( data );}
+    else { trajectory.copyDataTo( data ); }
 }
 
-void ProblemDescription::prepareRun()
+void ProblemDescription::copyTrajectoryTo( std::vector<double> & data )
+{
+    if (doing_covariant){ covariant_trajectory.copyDataTo( data );}
+    else { trajectory.copyDataTo( data ); }
+}
+
+
+void ProblemDescription::prepareRun( bool subsample)
 {
     
     debug_status( "ProblemDescription", "prepareRun", "start");
     
-    if( use_goalset ){ stopGoalset(); }
+    if ( subsample ){ trajectory.subsample(); }
     
     //if the factory is not empty of constraints,
     //  get all of the constraints for the current resolution
@@ -35,10 +42,19 @@ void ProblemDescription::prepareRun()
     //are we going to use the goalset on this iteration?
     //  If we are subsampling, then even if there is a goalset
     //  to use, do not use it.
-    bool use_goalset = goalset && !trajectory.isSubsampled();
-    if ( use_goalset ){ startGoalset(); }
+    bool use_goalset = goalset && !subsample;
+    if ( use_goalset ){ 
+        //do not subsample if doing goalset run.
+        trajectory.startGoalset();
+
+        //add the goal constraint to the constraints vector.
+        factory.addGoalset( goalset );
+    }
     
-    doing_covariant = ( is_covariant && !trajectory.isSubsampled() );
+    //are we doing covariant on the current 
+    //  optimization? Do not do covariant optimization
+    //  if we are subsampling 
+    doing_covariant = is_covariant && !subsample;
 
     //prepare the gradient for a run at this resolution
     gradient.prepareRun( trajectory, use_goalset, doing_covariant );
@@ -53,22 +69,36 @@ void ProblemDescription::prepareRun()
     debug_status( "ProblemDescription", "prepareRun", "end");
 }
 
+void ProblemDescription::endRun()
+{
+    debug_status( "ProblemDescription", "endRun", "start");
+    
+    if ( doing_covariant ){
+        covariant_trajectory.getNonCovariantTrajectory(
+                gradient.getMetric(),
+                trajectory );
+    }
+    
+    if( use_goalset ){     
+        //Restore the trajectory to the non-goalset type
+        trajectory.endGoalset();
+
+        //remove the goal constraint, so that it is not deleted along
+        //  with the other constraints.
+        factory.removeGoalset();
+    }
+    
+    if ( trajectory.isSubsampled() ){ 
+        trajectory.endSubsample();
+    }
+    
+    debug_status( "ProblemDescription", "endRun", "end");
+}
+
 
 void ProblemDescription::upsample()
 {
-    if( !ok_to_sample ){ prepareSample(); }
     trajectory.upsample();
-}
-
-void ProblemDescription::subsample()
-{
-    if( !ok_to_sample ){ prepareSample(); }
-    trajectory.subsample();
-}
-
-void ProblemDescription::stopSubsample()
-{
-    trajectory.endSubsample();
 }
 
 double ProblemDescription::evaluateGradient( MatX & g )
@@ -76,30 +106,34 @@ double ProblemDescription::evaluateGradient( MatX & g )
 
     TIMER_START( "gradient" );
     
+    prepareData();
+    
     if ( doing_covariant ){ 
-        prepareCovariant();
         gradient.evaluate( trajectory, g, &covariant_trajectory );
-        return gradient.evaluateObjective( covariant_trajectory, true );
+        double retval = gradient.evaluateObjective( 
+                                 covariant_trajectory,
+                                 true );
+        TIMER_STOP( "gradient" );
+        return retval;
+        
     }
     
     gradient.evaluate( trajectory, g );
-
-    const double val = gradient.evaluateObjective(trajectory);
+    const double retval = gradient.evaluateObjective(trajectory);
 
     TIMER_STOP( "gradient" );
     
-    return val;
+    return retval;
 }
 
 double ProblemDescription::evaluateGradient( const double * xi,
                                                    double * g )
 {
     TIMER_START( "gradient" );
-    if ( doing_covariant ){ prepareCovariant( xi ); }
-    else { trajectory.setData( xi ); }
+    prepareData( xi );
     
     if ( !g ){ 
-        const double val = gradient.evaluateObjective( trajectory );
+        const double val = gradient.evaluateObjective(trajectory);
         TIMER_STOP( "gradient" );
         return val;
     }
@@ -111,6 +145,8 @@ double ProblemDescription::evaluateGradient( const double * xi,
         const double val = 
             gradient.evaluateObjective( covariant_trajectory, true );
         TIMER_STOP( "gradient" );
+
+        
         return val;
     }
 
@@ -123,13 +159,13 @@ double ProblemDescription::evaluateGradient( const double * xi,
 }
 
 
-
 double ProblemDescription::evaluateConstraint( MatX & h )
 {
     if ( factory.empty() ) {return 0; }
 
     TIMER_START( "constraint" );
-    if ( doing_covariant ){ prepareCovariant(); }
+    
+    prepareData();
     
     h.resize( factory.numOutput(), 1 );
 
@@ -146,8 +182,8 @@ double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
 
     TIMER_START( "constraint" );
 
-    if ( doing_covariant ){ prepareCovariant(); }
-
+    prepareData();
+    
     h.resize( factory.numOutput(), 1 );
     H.resize( size(), factory.numOutput() );
     
@@ -175,9 +211,8 @@ double ProblemDescription::evaluateConstraint( const double * xi,
     
     assert( h ); // make sure that h is not NULL
     
-    if ( doing_covariant ){ prepareCovariant( xi );}
-    else { trajectory.setData( xi ); }
-
+    prepareData( xi );
+    
     MatMap h_map( h, factory.numOutput(), 1 );
 
     if ( !H ){ 
@@ -228,21 +263,19 @@ bool ProblemDescription::evaluateConstraint( MatX & h_t,
 
 double ProblemDescription::evaluateObjective()
 {
-    if ( doing_covariant ){ prepareCovariant(); }
-
+    prepareData();
     //TODO include the fextra term
     return gradient.evaluateObjective( trajectory );
 }
 
 double ProblemDescription::evaluateObjective( const double * xi )
 {
-
+    
+    prepareData( xi );
     if ( doing_covariant ){ 
-        covariant_trajectory.setData(xi);
         return gradient.evaluateObjective( covariant_trajectory, true );
     }
 
-    trajectory.setData( xi );
     //TODO include the fextra term.
     return gradient.evaluateObjective( trajectory );
 }
@@ -251,69 +284,36 @@ int ProblemDescription::getConstraintDims()
 {
     return factory.numOutput();
 }
-
-void ProblemDescription::startGoalset()
-{ 
-    //startGoalSet can effect the data in trajectory,
-    //  so we must check for that.
-    if( !ok_to_sample ){ prepareSample(); }
-
-    //do not subsample if doing goalset run.
-    trajectory.startGoalset();
-
-    //add the goal constraint to the constraints vector.
-    factory.addGoalset( goalset );
-    
-    ok_to_sample = false;
-}
-    
-void ProblemDescription::stopGoalset()
-{ 
-
-    use_goalset = false;
-    
-    //Restore the trajectory to the non-goalset type
-    trajectory.endGoalset();
-
-    //remove the goal constraint, so that it is not deleted along
-    //  with the other constraints.
-    factory.removeGoalset();
-    
-}
     
 void ProblemDescription::copyToTrajectory( const double * data )
 {
     if( doing_covariant ){
         covariant_trajectory.copyToData( data );
-        covariant_trajectory.getNonCovariantTrajectory( 
-                                    gradient.getMetric(), 
-                                    trajectory );
     }else {
         trajectory.copyToData( data );
     }
-
 }
 
 void ProblemDescription::copyToTrajectory( const std::vector<double> data )
 {
-
     if( doing_covariant ){
         covariant_trajectory.copyToData( data );
-        covariant_trajectory.getNonCovariantTrajectory( 
-                                    gradient.getMetric(), 
-                                    trajectory );
     }else {
         trajectory.copyToData( data );
     }
-    
 }
 
-void ProblemDescription::prepareCovariant(const double * xi )
+void ProblemDescription::prepareData(const double * xi )
 {
-    if (xi){ covariant_trajectory.setData( xi ); }
-    
-    covariant_trajectory.getNonCovariantTrajectory( gradient.getMetric(), 
-                                                    trajectory );
+    if ( doing_covariant ){ 
+        if (xi){ covariant_trajectory.setData( xi ); }
+        
+        covariant_trajectory.getNonCovariantTrajectory(
+                                     gradient.getMetric(), 
+                                     trajectory );
+    }else if ( xi ) {
+        trajectory.setData( xi );
+    }
 }
     
 void ProblemDescription::getTimes( 

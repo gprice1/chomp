@@ -79,7 +79,7 @@ public:
 class PdfEmitter: public DebugChompObserver {
 public:
 
-  bool dumpOpt;
+  int frequency;
   int count;
 
   double sz, scl, m;
@@ -91,7 +91,7 @@ public:
   std::ostringstream ostream;
   
 
-  PdfEmitter(const char* f): dumpOpt(false), count(0), filename(f) {
+  PdfEmitter(const char* f): frequency(0), count(0), filename(f) {
 
     sz = 4*72; 
     scl = sz/10;
@@ -133,12 +133,14 @@ public:
 
     ostream << "[" << chomper.problem.getTimesString()
             << ", iter:" << iter 
+            << ", constraint:" << hmag
             << ", objective:" << curObjective
             <<  "], ";
-
-    if (! ( (event == CHOMP_INIT) ||
+    
+    if ( frequency < 0 ) { return 0; }
+    if ( !( (event == CHOMP_INIT)   ||
             (event == CHOMP_FINISH) ||
-            (dumpOpt) ) ) {
+            (frequency > 0 && iter % frequency == 0 ) )) {
           
       return 0;
 
@@ -201,7 +203,7 @@ void usage(int status) {
     "\n"
     "  -n, --num-initial        Number of steps for initial trajectory\n"
     "  -t, --num-final          Minimum number of steps for final trajectory\n"
-    "  -l, --no-local           Disable local smoothing\n"
+    "  -v, --no-local           Disable local smoothing\n"
     "  -g, --no-global          Disable global smoothing\n"
     "  -m, --no-multigrid       Disable multigrid computation\n"
     "  -e, --error-tol          Relative error tolerance\n"
@@ -222,38 +224,38 @@ int main(int argc, char** argv) {
   bool doMultigrid = true;
   bool doGlobalSmooth = true;
   bool doLocalSmooth = true;
-  bool doPDF = false;
+  int doPDF = -2;
   double alpha = 0.05;
   double errorTol = 1e-7;
   ChompObjectiveType objective = MINIMIZE_VELOCITY;
 
   const struct option long_options[] = {
-    { "algorithm",         required_argument, 0, 'A' },
+    { "algorithm",         required_argument, 0, 'l' },
     { "num-initial",       required_argument, 0, 'n' },
     { "num-final",         required_argument, 0, 't' },
     { "error-tol",         required_argument, 0, 'e' },
     { "alpha",             required_argument, 0, 'a' },
     { "objective",         required_argument, 0, 'o' },
-    { "covariance",        no_argument,       0, 'C' },
+    { "pdf",               required_argument, 0, 'p' },
+    { "covariance",        no_argument,       0, 'k' },
     { "no-multigrid",      no_argument,       0, 'm' },
     { "no-global",         no_argument,       0, 'g' },
-    { "no-local",          no_argument,       0, 'l' },
-    { "pdf",               no_argument,       0, 'p' },
+    { "no-local",          no_argument,       0, 'v' },
     { "help",              no_argument,       0, 'h' },
     { 0,                   0,                 0,  0  }
   };
 
-  const char* short_options = "A:n:t:e:a:o:Cmpglh";
+  const char* short_options = "l:n:t:e:p:a:o:kmgvh";
   int opt, option_index;
 
   while ( (opt = getopt_long(argc, argv, short_options, 
                              long_options, &option_index) ) != -1 ) {
 
     switch (opt) {
-    case 'A':
+    case 'l':
       alg = algorithmFromString( optarg );
       break;
-    case 'C':
+    case 'k':
       do_covariant = true;
       break;
     case 'n':
@@ -288,11 +290,11 @@ int main(int argc, char** argv) {
     case 'g':
       doGlobalSmooth = false;
       break;
-    case 'l':
+    case 'v':
       doLocalSmooth = false;
       break;
     case 'p':
-      doPDF = true;
+      doPDF = atoi( optarg );
       break;
     case 'h':
       usage(0);
@@ -349,7 +351,7 @@ int main(int argc, char** argv) {
 #ifdef MZ_HAVE_CAIRO
   PdfEmitter* pobs = NULL;
 
-  if (doPDF) {
+  if (doPDF >= -1 ) {
 
     char filename[1024];
 
@@ -361,7 +363,8 @@ int main(int argc, char** argv) {
 
     pobs = new PdfEmitter(filename);
 
-    pobs->dumpOpt = (doMultigrid == false);
+    if (doMultigrid == false){  pobs->frequency = 1; }
+    else { pobs->frequency = doPDF; }
     chomper.setObserver( pobs );
   }
 #endif

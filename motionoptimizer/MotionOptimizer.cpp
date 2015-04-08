@@ -63,7 +63,7 @@ void MotionOptimizer::solve(){
     }
 
     //If full_global_at_final
-    if ( full_global_at_final && do_subsample && N_min < problem.N() ){
+    if ( full_global_at_final && do_subsample && N_min < problem.N()){
         optimize( getOptimizer( algorithm1 ));
     }
     
@@ -78,16 +78,22 @@ void MotionOptimizer::optimize( OptimizerBase * optimizer,
     if ( !optimizer ) { return; }
 
     debug_status( TAG, "optimize", "start");
-
-    if( subsample ){ problem.subsample(); }
-
-    problem.prepareRun();
     
-    optimizer->solve();
+    problem.prepareRun( subsample );
+    
+    //do not optimize if the observer throws an error.
+    //TODO either throw error or say what exactly happened
+    if ( !optimizer->notify( CHOMP_INIT ) ){
+        optimizer->solve();
+    } else {
+        debug << "Observer threw error on CHOMP_INIT, quitting\n";
+    }
 
+    problem.endRun();
+    
+    optimizer->notify( CHOMP_FINISH );
     delete optimizer;
 
-    if( subsample ){ problem.stopSubsample(); }
 
     debug_status( TAG, "optimize", "end");
 
@@ -112,16 +118,24 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
                                   observer, 
                                   obstol, timeout_seconds,
                                   max_iterations);
-        if (alpha > 0){ opt->setAlpha( alpha ); }
+        if (alpha >= 0){ opt->setAlpha( alpha ); }
         return opt;
+    } else if ( alg == TEST ){
+        TestOptimizer * opt = new TestOptimizer(
+                                      problem, observer, 
+                                      obstol, timeout_seconds,
+                                      max_iterations);
         
+        if (alpha >= 0){ opt->setAlpha( alpha ); }
+        return opt;
+
     } else if ( alg == LOCAL_CHOMP ){
         ChompLocalOptimizer * opt = new ChompLocalOptimizer(
                                       problem, observer, 
                                       obstol, timeout_seconds,
                                       max_iterations);
         
-        if (alpha > 0){ opt->setAlpha( alpha ); }
+        if (alpha >= 0){ opt->setAlpha( alpha ); }
         return opt;
         
     } else if ( alg > GLOBAL_CHOMP && alg < NONE){

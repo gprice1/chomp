@@ -262,9 +262,10 @@ void Trajectory::setData( const double * new_data ){
     //  already been cached, and we set the data pointer
     //  to the new data, making sure to change the mat mappings 
     //  as well
-    } else {
+    } else if ( new_data != data ) {
+        if (cached_data == new_data){ cached_data = NULL; }
+        if (cached_data == NULL ){ cached_data = data; }
         
-        if (cached_data == NULL ){ cached_data = data;}
         data = const_cast<double*>(new_data);
 
         remapXi( N(), N(), M() );
@@ -284,9 +285,8 @@ void Trajectory::setData( double * new_data ){
     //  to the new data, making sure to change the mat mappings 
     //  as well
     } else {
-        
         if (cached_data == NULL ){ cached_data = data;}
-        
+        data = new_data;
         remapXi( N(), N(), M() );
     }
 }
@@ -606,8 +606,11 @@ void Trajectory::getNonCovariantTrajectory( const Metric & metric,
 {
     debug_status( TAG, "getNonCovariantTrajectory", "start" );
     
-    copyDataToOther( other );
-    metric.multiplyLowerInverseTranspose( other.full_xi );
+    assert( other.cached_data == NULL );
+    if ( other.fullN() != this->fullN() ){ resizeOther( other ); }
+    
+    metric.multiplyLowerInverseTranspose( this->xi,
+                                          other.xi );
 
     debug_status( TAG, "getNonCovariantTrajectory", "end" );
 }
@@ -616,32 +619,38 @@ void Trajectory::getCovariantTrajectory( const Metric & metric,
                                          Trajectory & other ) const
 {
     debug_status( TAG, "getCovariantTrajectory", "start" );
-
-    copyDataToOther( other );
-    metric.multiplyLowerTranspose( other.full_xi );
-
+    
+    assert( other.cached_data == NULL );
+    if ( other.fullN() != this->fullN() ){ resizeOther( other ); }
+    
+    metric.multiplyLowerTranspose( this->full_xi, other.full_xi );
+    
     debug_status( TAG, "getCovariantTrajectory", "end" );
 }
 
-void Trajectory::copyDataToOther( Trajectory & other ) const{
+void Trajectory::resizeOther( Trajectory & other ) const 
+{
+    if (other.data){  delete other.data; }
+
+    const int fullN = this->fullN();
+    const int N = this->N();
+    const int M = this->M();
+
+    other.data = new double [ fullN * M ];
+    other.remapXi( N, fullN, M );
+
+    other.dt = this->dt;
+    other.total_time = this->total_time;
+
+}
+
+void Trajectory::copyDataToOther( Trajectory & other ) const
+{
     
     debug_status( TAG, "copyDataToOther", "start" );
     //set up the shape of the matrix
-    //
     if ( other.fullN() != this->fullN() ){
-
-        if (other.data){  delete other.data; }
-
-        const int fullN = this->fullN();
-        const int N = this->N();
-        const int M = this->M();
-
-        other.data = new double [ fullN * M ];
-        other.remapXi( N, fullN, M );
-
-        other.dt = this->dt;
-        other.total_time = this->total_time;
-
+        resizeOther( other );
     }else if ( other.N() != this->N() ){
         other.remapXi( this->N(), this->fullN(), this->M());
     }

@@ -10,10 +10,7 @@ class TestOptimizer : public OptimizerBase{
     
   public:
     
-    //either global or local iteration, depending
-    //on the type of the optimization, this should be assigned in 
-    // inheriting class constructor    
-    ChompEventType event; 
+    static const ChompEventType event = CHOMP_GLOBAL_ITER; 
 
     static const char* TAG;
 

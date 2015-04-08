@@ -125,8 +125,6 @@ class ChompGradient {
     
     double c; // c value for objective function
 
-    bool use_goalset;
-    
   public:
     ChompGradient();
 

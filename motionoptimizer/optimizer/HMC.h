@@ -8,7 +8,7 @@ namespace chomp{
 
 class HMC{
 
-  public:
+  private:
     
     // hmc_lambda : the parameter that determines the frequency, and
     //              magnitude of random resampling
@@ -23,54 +23,52 @@ class HMC{
     //                     done on
     size_t resample_iter;
     
-    // old_xi : the previous xi, saved from the last resample iteration,
+    //old_data : the previous xi, saved from the last resample iteration,
     //          if rejection is on, this will be restored if the, 
     //          energy of the trajectory does not increase.
-    // old_momentum_delta : like old_xi, this is a saved previous state,
-    //                      for use if the current trajectory is rejected.
+    //old_momentum : like old_xi, this is a saved previous state,
+    //               for use if the current trajectory is rejected.
     MatX old_momentum;
     double * old_data;
     
-    
-    //the smoothing operator to be applied to the random momentum vector,
-    //  and the size of the smoothing operator.
-    double smoothing_operator[3];
-    int n_operator;
+    static const std::string TAG;
 
   //PUBLIC MEMBER FUNCIONS
+  public:
 
 
-    HMC( double lambda=0.02, bool doNotReject=true ) :
-        lambda( lambda ),
-        doNotReject( doNotReject ),
-        old_data( NULL ){}
+    HMC( double lambda=0.02, bool doNotReject=true );
 
-    ~HMC(){ if(old_data){delete old_data; } }
+    ~HMC();    
+    
 
+    //SHould be called each iteration of the optimizer,
+    //  if it is on a resample iteration,
+    //  it will resample the momentum.
+    void iterate( size_t current_iteration,
+                  double lastObjective
+                  const Metric & metric,
+                  Trajectory & traj,
+                  MatX & momentum);
+    
     //setup the random seed for HMC
     void setSeed(unsigned long seed=0);
+
+  private: 
     
-    //resamples the momentum.
-    void iteration( size_t current_iteration,
-                    Trajectory & traj,
-                    MatX & momentum,
-                    const Metric & metric,
-                    double lastObjective);
     
     //checks the current HMC iteration, and rejects it if the 
     //  energy of the system is too low.
-    bool checkForRejection( Trajectory & traj, MatX & momentum,
+    bool checkForRejection( Trajectory & traj,
+                            MatX & momentum,
                             double lastObjective);
     
     //samples a random momentum from the probability dist given by:
     //  exp( -0.5*xAx )
-    void getRandomMomentum( MatX & momentum, size_t current_iteration );
-    
-    //called in prepareChomp. Sets up a run of HMC.
-    void setupRun();
-
-    void setupHMC( ChompObjectiveType objective_type, double chomp_alpha );
-
+    void getRandomMomentum( const Metric & metric,
+                            size_t current_iteration,
+                            MatX & momentum );
+        
 };
 
 }//namespace

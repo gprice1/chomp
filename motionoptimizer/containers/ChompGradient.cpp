@@ -149,8 +149,6 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
 {
     debug_status( TAG, "prepareRun", "start" );
 
-    this->use_goalset = use_goalset;
-
     //resize the g, b, and ax matrices.
     const int N = trajectory.fullN();
     const int M = trajectory.M();

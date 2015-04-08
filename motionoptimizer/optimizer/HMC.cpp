@@ -5,63 +5,91 @@
 #include "mzcommon/gauss.h"
 
 
-
 namespace chomp {
 
+const std::string TAG = "HMC";
 
-void HMC::setSeed( unsigned long seed ){
+
+HMC::HMC( double lambda, bool doNotReject):
+    lambda( lambda ),
+    previous_energy( 0 ),
+    resample_iter ( - log( mt_genrand_real1()) / lambda ),
+    doNotReject( doNotReject ),
+    old_data( NULL )
+{
+}
+
+HMC::~HMC()
+{
+    if(old_data){delete old_data; } 
+}
+
+void HMC::setSeed( unsigned long seed )
+{
     mt_init_genrand( seed );
 }
 
-void HMC::iteration(size_t current_iteration, Trajectory & traj,
-                    MatX & momentum,
-                    const Metric & metric, 
-                    double lastObjective ){
+void HMC::iterate(size_t current_iteration,
+                  double lastObjective,
+                  const Metric & metric,
+                  Trajectory & trajectory,
+                  MatX & momentum )
+{
     
-    //return if there is nothing to do for this iteration
-    if(current_iteration != resample_iter){ return; }
+    debug_status( TAG, "iterate", "start" );
 
-
-    std::cout << "Resampling momentum" << std::endl;
-
-    if( doNotReject || !checkForRejection(traj, momentum, lastObjective ) ){
-      
-        getRandomMomentum( momentum, current_iteration );
+    //return if there is something to do for this iteration
+    if(current_iteration == resample_iter){
         
-        //TODO should this be here?
-        metric.multiplyLowerInverseTranspose( momentum );
-
-        traj.update( momentum );
+        debug_status( TAG, "iterate", "resampling" );
+        
+        if( doNotReject || 
+            !checkForRejection(trajectory, momentum, lastObjective ) )
+        {
+            getRandomMomentum( metric, momentum, current_iteration );
+        }
+        
+        resample_iter =  current_iteration + 1 
+                       - log( mt_genrand_real1()) / lambda;
     }
-
-    resample_iter =  current_iteration + 1 
-                   - log( mt_genrand_real1()) / lambda;
-    std::cout << "Resampled momentum, next iteration: " 
-              << resample_iter <<std::endl;
+    
+    debug_status( TAG, "iterate", "end" );
 }
 
-void HMC::getRandomMomentum(MatX & momentum, size_t current_iteration)
+void HMC::getRandomMomentum(const Metric & metric,
+                            size_t current_iteration,
+                            MatX & momentum )
 {
+    debug_status( TAG, "getRandomMomentum", "start" );
+    
     const double hmc_alpha = 2/lambda *
                              exp( lambda * current_iteration );
 
     //this is the standard deviation of the gaussian distribution.
     const double sigma = 1.0/sqrt(hmc_alpha); 
     
-    //std::cout << "\n\nPrevious Momentum: \n" << momentum;
-
     //get random univariate gaussians to start.
     for ( int i = 0; i < momentum.size(); i ++ ){
-        //since we are using the leapfrog method, we divide by 2
         momentum(i) = gauss_ziggurat( sigma );
     }
+    
+    //transform the univariate gaussians into a multivariate
+    //  gaussian via multiplying by the inverse transpose of the
+    //  metric.
+    metric.multiplyLowerInverseTranspose( momentum );
+    
+    debug_status( TAG, "getRandomMomentum", "end" );
+    
 }
 
 
 bool HMC::checkForRejection( Trajectory & traj,
                              MatX & momentum,
-                             double lastObjective ) {
+                             double lastObjective )
+{
 
+    debug_status( TAG, "checkForRejection", "start" );
+    
     //test the probability of the current state against that of the
     //  old state.
     //start by calculating the current probability
@@ -71,9 +99,6 @@ bool HMC::checkForRejection( Trajectory & traj,
     //the potential energy is the value of the last objective function.
     //  the total energy is below.
     double current_energy = exp(-kinetic_energy) * exp(-lastObjective);
-
-    std::cout << "Current Energy: " << current_energy << "\n"; 
-    std::cout << "Previous Energy: " << previous_energy << "\n";
 
     if ( current_energy < previous_energy ){
         double probability = current_energy / previous_energy;
@@ -91,6 +116,8 @@ bool HMC::checkForRejection( Trajectory & traj,
             traj.setData( temporary );
             momentum = old_momentum;
             
+            debug_status( TAG, "checkForRejection", "end" );
+            
             return true;
         }
     }
@@ -102,36 +129,11 @@ bool HMC::checkForRejection( Trajectory & traj,
 
     previous_energy = current_energy;
     old_momentum = momentum;
+    
+    debug_status( TAG, "checkForRejection", "end" );
+    
     return false;
 
 }
-
-void HMC::setupRun(){
-
-    previous_energy = 0.0;
-    resample_iter = - log( mt_genrand_real1()) / lambda;
-}
-
-void HMC::setupHMC( ChompObjectiveType objective_type, double chomp_alpha ){
-    
-    this->alpha = chomp_alpha * 0.5;
-    
-    //apply the smoothness operator K to each of the columns.
-    if (objective_type == MINIMIZE_VELOCITY){
-        n_operator = 2;
-        smoothing_operator[0] = -1;
-        smoothing_operator[1] = 1;
-        //fill the last one with a garbage value to make sure that it is
-        // never used
-        smoothing_operator[2] = HUGE_VAL;
-
-    }else if (objective_type == MINIMIZE_ACCELERATION){
-        n_operator = 3;
-        smoothing_operator[0] = 1; 
-        smoothing_operator[1] = -2; 
-        smoothing_operator[2] = 1; 
-    }
-}
-
 
 }//namespace

@@ -213,6 +213,7 @@ class Trajectory {
                          int rows );
 
     void remapXi( int n, int full_n, int m );
+    void resizeOther( Trajectory & other ) const ;
 
 };
 

@@ -287,7 +287,7 @@ public:
   {
       std::ofstream myfile;
       myfile.open (filename, std::ios::app );
-      myfile << filename << "{" << ostream.str() << "}\n";
+      myfile  << ostream.str() << "}\n";
 
       myfile.close();
   }
@@ -303,8 +303,22 @@ public:
             << ", iter:" << iter 
             << ", objective:" << curObjective
             <<  "], ";
+    
+    //DebugChompObserver::notify(chomper, event, iter, 
+    //                           curObjective, lastObjective, hmag);
 
-    if (event != CHOMP_FINISH ) { return 0; }
+    if ( dump_every < 0 ) { return 0; }
+
+    if ( !( (event == CHOMP_FINISH) ||
+            (event == CHOMP_INIT )  ||
+            (dump_every > 0 && iter % dump_every == 0 ) ) ) {
+        return 0;
+    }
+
+    
+    if (count++) {
+      cairo_show_page(cr);
+    }
     
     float cs = map.grid.cellSize();
     Box3f bbox = map.grid.bbox();
@@ -362,8 +376,7 @@ public:
 int main(int argc, char** argv) {
 
   const struct option long_options[] = {
-    { "algorithm",         required_argument, 0, 'A' },
-    { "covariance",        no_argument, 0, 'C' },
+    { "algorithm",         required_argument, 0, 'l' },
     { "coords",            required_argument, 0, 'c' },
     { "num",               required_argument, 0, 'n' },
     { "alpha",             required_argument, 0, 'a' },
@@ -371,11 +384,13 @@ int main(int argc, char** argv) {
     { "error-tol",         required_argument, 0, 'e' },
     { "max-iter",          required_argument, 0, 'm' },
     { "objective",         required_argument, 0, 'o' },
+    { "pdf",               required_argument, 0, 'p' },
+    { "covariance",        no_argument,       0, 'k' },
     { "help",              no_argument,       0, 'h' },
     { 0,                   0,                 0,  0  }
   };
 
-  const char* short_options = "A:C:c:n:a:g:e:m:o:p:h";
+  const char* short_options = "l:c:n:a:g:e:m:o:p:kh";
   int opt, option_index;
 
   bool do_covariant = false;
@@ -387,15 +402,16 @@ int main(int argc, char** argv) {
   ChompObjectiveType otype = MINIMIZE_VELOCITY;
   OptimizationAlgorithm alg = NONE;
   float x0=0, y0=0, x1=0, y1=0;
+  int doPDF = -2;
 
   while ( (opt = getopt_long(argc, argv, short_options, 
                              long_options, &option_index) ) != -1 ) {
 
     switch (opt) {
-    case 'A':
+    case 'l':
       alg = algorithmFromString( optarg );
       break;
-    case 'C':
+    case 'k':
       do_covariant = true;
       break;
     case 'c': 
@@ -428,6 +444,9 @@ int main(int argc, char** argv) {
         std::cerr << "error parsing opt. type: " << optarg << "\n\n";
         usage(1);
       }
+      break;
+    case 'p':
+      doPDF = atoi( optarg );
       break;
     case 'h':
       usage(0);
@@ -490,7 +509,9 @@ int main(int argc, char** argv) {
 
 
 #ifdef MZ_HAVE_CAIRO
-  PdfEmitter* pe;
+  PdfEmitter* pe = NULL;
+
+  if ( doPDF >= -1 )
   {
     char buf[1024];
     sprintf(buf, "%s_g%f_a%f_o%s_%s_.pdf",
@@ -501,7 +522,7 @@ int main(int argc, char** argv) {
 
     pe = new PdfEmitter(map,
                         chomper.getTrajectory().getXi(),
-                        1,
+                        doPDF,
                         buf);
     chomper.setObserver( pe );
   }
@@ -515,7 +536,7 @@ int main(int argc, char** argv) {
   pe->appendInfoToFile( filename );
 
 #ifdef MZ_HAVE_CAIRO
-  delete pe;
+  if ( pe ) { delete pe; }
 #endif
 
   return 0;

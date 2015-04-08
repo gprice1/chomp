@@ -59,30 +59,34 @@ public:
     ~ProblemDescription();
 
     void upsample();
-    void subsample();
-    void stopSubsample();
- 
+     
     const Metric & getMetric();
 
-    inline bool isConstrained() const { return !factory.empty(); }
-    inline bool isCovariant() const { return doing_covariant; }
+    inline bool isConstrained() const 
+                { return !factory.empty(); }
+    inline bool isCovariant() const
+                { return doing_covariant; }
     
-    inline void setGoalset( Constraint * goal ){goalset = goal;}
-    inline const Constraint * getGoalset() const { return goalset; }
+    inline void setGoalset( Constraint * goal )
+                {goalset = goal;}
+    inline const Constraint * getGoalset() const
+                 { return goalset; }
     
     inline int N(){ return trajectory.N(); }
     inline int M(){ return trajectory.M(); }
     inline int size(){ return trajectory.size(); }
     
-    inline void setUpperBounds(const MatX & upper){ upper_bounds = upper;}
-    inline void setLowerBounds(const MatX & lower){ lower_bounds = lower;}
-    inline const MatX & getUpperBounds(){ return upper_bounds;}
-    inline const MatX & getLowerBounds(){ return lower_bounds;}
+    inline void setUpperBounds(const MatX & upper)
+                { upper_bounds = upper;}
+    inline void setLowerBounds(const MatX & lower)
+                { lower_bounds = lower;}
+    inline const MatX & getUpperBounds()
+                 { return upper_bounds;}
+    inline const MatX & getLowerBounds()
+                 { return lower_bounds;}
 
-    inline void copyTrajectoryTo( double * data )
-                { trajectory.copyDataTo( data ); }
-    inline void copyTrajectoryTo( std::vector<double> & data )
-                { trajectory.copyDataTo( data ); }
+    void copyTrajectoryTo( double * data );
+    void copyTrajectoryTo( std::vector<double> & data );
 
     void copyToTrajectory( const double * data );
     void copyToTrajectory( const std::vector<double> data );
@@ -121,7 +125,6 @@ public:
     
     inline bool isSubsampled(){ return trajectory.isSubsampled(); }
 
-
     void getTimes( 
         std::vector< std::pair<std::string, double> > & times ) const ;
     
@@ -131,64 +134,17 @@ public:
     
 private:
 
-    void prepareRun();
-    void prepareSample();
-    void prepareCovariant( const double * xi = NULL );
+    void prepareRun( bool subsample);
+    void endRun();
     
-    void startGoalset();
-    void stopGoalset();
+    void prepareData( const double * xi = NULL );
+    
     
 };//Class ProblemDescription
 
 
-inline const Metric & ProblemDescription::getMetric(){
-    if ( trajectory.isSubsampled() ){
-        return gradient.getSubsampledMetric();
-    }
-    return gradient.getMetric();
-}
 
-template <class Derived>
-inline void ProblemDescription::updateTrajectory( 
-                                const Eigen::MatrixBase<Derived> & delta) 
-{
-    if ( doing_covariant ){
-        covariant_trajectory.update( delta );
-        prepareCovariant();
-    }
-    trajectory.update( delta );
-}
-
-inline void ProblemDescription::updateTrajectory( const double * delta )
-{
-    if ( doing_covariant ){
-        covariant_trajectory.update( ConstMatMap(delta, 
-                                                 trajectory.N(),
-                                                 trajectory.M() ) );
-        prepareCovariant();
-    }
-
-    trajectory.update( ConstMatMap(delta, trajectory.N(), trajectory.M()));
-}
-
-template <class Derived>
-inline void ProblemDescription::updateTrajectory( 
-                                const Eigen::MatrixBase<Derived> & delta,
-                                int t) 
-{
-    debug_assert( !doing_covariant );
-    trajectory.update( delta, t );
-}
-
-inline void ProblemDescription::updateTrajectory( const double * delta,
-                                                  int t )
-{
-    debug_assert( !doing_covariant );
-    trajectory.update( 
-                ConstMatMap(delta, trajectory.N(), trajectory.M()),
-                t);
-}
-
+#include "ProblemDescription-inl.h"
 
 }//namespace
 

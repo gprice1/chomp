@@ -200,7 +200,7 @@ void Metric::multiplyLowerInverseTranspose(
         result.row(i) = original.row(i);
 
         for (int j=i+1; j<j1; ++j) {
-            result.row(i) -= getLValue(j, i) * original.row(j);
+            result.row(i) -= getLValue(j, i) * result.row(j);
         }
         
         result.row(i) /= getLValue( i, i );
@@ -409,3 +409,48 @@ double Metric::createGoalsetBMatrix(
 
     return 0.5*c;
 }
+
+template <class Derived>
+void Metric::solveCovariantBounds( const MatX & lower, const MatX & upper,
+                            const Eigen::MatrixBase<Derived> & covariant_lower_const,
+                            const Eigen::MatrixBase<Derived> & covariant_upper_const )
+{
+    
+    assert( upper.size() > 0 && lower.size() > 0 );
+    assert( upper.size() == covariant_lower_const.cols() );
+    assert( upper.size() == covariant_upper_const.cols() );
+    assert( covariant_lower_const.rows() == L.rows() );
+    assert( covariant_upper_const.rows() == L.rows() );
+    
+    Eigen::MatrixBase<Derived> & covariant_upper = 
+         const_cast<Eigen::MatrixBase<Derived>&>(covariant_upper_const);
+    Eigen::MatrixBase<Derived> & covariant_lower = 
+         const_cast<Eigen::MatrixBase<Derived>&>(covariant_lower_const);
+
+    covariant_upper.setZero();
+    covariant_lower.setZero();
+
+    for (int i=0 ; i < size() ; ++i )
+    {
+
+        const int j1 = std::min( size(), i+width() );
+        for (int j = i+1; j < j1; ++j) {
+            const double value = getLValue( j, i);
+            if (value > 0 ){
+                //if value is positive, we want the smallest possible product
+                //  in lower, which is a small number (the bounds in lower)
+                //  times the positive value 
+                //  Likewise, we want to add the largest possible value into
+                //  covariant_upper, so we multiply the positive value by the 
+                //  large number in the upper bounds vector.
+                covariant_lower.row( i ) += value * lower;
+                covariant_upper.row( i ) += value * upper;
+            } else if (value < 0 ){
+                covariant_lower.row( i ) += value * upper;
+                covariant_upper.row( i ) += value * lower;
+            }
+
+        }
+    }
+}
+

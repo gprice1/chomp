@@ -10,7 +10,6 @@ inline void ChompGradient::subsampleGradient(int N_sub,
     Eigen::MatrixBase<Derived>& g_sub = 
         const_cast<Eigen::MatrixBase<Derived>&>(g_sub_const);
 
-    
     for ( int i = 0; i < g_sub.rows(); i ++ ){
         g_sub.row( i ) = g_full.row( i * 2 );
     }
@@ -33,11 +32,7 @@ inline void ChompGradient::evaluate(
         g_full.resize( trajectory.fullN(), trajectory.M() );
 
         //compute the smoothness gradient on a full-size trajectory.
-        if ( is_covariant ){
-            evaluateSmoothness( *covariant_trajectory, g_full, true);
-        }else {
-            evaluateSmoothness( trajectory, g_full, false );
-        }
+        evaluateSmoothness( trajectory, g_full, false );
 
         //There is no reason to compute collision gradients
         //  on a subsampled trajectory, because even if there are
@@ -103,7 +98,7 @@ inline void ChompGradient::evaluateCollision(
         MatX g_full = MatX::Zero( g_const.rows(), g_const.cols() );
         fextra = ghelper->addToGradient(trajectory, g_full);
 
-            //cast away the const-ness of g_const
+        //cast away the const-ness of g_const
         Eigen::MatrixBase<Derived>& g = 
             const_cast<Eigen::MatrixBase<Derived>&>(g_const);
         

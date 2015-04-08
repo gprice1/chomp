@@ -35,8 +35,6 @@ void ChompOptimizerBase::solve(){
     debug_status( TAG, "solve", "start" );
     
     
-    if (notify(CHOMP_INIT)) { return; }
-
     if ( timeout_seconds <= 0 ){ canTimeout = false; }
     else {
         canTimeout = true;
@@ -69,8 +67,6 @@ void ChompOptimizerBase::solve(){
     
     while (not_finished) { not_finished = iterate(); }
     
-    notify(CHOMP_FINISH);
-
     debug_status( TAG, "solve", "end" );
 } 
 

@@ -125,6 +125,12 @@ public:
                          const Eigen::MatrixBase<Derived2>& b_const,
                          double dt) const ;
 
+    
+    template <class Derived>
+    void solveCovariantBounds( const MatX & lower, const MatX & upper,
+                               const Eigen::MatrixBase<Derived> & covariant_lower,
+                               const Eigen::MatrixBase<Derived> & covariant_upper );
+
 
 
 private:
