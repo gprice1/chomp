@@ -31,18 +31,18 @@ for alg in ${ALGORITHMS[@]}; do
            [ $alg == 'TEST' ]; then
             
             for alpha in ${ALPHAS[@]}; do
-                ../build/map2d_eval -l $alg -g $gamma $SETTINGS -a $alpha  -o accel    $MAP3A
-                ../build/map2d_eval -l $alg -g $gamma $SETTINGS -a $alpha  -o vel      $MAP3A
-                ../build/map2d_eval -l $alg -g $gamma $SETTINGS -a $alpha  -o accel -k $MAP3A
-                ../build/map2d_eval -l $alg -g $gamma $SETTINGS -a $alpha  -o vel   -k $MAP3A
+                ../build/map2d_demo -l $alg -g $gamma $SETTINGS -a $alpha  -o accel    $MAP3A
+                ../build/map2d_demo -l $alg -g $gamma $SETTINGS -a $alpha  -o vel      $MAP3A
+                ../build/map2d_demo -l $alg -g $gamma $SETTINGS -a $alpha  -o accel -k $MAP3A
+                ../build/map2d_demo -l $alg -g $gamma $SETTINGS -a $alpha  -o vel   -k $MAP3A
 
                 echo "../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o vel"
             done
         else 
-            ../build/map2d_eval -l $alg -g $gamma $SETTINGS -o accel -a 0.1    $MAP3A
-            ../build/map2d_eval -l $alg -g $gamma $SETTINGS -o vel   -a 0.1    $MAP3A
-            ../build/map2d_eval -l $alg -g $gamma $SETTINGS -o accel -a 0.1 -k $MAP3A
-            ../build/map2d_eval -l $alg -g $gamma $SETTINGS -o vel   -a 0.1 -k $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o accel -a 0.1    $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o vel   -a 0.1    $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o accel -a 0.1 -k $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o vel   -a 0.1 -k $MAP3A
 
             echo "../build/map2d_eval -A $alg -g $gamma -C $SETTINGS -a 0.1 -o vel $MAP3A "
         fi 
