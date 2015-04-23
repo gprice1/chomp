@@ -35,6 +35,9 @@
 #include <png.h>
 #include <getopt.h>
 #include "MotionOptimizer.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 using namespace mopt;
 
@@ -42,7 +45,6 @@ using namespace mopt;
 #include <cairo/cairo.h>
 #include <cairo/cairo-pdf.h>
 #endif
-
 
 // Utility function to visualize maps
 bool savePNG_RGB24(const std::string& filename,
@@ -125,101 +127,59 @@ bool savePNG_RGB24(const std::string& filename,
 
   fclose(fp);
 
-  std::cout << "wrote " << filename << "\n";
 
   return true;
 
 }
 
 //////////////////////////////////////////////////////////////////////
-// class to help evaluate collisons for gradients
+// function to help evaluate collisons for gradients
 
-class Map2DCHelper: public CollisionHelper {
-public: 
 
-  enum {
-    NUM_CSPACE = 2,
-    NUM_WKSPACE = 3, // actually just 2 but this way I can test matrix dims better
-    NUM_BODIES = 1,
-  };
-
-  const Map2D& map;
-
-  Map2DCHelper(const Map2D& m): 
-    CollisionHelper(NUM_CSPACE, NUM_WKSPACE, NUM_BODIES), 
-    map(m) {}
-
-  virtual ~Map2DCHelper() {}
-
-  virtual double getCost(const MatX& q, 
-                         size_t body_index,
-                         MatX& dx_dq,
-                         MatX& cgrad) {
-
+double costFunction(const MatX& q, size_t body_index,
+               MatX& dx_dq, MatX& cgrad,
+               void * data) 
+{
     assert( (q.rows() == 2 && q.cols() == 1) ||
             (q.rows() == 1 && q.cols() == 2) );
 
-    dx_dq.conservativeResize(3, 2);
+    dx_dq.resize(3, 2);
     dx_dq.setZero();
 
     dx_dq << 1, 0, 0, 1, 0, 0;
 
-    cgrad.conservativeResize(3, 1);
+    cgrad.resize(3, 1);
 
     vec3f g;
-    float c = map.sampleCost(vec3f(q(0), q(1), 0.0), g);
+    
+    Map2D * map = static_cast<Map2D*>( data );
+    float c = map->sampleCost(vec3f(q(0), q(1), 0.0), g);
 
     cgrad << g[0], g[1], 0.0;
 
     return c;
-
-  }
-
-
-};
+}
 
 //////////////////////////////////////////////////////////////////////
 // help generate an an initial trajectory
 
 void generateInitialTraj(MotionOptimizer & chomper,
                          int N, 
-                         const Map2D& map, 
                          const vec2f& p0, 
                          const vec2f& p1,
                          MatX& q0,
                          MatX& q1) {
   
-  q0.resize(1, 2);
-  q1.resize(1, 2);
+    q0.resize(1, 2);
+    q1.resize(1, 2);
 
-  q0 << p0.x(), p0.y();
-  q1 << p1.x(), p1.y();
+    q0 << p0.x(), p0.y();
+    q1 << p1.x(), p1.y();
 
-  chomper.getTrajectory().initialize( q0, q1, N );
+    chomper.getTrajectory().initialize( q0, q1, N );
   
 }
 
-//////////////////////////////////////////////////////////////////////
-
-void usage(int status) {
-  std::ostream& ostr = status ? std::cerr : std::cout;
-  ostr <<
-    "usage: map2d_demo OPTIONS map.txt\n"
-    "Also, checkout the map2d_tests.sh script!\n"
-    "\n"
-    "OPTIONS:\n"
-    "\n"
-    "  -c, --coords             Set start, goal (x0,y0,x1,y1)\n"
-    "  -n, --num                Number of steps for trajectory\n"
-    "  -a, --alpha              Overall step size for CHOMP\n"
-    "  -g, --gamma              Step size for collisions\n"
-    "  -m, --max-iter           Set maximum iterations\n"
-    "  -e, --error-tol          Relative error tolerance\n"
-    "  -o, --objective          Quantity to minimize (vel|accel)\n"
-    "  -p, --pdf                Output PDF's every I iterations (0=only init/final)\n"
-    "      --help               See this message.\n";
-  exit(status);
-}
 
 //////////////////////////////////////////////////////////////////////
 // helper class to visualize stuff
@@ -242,11 +202,19 @@ public:
   cairo_t* cr;
   int width, height;
   float mscl;
+
   std::vector<unsigned char> mapbuf;
 
-  PdfEmitter(const Map2D& m, const MatX& x, int de, const char* f):
-    map(m), xi_init(x), dump_every(de), count(0), filename(f)
+  std::ostringstream ostream;
+  bool dump_data_to_file;
+  
+  PdfEmitter(const Map2D& m, const MatX& x, int de,
+             const char* f, bool dump):
+    map(m), xi_init(x), dump_every(de), count(0), filename(f),
+    dump_data_to_file( dump ) 
   {
+      
+    ostream << filename << " {";
     
     Box3f bbox = map.grid.bbox();
     vec3f dims = bbox.p1 - bbox.p0;
@@ -255,7 +223,6 @@ public:
     
     width = int(mscl * dims.x());
     height = int(mscl * dims.y());
-    std::cout << "image will be " << width << "x" << height << "\n";
     
     surface = cairo_pdf_surface_create(filename, width, height);
     
@@ -277,8 +244,17 @@ public:
     cairo_surface_destroy(image);
     cairo_destroy(cr);
 
-    std::cout << "wrote " << filename << "\n\n";
+  }
 
+  void appendInfoToFile( const std::string & filename )
+  {
+      if (dump_data_to_file && filename.size() > 0 ){
+          std::ofstream myfile;
+          myfile.open (filename, std::ios::app );
+          myfile  << ostream.str() << "}\n";
+
+          myfile.close();
+      }
   }
 
   virtual int notify(const OptimizerBase& chomper, 
@@ -286,23 +262,32 @@ public:
                      size_t iter,
                      double curObjective,
                      double lastObjective,
-                     double hmag) {
- 
-    DebugObserver::notify(chomper, event, iter, 
-                               curObjective, lastObjective, hmag);
-
-    bool dump_pdf = (event == FINISH ||
-                     dump_every == 0 || 
-                     (iter % dump_every == 0));
+                     double hmag)
+  {
     
-    if (!dump_pdf) {
-      return 0;
+    if ( dump_data_to_file ){
+        ostream << "[" << chomper.problem.getTimesString()
+                << ", iter:" << iter 
+                << ", objective:" << curObjective
+                <<  "], ";
+    }else {
+        DebugObserver::notify(chomper, event, iter, 
+                                   curObjective, lastObjective, hmag);
+    }
+    
+    if ( dump_every < 0 ) { return 0; }
+
+    if ( !( (event == FINISH) ||
+            (event == INIT )  ||
+            (dump_every > 0 && iter % dump_every == 0 ) ) ) {
+        return 0;
     }
 
+    
     if (count++) {
       cairo_show_page(cr);
     }
-
+    
     float cs = map.grid.cellSize();
     Box3f bbox = map.grid.bbox();
 
@@ -356,9 +341,38 @@ public:
 
 //////////////////////////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////////////////////////
+
+void usage(int status) {
+  std::ostream& ostr = status ? std::cerr : std::cout;
+  ostr <<
+    "usage: map2d_demo OPTIONS map.txt\n"
+    "Also, checkout the map2d_tests.sh script!\n"
+    "\n"
+    "OPTIONS:\n"
+    "\n"
+    "  -l, --algorithm          Algorithm used for optimization\n"
+    
+    "  -c, --coords             Set start, goal (x0,y0,x1,y1)\n"
+    "  -n, --num                Number of steps for trajectory\n"
+    "  -a, --alpha              Overall step size for CHOMP\n"
+    "  -g, --gamma              Step size for collisions\n"
+    "  -m, --max-iter           Set maximum iterations\n"
+    "  -e, --error-tol          Relative error tolerance\n"
+    "  -p, --pdf                Output PDF's\n"
+    "  -k, --covariance         Do covariant optimization\n"
+    "  -d, --dump               Dump recorded data to a given filename\n"
+    "  -o, --objective          Quantity to minimize (vel|accel)\n"
+    "  -b, --bounds             Bound the trajectory to the given area\n"
+    "      --help               See this message.\n";
+  exit(status);
+}
+
 int main(int argc, char** argv) {
 
   const struct option long_options[] = {
+    { "algorithm",         required_argument, 0, 'l' },
     { "coords",            required_argument, 0, 'c' },
     { "num",               required_argument, 0, 'n' },
     { "alpha",             required_argument, 0, 'a' },
@@ -367,26 +381,41 @@ int main(int argc, char** argv) {
     { "max-iter",          required_argument, 0, 'm' },
     { "objective",         required_argument, 0, 'o' },
     { "pdf",               required_argument, 0, 'p' },
+    { "dump",              required_argument, 0, 'd' },
+    { "covariance",        no_argument,       0, 'k' },
     { "help",              no_argument,       0, 'h' },
+    { "bounds",            no_argument,       0, 'b' },
     { 0,                   0,                 0,  0  }
   };
 
-  const char* short_options = "c:n:a:g:e:m:o:p:h";
+  const char* short_options = "l:c:n:a:g:e:m:o:p:d:khb";
   int opt, option_index;
 
+  bool do_covariant = false;
   int N = 127;
   double gamma = 0.5;
   double alpha = 0.02;
   double errorTol = 1e-6;
   size_t max_iter = 500;
   ObjectiveType otype = MINIMIZE_VELOCITY;
-  int pdf = -1;
+  OptimizationAlgorithm alg = NONE;
   float x0=0, y0=0, x1=0, y1=0;
+  int doPDF = -2;
+  bool doBounds = false;
+
+  std::string filename;
+  bool dump_data;
 
   while ( (opt = getopt_long(argc, argv, short_options, 
                              long_options, &option_index) ) != -1 ) {
 
     switch (opt) {
+    case 'l':
+      alg = algorithmFromString( optarg );
+      break;
+    case 'k':
+      do_covariant = true;
+      break;
     case 'c': 
       if (sscanf(optarg, "%f,%f,%f,%f", &x0, &y0, &x1, &y1) != 4) {
         std::cerr << "error parsing coords!\n\n";
@@ -396,7 +425,7 @@ int main(int argc, char** argv) {
     case 'n':
       N = atoi(optarg);
       break;
-    case 'a':
+    case 'a': 
       alpha = atof(optarg);
       break;
     case 'g':
@@ -419,12 +448,20 @@ int main(int argc, char** argv) {
       }
       break;
     case 'p':
-      pdf = atoi(optarg);
+      doPDF = atoi( optarg );
       break;
     case 'h':
       usage(0);
       break;
+    case 'b':
+      doBounds = true;
+      break;
+    case 'd': 
+        filename = std::string( optarg );
+        dump_data = true;
+        break;
     default:
+      std::cout << "opt: " << opt << "\n";
       usage(1);
       break;
     }
@@ -455,53 +492,70 @@ int main(int argc, char** argv) {
 
   MatX q0, q1;
 
-  Map2DCHelper mhelper(map);
-  CollGradHelper cghelper(&mhelper, gamma);
-
   vec2f p0(x0, y0), p1(x1, y1);
   if (p0.x() == p0.y() && p0 == p1) {
     p0 = map.grid.bbox().p0.trunc();
     p1 = map.grid.bbox().p1.trunc();
   }
   
-  //TODO include the alpha somehow.
   MotionOptimizer chomper( NULL, errorTol, 0, max_iter );
-  generateInitialTraj(chomper, N, map, p0, p1, q0, q1);
-    
+  generateInitialTraj(chomper, N, p0, p1, q0, q1);
+  
+  //create the collision function
+  CollisionFunction coll_func( 2, 3, 1, gamma, &costFunction, &map );
+  chomper.setCollisionFunction( &coll_func );
+
   chomper.getTrajectory().setObjectiveType( otype );
-  chomper.setGradientHelper( &cghelper );
 
   DebugObserver dobs;
   chomper.setObserver( &dobs );
 
   chomper.setAlpha( alpha );
-
-  chomper.doCovariantOptimization();
+  
+  chomper.setAlgorithm( alg ); 
+  
+  if ( doBounds ){
+      MatX upper(1,2), lower(1,2);
+      upper << 3,3;
+      lower << -3,-3;
+      chomper.setBounds( lower, upper );
+  }
+  
+  if (do_covariant ){ chomper.doCovariantOptimization(); }
 
 
 #ifdef MZ_HAVE_CAIRO
-
   PdfEmitter* pe = NULL;
 
-  if (pdf > 0) {
+  if ( doPDF >= -1 )
+  {
     char buf[1024];
-    sprintf(buf, "map2d_n%d_g%f_a%f_e%f_m%d_o%s_%f,%f,%f,%f.pdf",
-            N, gamma, alpha, errorTol, (int)max_iter,
+    sprintf(buf, "%s_g%f_a%f_o%s_%s_.pdf",
+            algorithmToString( alg ).c_str(),
+            gamma, alpha,
             otype == MINIMIZE_VELOCITY ? "vel" : "accel",
-            p0.x(), p0.y(), p1.x(), p1.y());
+            do_covariant ? "covariant" : "non-covariant" );
 
-
-    pe = new PdfEmitter(map, chomper.getTrajectory().getXi(), pdf, buf);
+    pe = new PdfEmitter(map,
+                        chomper.getTrajectory().getXi(),
+                        doPDF,
+                        buf,
+                        dump_data);
     chomper.setObserver( pe );
   }
 
 #endif
   
   chomper.dontSubsample();
+
   chomper.solve();
 
+
 #ifdef MZ_HAVE_CAIRO
-  delete pe;
+  if ( pe ) {
+      pe->appendInfoToFile( filename );
+      delete pe;
+  }
 #endif
 
   return 0;

@@ -28,17 +28,17 @@ for alg in ${ALGORITHMS[@]}; do
            [ $alg == 'GLOBAL_CHOMP'   ]; then
             
             for alpha in ${ALPHAS[@]}; do
-                ../build/circle_eval -l $alg -n $n $SETTINGS -a $alpha -o accel
-                ../build/circle_eval -l $alg -n $n $SETTINGS -a $alpha -o vel
-                ../build/circle_eval -l $alg -n $n $SETTINGS -a $alpha -o accel -k
-                ../build/circle_eval -l $alg -n $n $SETTINGS -a $alpha -o vel   -k
+                ../build/circle_demo -l $alg -n $n $SETTINGS -a $alpha -o accel
+                ../build/circle_demo -l $alg -n $n $SETTINGS -a $alpha -o vel
+                ../build/circle_demo -l $alg -n $n $SETTINGS -a $alpha -o accel -k
+                ../build/circle_demo -l $alg -n $n $SETTINGS -a $alpha -o vel   -k
                 echo "Algorithm: $alg n = $n, alpha = $alpha" 
             done
         else 
-            ../build/circle_eval -l $alg -n $n $SETTINGS -o accel  
-            ../build/circle_eval -l $alg -n $n $SETTINGS -o vel    
-            ../build/circle_eval -l $alg -n $n $SETTINGS -o accel -k 
-            ../build/circle_eval -l $alg -n $n $SETTINGS -o vel   -k 
+            ../build/circle_demo -l $alg -n $n $SETTINGS -o accel  
+            ../build/circle_demo -l $alg -n $n $SETTINGS -o vel    
+            ../build/circle_demo -l $alg -n $n $SETTINGS -o accel -k 
+            ../build/circle_demo -l $alg -n $n $SETTINGS -o vel   -k 
 
             echo "Algorithm: $alg, n = $n" 
         fi 

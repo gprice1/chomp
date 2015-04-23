@@ -15,9 +15,4 @@ target_link_libraries(circle_demo ${demo_libs})
 add_executable(map2d_demo map2d_demo.cpp Map2D.cpp)
 target_link_libraries(map2d_demo ${demo_libs})
 
-add_executable(map2d_eval map2d_eval.cpp Map2D.cpp)
-target_link_libraries(map2d_eval ${demo_libs})
-
-add_executable( circle_eval circle_eval.cpp)
-target_link_libraries(circle_eval ${demo_libs})
 
