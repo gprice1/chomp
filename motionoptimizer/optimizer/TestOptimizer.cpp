@@ -173,7 +173,7 @@ bool TestOptimizer::iterate()
     debug_status( TAG, "iterate", "start" );
     
     last_objective = current_objective;
-    current_objective = problem.evaluateGradient( x_data, g_data );
+    current_objective = problem.evaluateObjective( x_data, g_data );
     
     if (problem.isConstrained() ){
         constraint_magnitude = problem.evaluateConstraint( x_data,

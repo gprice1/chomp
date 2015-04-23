@@ -184,7 +184,7 @@ double NLOptimizer::objectiveFunction(unsigned n,
     NLOptimizer * opt = reinterpret_cast<NLOptimizer*>(data);
 
     opt->last_objective = opt->current_objective;
-    opt->current_objective = opt->problem.evaluateGradient( x, grad);
+    opt->current_objective = opt->problem.evaluateObjective( x, grad );
     
     //TODO - report the constraint violations
     opt->notify( event );

@@ -115,9 +115,15 @@ inline void MotionOptimizer::setTrajectory( const Trajectory & trajectory )
     problem.trajectory = trajectory;
 }
 
-inline void MotionOptimizer::setGradientHelper(GradientHelper * helper)
-{ 
-    problem.gradient.setGradientHelper(helper);
+inline void MotionOptimizer::setCollisionFunction( 
+                                CollisionFunction * coll_func)
+{
+    problem.collision_function = coll_func;
+}
+inline const CollisionFunction * MotionOptimizer::getCollisionFunction()
+const
+{
+    return problem.collision_function;
 }
 
 inline void MotionOptimizer::setObserver( Observer * obs )

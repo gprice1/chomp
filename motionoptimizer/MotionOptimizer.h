@@ -6,8 +6,6 @@
 #include "utils/Observer.h"
 
 #include "containers/ProblemDescription.h"
-#include "containers/Trajectory.h"
-#include "containers/Gradient.h"
 
 #include "containers/ConstraintFactory.h"
 #include "containers/Constraint.h"
@@ -17,7 +15,6 @@
 #include "optimizer/TestOptimizer.h"
 
 #ifdef NLOPT_FOUND
-    #include <nlopt.hpp>
     #include "optimizer/NLOptimizer.h"
 #endif
 
@@ -150,8 +147,9 @@ class MotionOptimizer {
     const Trajectory & getTrajectory() const;
     void setTrajectory( const Trajectory & trajectory );
 
-    void setGradientHelper(GradientHelper * helper);
-    
+    void setCollisionFunction( CollisionFunction * coll_func);
+    const CollisionFunction * getCollisionFunction() const;
+
     void setObserver( Observer * obs );
     Observer * getObserver();
     const Observer * getObserver() const;

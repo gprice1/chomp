@@ -1,4 +1,59 @@
 
+template <class Derived>
+double ProblemDescription::evaluateObjective( 
+                           const Eigen::MatrixBase<Derived> & g )
+{
+    TIMER_START( "gradient" );
+    
+    prepareData();
+    
+    double value = computeObjective( g );
+    
+    TIMER_STOP( "gradient" );
+    
+    return value;
+
+}
+
+template <class Derived>
+inline double ProblemDescription::computeObjective( 
+                           const Eigen::MatrixBase<Derived> & g )
+{
+    
+    double value;
+    if (g.size() == 0 ){
+            value = smoothness_function.evaluate(trajectory, metric);
+    
+        if ( collision_function && !collision_constraint ){ 
+            value += collision_function->evaluate( trajectory );
+        }
+    }else {
+        value = smoothness_function.evaluate( trajectory, metric, g );
+        
+        if ( collision_function && !collision_constraint ){
+            value += collision_function->evaluate( trajectory, g );
+        }
+            
+        if ( doing_covariant ){ metric.multiplyLowerInverse( g ); } 
+    }
+
+    return value;
+}
+
+inline void ProblemDescription::doCollisionConstraint()
+{ 
+    collision_constraint = true;
+}
+inline void ProblemDescription::dontCollisionConstraint()
+{
+    collision_constraint = false;
+}
+
+inline bool ProblemDescription::isCollisionConstraint() const
+{
+    return collision_constraint;
+}
+
 inline bool ProblemDescription::isConstrained() const 
 { 
     return !factory.empty();
@@ -56,11 +111,6 @@ inline Trajectory & ProblemDescription::getTrajectory()
     return trajectory;
 }
 
-inline const Gradient & ProblemDescription::getGradient() const 
-{
-    return gradient;
-}
-
 inline const ConstraintFactory & ProblemDescription::getFactory() const
 {
     return factory;
@@ -88,9 +138,9 @@ inline bool ProblemDescription::isSubsampled() const
 inline const Metric & ProblemDescription::getMetric()
 {
     if ( trajectory.isSubsampled() ){
-        return gradient.getSubsampledMetric();
+        return subsampled_metric;
     }
-    return gradient.getMetric();
+    return metric;
 }
 
 template <class Derived>

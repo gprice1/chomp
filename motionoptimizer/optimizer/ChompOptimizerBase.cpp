@@ -70,7 +70,7 @@ bool ChompOptimizerBase::iterate(){
     debug_status( TAG, "iterate", "start" );
     
     last_objective = current_objective;
-    current_objective = problem.evaluateGradient( g );
+    current_objective = problem.evaluateObjective( g );
     
     //perform optimization
     optimize();

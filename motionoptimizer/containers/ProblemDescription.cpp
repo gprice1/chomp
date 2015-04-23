@@ -5,7 +5,6 @@
 namespace mopt {
 ProblemDescription::ProblemDescription() :
     goalset( NULL ),
-    ok_to_sample( true ),
     use_goalset( false ),
     is_covariant( false ),
     doing_covariant( false )
@@ -56,14 +55,24 @@ void ProblemDescription::prepareRun( bool subsample)
     //  if we are subsampling 
     doing_covariant = is_covariant && !subsample;
 
+    metric.initialize( trajectory.fullN(),
+                       trajectory.getObjectiveType(),
+                       false,
+                       use_goalset );
+    if ( subsample ){
+        subsampled_metric.initialize( trajectory.N(),
+                                      trajectory.getObjectiveType(),
+                                      true);
+    }
+
+
     //prepare the gradient for a run at this resolution
-    gradient.prepareRun( trajectory, use_goalset, doing_covariant );
+    smoothness_function.prepareRun( trajectory, metric);
     
     //are we doing covariant optimization at this stage of optimiation?
     //  do not do covariant optimization if there is subsampling
     if ( doing_covariant ){
-        trajectory.getCovariantTrajectory(gradient.getMetric(),
-                                          covariant_trajectory);
+        trajectory.getCovariantTrajectory(metric, covariant_trajectory);
     }
 
     debug_status( "ProblemDescription", "prepareRun", "end");
@@ -74,9 +83,8 @@ void ProblemDescription::endRun()
     debug_status( "ProblemDescription", "endRun", "start");
     
     if ( doing_covariant ){
-        covariant_trajectory.getNonCovariantTrajectory(
-                gradient.getMetric(),
-                trajectory );
+        covariant_trajectory.getNonCovariantTrajectory( metric,
+                                                        trajectory );
     }
     
     if( use_goalset ){     
@@ -101,61 +109,28 @@ void ProblemDescription::upsample()
     trajectory.upsample();
 }
 
-double ProblemDescription::evaluateGradient( MatX & g )
-{
 
-    TIMER_START( "gradient" );
-    
-    prepareData();
-    
-    if ( doing_covariant ){ 
-        gradient.evaluate( trajectory, g, &covariant_trajectory );
-        double retval = gradient.evaluateObjective( 
-                                 covariant_trajectory,
-                                 true );
-        TIMER_STOP( "gradient" );
-        return retval;
-        
-    }
-    
-    gradient.evaluate( trajectory, g );
-    const double retval = gradient.evaluateObjective(trajectory);
-
-    TIMER_STOP( "gradient" );
-    
-    return retval;
-}
-
-double ProblemDescription::evaluateGradient( const double * xi,
-                                                   double * g )
+double ProblemDescription::evaluateObjective ( const double * xi,
+                                               double * g )
 {
     TIMER_START( "gradient" );
-    prepareData( xi );
     
-    if ( !g ){ 
-        const double val = gradient.evaluateObjective(trajectory);
-        TIMER_STOP( "gradient" );
-        return val;
+    if ( xi ){ prepareData( xi ); }
+    else     { prepareData();     }
+
+    double value;
+    
+    if ( g ) {
+        value = computeObjective( MatMap(g,
+                                         trajectory.N(),
+                                         trajectory.M() ) );
+    } else {
+        value = computeObjective( MatX(0,0) );
     }
-            
-    MatMap g_map( g, trajectory.N(), trajectory.M() );
-
-    if ( doing_covariant ){
-        gradient.evaluate( trajectory, g_map, &covariant_trajectory );
-        const double val = 
-            gradient.evaluateObjective( covariant_trajectory, true );
-        TIMER_STOP( "gradient" );
-
-        
-        return val;
-    }
-
-    gradient.evaluate( trajectory, g_map );
-    const double val = gradient.evaluateObjective( trajectory );
-
+    
     TIMER_STOP( "gradient" );
 
-    return val;
+    return value;
 }
 
 
@@ -189,10 +164,10 @@ double ProblemDescription::evaluateConstraint( MatX & h, MatX & H )
     
     double magnitude = factory.evaluate( trajectory, h, H );
 
-    if ( doing_covariant ){
-        gradient.getMetric().multiplyLowerInverse( 
-                MatMap ( H.data(), trajectory.N(),
-                         trajectory.M()*factory.numOutput() ) );
+    if ( doing_covariant ) {
+        metric.multiplyLowerInverse( 
+                    MatMap ( H.data(), trajectory.N(),
+                             trajectory.M()*factory.numOutput() ) );
     }
     
     TIMER_STOP( "constraint" );
@@ -229,7 +204,7 @@ double ProblemDescription::evaluateConstraint( const double * xi,
         //TODO find out if this is correct
         MatMap H_map2( H, trajectory.N(),
                        trajectory.M()*factory.numOutput() );
-        gradient.getMetric().multiplyLowerInverse( H_map2 );
+        metric.multiplyLowerInverse( H_map2 );
     }
     
     TIMER_STOP( "constraint" );
@@ -261,24 +236,7 @@ bool ProblemDescription::evaluateConstraint( MatX & h_t,
     return true;
 }
 
-double ProblemDescription::evaluateObjective()
-{
-    prepareData();
-    //TODO include the fextra term
-    return gradient.evaluateObjective( trajectory );
-}
 
-double ProblemDescription::evaluateObjective( const double * xi )
-{
-    
-    prepareData( xi );
-    if ( doing_covariant ){ 
-        return gradient.evaluateObjective( covariant_trajectory, true );
-    }
-
-    //TODO include the fextra term.
-    return gradient.evaluateObjective( trajectory );
-}
 
 int ProblemDescription::getConstraintDims()
 {
@@ -309,7 +267,7 @@ void ProblemDescription::prepareData(const double * xi )
         if (xi){ covariant_trajectory.setData( xi ); }
         
         covariant_trajectory.getNonCovariantTrajectory(
-                                     gradient.getMetric(), 
+                                     metric, 
                                      trajectory );
     }else if ( xi ) {
         trajectory.setData( xi );
@@ -325,15 +283,15 @@ void ProblemDescription::getFullBounds( std::vector< double > & lower,
     
     if ( doing_covariant ){
         //get the covariant bounds
-        gradient.getMetric().solveCovariantBounds( this->lower_bounds, 
-                                   this->upper_bounds,
-                                   MatMap( lower.data(), N(), M() ),
-                                   MatMap( upper.data(), N(), M() ));
+        metric.solveCovariantBounds( this->lower_bounds, 
+                                     this->upper_bounds,
+                                     MatMap( lower.data(), N(), M() ),
+                                     MatMap( upper.data(), N(), M() ));
         
     } else {
         if ( lower_bounds.size() == M() ){
             MatMap lower_map( lower.data(), N(), M() );
-            for ( int i = 0; i < N(); ++i ){
+            for ( int i = 0; i < N(); i++ ){
                 lower_map.row( i ) = lower_bounds;
             }
         }
