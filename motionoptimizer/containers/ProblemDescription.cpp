@@ -2,7 +2,7 @@
 
 #include "ProblemDescription.h"
 
-namespace chomp {
+namespace mopt {
 ProblemDescription::ProblemDescription() :
     goalset( NULL ),
     ok_to_sample( true ),
@@ -315,7 +315,37 @@ void ProblemDescription::prepareData(const double * xi )
         trajectory.setData( xi );
     }
 }
+   
+void ProblemDescription::getFullBounds( std::vector< double > & lower,
+                                        std::vector< double > & upper )
+{
+    //resize the bounds
+    lower.resize( size() );
+    upper.resize( size() );
     
+    if ( doing_covariant ){
+        //get the covariant bounds
+        gradient.getMetric().solveCovariantBounds( this->lower_bounds, 
+                                   this->upper_bounds,
+                                   MatMap( lower.data(), N(), M() ),
+                                   MatMap( upper.data(), N(), M() ));
+        
+    } else {
+        if ( lower_bounds.size() == M() ){
+            MatMap lower_map( lower.data(), N(), M() );
+            for ( int i = 0; i < N(); ++i ){
+                lower_map.row( i ) = lower_bounds;
+            }
+        }
+        if ( upper_bounds.size() == M() ){
+            MatMap upper_map( upper.data(), N(), M() );
+            for ( int i = 0; i < N(); ++i ){
+                upper_map.row( i ) = upper_bounds;
+            }
+        }
+    }
+}
+
 void ProblemDescription::getTimes( 
         std::vector< std::pair<std::string, double> > & times ) const
 {

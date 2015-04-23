@@ -51,7 +51,7 @@
     #define debug_status( tag, function, point ) if(0) std::cout << tag 
 #endif
 
-namespace chomp {
+namespace mopt {
 
 /////////////////////typedefs///////////////////////////////
 
@@ -81,135 +81,24 @@ typedef const Eigen::Block< const DynamicMatMap, Eigen::Dynamic,
                             1, Eigen::Dynamic> ConstCol;
 
 
-/////////////////forward class declarations///////////////
-class ChompGradient;
-class ChompOptimizerBase;
-class ConstraintFactory;
-class Constraint;
-class HMC;
-class Chomp;
-class Trajectory;
-
-class OptimizerBase;
-class ChompOptimizerBase;
-class ChompOptimizer;
-class ChompLocalOptimizer;
-
-enum ChompEventType { 
-    CHOMP_INIT,
-    CHOMP_GLOBAL_ITER,
+//Simple enum types.
+enum EventType { 
+    INIT,
+    CHOMP_ITER,
     CHOMP_LOCAL_ITER,
     NLOPT_ITER,
-    CHOMP_FINISH,
-    CHOMP_TIMEOUT,
-    CHOMP_GOALSET_ITER,
-    CHOMP_COVARIANT_ITER
-
+    FINISH,
+    TIMEOUT,
 };
 
-enum ChompObjectiveType {
+enum ObjectiveType {
     MINIMIZE_VELOCITY = 0,
     MINIMIZE_ACCELERATION = 1,
 };
 
 /////////////////Utility types /////////////////////////
-// These classes interface with chomp, to do something useful
-class ChompObserver {
-  public:
-    virtual ~ChompObserver(){}
-    virtual int notify(const OptimizerBase& c, 
-                       ChompEventType event,
-                       size_t iter,
-                       double curObjective,
-                       double lastObjective,
-                       double constraintViolation)
-    {
-        return 0;
-    }
-};
+// These classes interface with the motion optimizer, to do something useful
 
-class DebugChompObserver: public ChompObserver {
-  public:
-    virtual ~DebugChompObserver(){}
-    virtual int notify(const OptimizerBase& c, 
-                       ChompEventType e,
-                       size_t iter,
-                       double curObjective,
-                       double lastObjective,
-                       double constraintViolation)
-    {
-            
-         std::string event_string;
-
-         switch (e) {
-            case CHOMP_INIT:
-                 event_string = "CHOMP_INIT"; break;
-            case CHOMP_GLOBAL_ITER:
-                 event_string = "CHOMP_GLOBAL_ITER"; break;
-            case CHOMP_LOCAL_ITER:
-                 event_string = "CHOMP_LOCAL_ITER"; break;
-            case NLOPT_ITER:
-                 event_string = "NLOPT_ITER"; break;
-            case CHOMP_FINISH:
-                 event_string = "CHOMP_FINISH"; break;
-            case CHOMP_TIMEOUT:
-                 event_string = "CHOMP_TIMEOUT"; break;
-            case CHOMP_GOALSET_ITER: 
-                 event_string = "CHOMP_GOALSET_ITER"; break;
-            case CHOMP_COVARIANT_ITER:
-                 event_string = "CHOMP_COVARIANT_ITER"; break;
-            default:
-                 event_string = "[INVALID]"; break;
-         }
-
-         std::cout << "chomp debug: "
-              << "event=" << event_string << ", "
-              << "iter=" << iter << ", "
-              << "cur=" << std::setprecision(10) << curObjective << ", "
-              << "last=" << std::setprecision(10) << lastObjective << ", "
-              << "rel=" << std::setprecision(10)
-              << ((lastObjective-curObjective)/curObjective) << ", "
-              << "constraint=" << std::setprecision(10)
-              << constraintViolation << "\n";
-        if ( e != CHOMP_INIT && e != CHOMP_FINISH && 
-            (std::isnan(curObjective) || std::isinf(curObjective) ||
-             std::isnan(lastObjective) || std::isinf(lastObjective)) )
-        {
-            return 1;
-        }
-        return 0;
-    }
-};
-
-
-
-///////////////////////////////////////////////////////////
-/////////////////////Inline Functions//////////////////////
-
-//Copy a MatX into a std::vector of doubles
-inline void matToVec( const MatX & mat, std::vector<double> & vec ){
-    const double * data = mat.data();
-    vec = std::vector<double>(data, data + mat.size());
-}
-
-//Copy a vector of doubles into a column-major Matrix.
-inline void vecToMat( const std::vector<double> & vec, MatX & mat )
-{
-    if ( mat.size() == int(vec.size()) ){
-        mat = ConstMatMap( vec.data(), mat.rows(), mat.cols() );
-    }
-    else {
-        mat = ConstMatMap( vec.data(), 1, vec.size());
-    }
-}
-
-//Copy a vector of doubles into a MatX.
-inline void vecToMat( const std::vector<double> & vec,
-                      int N, int M, MatX & mat)
-{
-    assert( int( vec.size() ) == N * M );
-    mat = ConstMatMap( vec.data(), N, M );
-}
 
 //this is a function to compute the dot product of matrices
 template <class Derived1, class Derived2>

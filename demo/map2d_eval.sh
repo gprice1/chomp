@@ -1,10 +1,10 @@
-SETTINGS="-p -1 -n 127 -m 400 -e 1e-12"
+SETTINGS="-p 1000 -n 127 -m 400 -e 1e-12 -b"
 
-MAP3A="-c 2.7,-2.7,-2.7,2.7 ../maps/map3.txt"
-MAP3B="-c -2.7,-2.7,2.7,2.7 ../maps/map3.txt"
+MAP3A="-c 2.7,-2.7,-2.7,2.7 ../demo/maps/map3.txt"
+MAP3B="-c -2.7,-2.7,2.7,2.7 ../demo/maps/map3.txt"
 
 ALGORITHMS=(
-    'GLOBAL_CHOMP'
+#    'GLOBAL_CHOMP'
     'TNEWTON_PRECOND_RESTART'
     'MMA'
     'CCSAQ'

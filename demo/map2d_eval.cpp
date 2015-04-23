@@ -39,7 +39,7 @@
 #include <fstream>
 #include <sstream>
 
-using namespace chomp;
+using namespace mopt;
 
 #ifdef MZ_HAVE_CAIRO
 #include <cairo/cairo.h>
@@ -135,7 +135,7 @@ bool savePNG_RGB24(const std::string& filename,
 //////////////////////////////////////////////////////////////////////
 // class to help evaluate collisons for gradients
 
-class Map2DCHelper: public ChompCollisionHelper {
+class Map2DCHelper: public CollisionHelper {
 public: 
 
   enum {
@@ -147,7 +147,7 @@ public:
   const Map2D& map;
 
   Map2DCHelper(const Map2D& m): 
-    ChompCollisionHelper(NUM_CSPACE, NUM_WKSPACE, NUM_BODIES), 
+    CollisionHelper(NUM_CSPACE, NUM_WKSPACE, NUM_BODIES), 
     map(m) {}
 
   virtual ~Map2DCHelper() {}
@@ -226,7 +226,7 @@ void usage(int status) {
 
 #ifdef MZ_HAVE_CAIRO
 
-class PdfEmitter: public DebugChompObserver {
+class PdfEmitter: public DebugObserver {
 public:
 
   const Map2D& map;
@@ -293,7 +293,7 @@ public:
   }
 
   virtual int notify(const OptimizerBase& chomper, 
-                     ChompEventType event,
+                     EventType event,
                      size_t iter,
                      double curObjective,
                      double lastObjective,
@@ -304,13 +304,13 @@ public:
             << ", objective:" << curObjective
             <<  "], ";
     
-    //DebugChompObserver::notify(chomper, event, iter, 
+    //DebugObserver::notify(chomper, event, iter, 
     //                           curObjective, lastObjective, hmag);
 
     if ( dump_every < 0 ) { return 0; }
 
-    if ( !( (event == CHOMP_FINISH) ||
-            (event == CHOMP_INIT )  ||
+    if ( !( (event == FINISH) ||
+            (event == INIT )  ||
             (dump_every > 0 && iter % dump_every == 0 ) ) ) {
         return 0;
     }
@@ -387,10 +387,11 @@ int main(int argc, char** argv) {
     { "pdf",               required_argument, 0, 'p' },
     { "covariance",        no_argument,       0, 'k' },
     { "help",              no_argument,       0, 'h' },
+    { "bounds",            no_argument,       0, 'b' },
     { 0,                   0,                 0,  0  }
   };
 
-  const char* short_options = "l:c:n:a:g:e:m:o:p:kh";
+  const char* short_options = "l:c:n:a:g:e:m:o:p:khb";
   int opt, option_index;
 
   bool do_covariant = false;
@@ -399,10 +400,11 @@ int main(int argc, char** argv) {
   double alpha = 0.02;
   double errorTol = 1e-6;
   size_t max_iter = 500;
-  ChompObjectiveType otype = MINIMIZE_VELOCITY;
+  ObjectiveType otype = MINIMIZE_VELOCITY;
   OptimizationAlgorithm alg = NONE;
   float x0=0, y0=0, x1=0, y1=0;
   int doPDF = -2;
+  bool doBounds = false;
 
   while ( (opt = getopt_long(argc, argv, short_options, 
                              long_options, &option_index) ) != -1 ) {
@@ -423,7 +425,7 @@ int main(int argc, char** argv) {
     case 'n':
       N = atoi(optarg);
       break;
-    case 'a':
+    case 'a': 
       alpha = atof(optarg);
       break;
     case 'g':
@@ -450,6 +452,9 @@ int main(int argc, char** argv) {
       break;
     case 'h':
       usage(0);
+      break;
+    case 'b':
+      doBounds = true;
       break;
     default:
       usage(1);
@@ -483,7 +488,7 @@ int main(int argc, char** argv) {
   MatX q0, q1;
 
   Map2DCHelper mhelper(map);
-  ChompCollGradHelper cghelper(&mhelper, gamma);
+  CollGradHelper cghelper(&mhelper, gamma);
 
   vec2f p0(x0, y0), p1(x1, y1);
   if (p0.x() == p0.y() && p0 == p1) {
@@ -497,13 +502,19 @@ int main(int argc, char** argv) {
   chomper.getTrajectory().setObjectiveType( otype );
   chomper.setGradientHelper( &cghelper );
 
-  DebugChompObserver dobs;
+  DebugObserver dobs;
   chomper.setObserver( &dobs );
 
   chomper.setAlpha( alpha );
   
   chomper.setAlgorithm( alg ); 
   
+  if ( doBounds ){
+      MatX upper(1,2), lower(1,2);
+      upper << 3,3;
+      lower << -3,-3;
+      chomper.setBounds( lower, upper );
+  }
   
   if (do_covariant ){ chomper.doCovariantOptimization(); }
 
@@ -530,6 +541,7 @@ int main(int argc, char** argv) {
 #endif
   
   chomper.dontSubsample();
+
   chomper.solve();
 
   std::string filename = "map2d_data.txt";

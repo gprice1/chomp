@@ -32,25 +32,20 @@
 */
 
 #include "ChompOptimizer.h"
-#include "../containers/ConstraintFactory.h"
-#include "../containers/Constraint.h"
-#include "../containers/ChompGradient.h"
-#include <float.h>
-#include <cmath>
 
-namespace chomp {
+namespace mopt {
 
 const char* ChompOptimizer::TAG = "ChompOptimizer";
 
 ChompOptimizer::ChompOptimizer(ProblemDescription & problem,
-                               ChompObserver * observer,
+                               Observer * observer,
                                double obstol,
                                double timeout_seconds,
                                size_t max_iter) : 
     ChompOptimizerBase( problem, observer,
                         obstol, timeout_seconds, max_iter)
 {
-    event = CHOMP_GLOBAL_ITER;
+    event = CHOMP_ITER;
 }
 
 // single iteration of chomp

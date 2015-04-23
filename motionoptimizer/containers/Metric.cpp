@@ -1,21 +1,18 @@
 
 #include "Metric.h"
 
-namespace chomp {
+namespace mopt {
 
 Metric::Metric( int n ,
-                ChompObjectiveType otype,
+                ObjectiveType otype,
                 bool do_subsample,
                 bool do_goalset)
 {
     initialize( n, otype, do_subsample, do_goalset );
 }
 
-
-
-
 void Metric::initialize( int n ,
-                         ChompObjectiveType otype,
+                         ObjectiveType otype,
                          bool do_subsample,
                          bool do_goalset )
 {

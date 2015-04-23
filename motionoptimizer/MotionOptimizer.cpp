@@ -1,13 +1,13 @@
 
 #include "MotionOptimizer.h"
 
-namespace chomp {
+namespace mopt {
 
 
 const char* MotionOptimizer::TAG = "MotionOptimizer";
 
 //constructor.
-MotionOptimizer::MotionOptimizer(ChompObserver * observer,
+MotionOptimizer::MotionOptimizer(Observer * observer,
                                  double obstol,
                                  double timeout_seconds,
                                  size_t max_iter,
@@ -83,15 +83,15 @@ void MotionOptimizer::optimize( OptimizerBase * optimizer,
     
     //do not optimize if the observer throws an error.
     //TODO either throw error or say what exactly happened
-    if ( !optimizer->notify( CHOMP_INIT ) ){
+    if ( !optimizer->notify( INIT ) ){
         optimizer->solve();
     } else {
-        debug << "Observer threw error on CHOMP_INIT, quitting\n";
+        debug << "Observer threw error on INIT, stopping optimization\n";
     }
 
     problem.endRun();
     
-    optimizer->notify( CHOMP_FINISH );
+    optimizer->notify( FINISH );
     delete optimizer;
 
 
@@ -109,10 +109,10 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
          problem.isCovariantOptimization() &&
          !problem.isSubsampled() )
     {
-        alg = GLOBAL_CHOMP;
+        alg = CHOMP;
     }
 
-    if ( alg == GLOBAL_CHOMP ){
+    if ( alg == CHOMP ){
         ChompOptimizer * opt = new ChompOptimizer(
                                   problem,
                                   observer, 
@@ -138,7 +138,7 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
         if (alpha >= 0){ opt->setAlpha( alpha ); }
         return opt;
         
-    } else if ( alg > GLOBAL_CHOMP && alg < NONE){
+    } else if ( alg > TEST && alg < NONE){
 #ifdef NLOPT_FOUND
         NLOptimizer * opt = new NLOptimizer(
                                   problem, observer, 
@@ -238,7 +238,8 @@ std::string algorithmToString( OptimizationAlgorithm alg )
 
     switch (alg){
     case LOCAL_CHOMP:   return "LOCAL_CHOMP";
-    case GLOBAL_CHOMP:  return "GLOBAL_CHOMP";
+    case CHOMP:         return "CHOMP";
+    case TEST:          return "TEST";
     case MMA_NLOPT:     return "MMA";
     case CCSAQ_NLOPT:   return "CCSAQ";
     case SLSQP_NLOPT:   return "SLSQP";
@@ -248,8 +249,6 @@ std::string algorithmToString( OptimizationAlgorithm alg )
     case VAR2_NLOPT:    return "VAR2";
     case NONE:          return "NONE";
                         
-    case TEST:
-        return "TEST";
     case TNEWTON_PRECOND_RESTART_NLOPT:
         return "TNEWTON_PRECOND_RESTART";
     case TNEWTON_RESTART_NLOPT:
@@ -264,8 +263,8 @@ OptimizationAlgorithm algorithmFromString( const std::string & str )
 {
     if ( str == "LOCAL_CHOMP" ){
         return LOCAL_CHOMP;
-    }else if ( str == "GLOBAL_CHOMP" ){
-        return GLOBAL_CHOMP;
+    }else if ( str == "CHOMP" ){
+        return CHOMP;
     }else if ( str == "TEST" ){
         return TEST;
     }else if ( str == "MMA" ){

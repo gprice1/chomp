@@ -3,8 +3,9 @@
 
 #include "../utils/utils.h"
 #include "../containers/Metric.h"
+#include "../containers/Trajectory.h"
 
-namespace chomp{
+namespace mopt{
 
 class HMC{
 
@@ -12,7 +13,7 @@ class HMC{
     
     // hmc_lambda : the parameter that determines the frequency, and
     //              magnitude of random resampling
-    double lambda, alpha, previous_energy;
+    double lambda, previous_energy;
 
     // doNotReject : if true, the energy of the system will not
     //               be evaluated, and low energy systems will not be
@@ -46,7 +47,7 @@ class HMC{
     //  if it is on a resample iteration,
     //  it will resample the momentum.
     void iterate( size_t current_iteration,
-                  double lastObjective
+                  double lastObjective,
                   const Metric & metric,
                   Trajectory & traj,
                   MatX & momentum);

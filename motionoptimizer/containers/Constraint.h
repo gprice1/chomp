@@ -38,7 +38,7 @@
 #include "Transform3.h"
 #include <vector>
 
-namespace chomp {
+namespace mopt {
 
   typedef Transform3_t< double > Transform;
 

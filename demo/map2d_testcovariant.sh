@@ -1,7 +1,7 @@
 SETTINGS="-p 5 -n 127 -m 40 -e 1e-12"
 
-MAP3A="-c 2.7,-2.7,-2.7,2.7 ../maps/map3.txt"
-MAP3B="-c -2.7,-2.7,2.7,2.7 ../maps/map3.txt"
+MAP3A="-c 2.7,-2.7,-2.7,2.7 maps/map3.txt"
+MAP3B="-c -2.7,-2.7,2.7,2.7 maps/map3.txt"
 
 alpha1="0.00"
 gamma1="0.05"

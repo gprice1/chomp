@@ -36,7 +36,7 @@
 
 #include "ChompOptimizerBase.h"
 
-namespace chomp {
+namespace mopt {
 
 class ChompOptimizer : public ChompOptimizerBase {
   public:
@@ -53,7 +53,7 @@ class ChompOptimizer : public ChompOptimizerBase {
     static const char* TAG;
 
     ChompOptimizer( ProblemDescription & problem,
-                    ChompObserver * observer=NULL,
+                    Observer * observer=NULL,
                     double obstol = 1e-8,
                     double timeout_seconds = 0,
                     size_t max_iter = size_t(-1)); 

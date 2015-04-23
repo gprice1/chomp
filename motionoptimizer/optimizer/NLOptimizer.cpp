@@ -1,10 +1,7 @@
 
 #include "NLOptimizer.h"
-#include "../containers/ChompGradient.h"
-#include "../containers/ConstraintFactory.h"
 
-
-namespace chomp {
+namespace mopt {
 
 const char * NLOptimizer::TAG = "NLOptimizer";
 
@@ -20,7 +17,7 @@ const std::string getNLoptReturnString( nlopt::result & result ){
 
 
 NLOptimizer::NLOptimizer( ProblemDescription & problem,
-                          ChompObserver * observer,
+                          Observer * observer,
                           double obstol,
                           double timeout_seconds,
                           size_t max_iter) : 
@@ -158,24 +155,23 @@ void NLOptimizer::giveBoundsToNLopt( nlopt::opt & optimizer )
     
     //set the lower bounds if the lower vector is 
     //  of the correct size.
-    if ( problem.getLowerBounds().size() == problem.M() )
-    {
-        std::vector<double> nlopt_lower_bounds;
-        copyNRows( problem.getLowerBounds(), nlopt_lower_bounds );
+    if ( problem.isBounded() ){
+        std::vector<double> lower_bounds;
+        std::vector<double> upper_bounds;
+        problem.getFullBounds( lower_bounds, upper_bounds );
         
-        optimizer.set_lower_bounds( nlopt_lower_bounds );
-    }
-    
-    //set the upper bounds if the upper matrix is of the 
-    //  correct size.
-    if ( problem.getUpperBounds().size() == problem.M() )
-    {
-        std::vector<double> nlopt_upper_bounds;
-        copyNRows( problem.getUpperBounds(), nlopt_upper_bounds );
+        if ( problem.getLowerBounds().size() == problem.M() )
+        {
+            optimizer.set_lower_bounds( lower_bounds );
+        }
         
-        optimizer.set_upper_bounds( nlopt_upper_bounds );
+        //set the upper bounds if the upper matrix is of the 
+        //  correct size.
+        if ( problem.getUpperBounds().size() == problem.M() )
+        {
+            optimizer.set_upper_bounds( upper_bounds );
+        }
     }
-
 }
 
 
@@ -197,6 +193,7 @@ double NLOptimizer::objectiveFunction(unsigned n,
 
     return opt->current_objective;
 }
+
 //a wrapper function for passing the ChompGradient to NLopt.
 void NLOptimizer::constraintFunction(unsigned constraint_dim,
                                        double * h,

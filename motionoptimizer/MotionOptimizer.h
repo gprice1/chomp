@@ -3,10 +3,11 @@
 #define _MOTION_OPTIMIZER_H_
 
 #include "utils/utils.h"
+#include "utils/Observer.h"
 
 #include "containers/ProblemDescription.h"
 #include "containers/Trajectory.h"
-#include "containers/ChompGradient.h"
+#include "containers/Gradient.h"
 
 #include "containers/ConstraintFactory.h"
 #include "containers/Constraint.h"
@@ -21,10 +22,10 @@
 #endif
 
 
-namespace chomp {
+namespace mopt {
 enum OptimizationAlgorithm {
     LOCAL_CHOMP,
-    GLOBAL_CHOMP,
+    CHOMP,
     TEST,
     MMA_NLOPT,
     CCSAQ_NLOPT,
@@ -51,7 +52,7 @@ class MotionOptimizer {
 
     ProblemDescription problem;
     
-    ChompObserver * observer;
+    Observer * observer;
 
     int N_max, N_min;
 
@@ -63,10 +64,10 @@ class MotionOptimizer {
     OptimizationAlgorithm algorithm1, algorithm2;
 
     const static char* TAG;
-    
+     
   public:
     //constructor.
-    MotionOptimizer( ChompObserver * observer = NULL,
+    MotionOptimizer( Observer * observer = NULL,
                      double obstol = 1e-8,
                      double timeout_seconds = 0,
                      size_t max_iter = size_t(-1),
@@ -109,64 +110,59 @@ class MotionOptimizer {
                         double end_time);
 
     //simple getters and setters, all of which are inline
-    inline void setNMax( int n_max ){ N_max = n_max; }
-    inline int  getNMax( ){ return N_max; }
-
-    inline void setGoalset( Constraint * goal){ problem.setGoalset(goal);}
-    inline const Constraint * getGoalset() const 
-                              {return problem.getGoalset();}
-
-    inline void   setTimeoutSeconds( double s ){ timeout_seconds = s; }
-    inline double getTimeoutSeconds(){ return timeout_seconds; }
-
-    inline void setMaxIterations( size_t max ){ max_iterations = max; }
-    inline size_t getMaxIterations(){ return max_iterations; }
-
-    inline void setFunctionTolerance( double tol ){ obstol = tol; }
-    inline double getFunctionTolerance(){ return obstol; }
+    //  NOTE: these are all implemented in MotionOptimizer-inl.h
+    void setNMax( int n_max );
+    int  getNMax() const;
     
-    inline void setAlgorithm(OptimizationAlgorithm a){ algorithm1 = a; }
-    inline OptimizationAlgorithm getAlgorithm(){ return algorithm1; }
+    void setGoalset( Constraint * goal);
+    const Constraint * getGoalset() const;
 
-    inline void setAlgorithm1(OptimizationAlgorithm a1){ algorithm1 = a1; }
-    inline void setAlgorithm2(OptimizationAlgorithm a2){ algorithm2 = a2; }
+    void   setTimeoutSeconds( double s );
+    double getTimeoutSeconds() const;
+
+    void setMaxIterations( size_t max );
+    size_t getMaxIterations() const;
+
+    void setFunctionTolerance( double tol );
+    double getFunctionTolerance() const;
     
-    inline OptimizationAlgorithm getAlgorithm1(){ return algorithm1; }
-    inline OptimizationAlgorithm getAlgorithm2(){ return algorithm2; }
+    void setAlgorithm(OptimizationAlgorithm a);
+    OptimizationAlgorithm getAlgorithm() const;
 
-    inline void dontSubsample(){ do_subsample = false; }
-    inline void doSubsample(){ do_subsample = true; }
-    inline void setSubsample( bool subsample ){ do_subsample = subsample;}
+    void setAlgorithm1(OptimizationAlgorithm a1);
+    void setAlgorithm2(OptimizationAlgorithm a2);
     
-    inline void setAlpha( double a ){ alpha = a; }
-    inline double getAlpha(){ return alpha; }
+    OptimizationAlgorithm getAlgorithm1() const;
+    OptimizationAlgorithm getAlgorithm2() const;
 
-    inline void doFullGlobalAtFinal(){ full_global_at_final = true; }
-    inline void dontFullGlobalAtFinal(){ full_global_at_final = false; }
-    inline bool getFullGlobalAtFinal(){ return full_global_at_final; }
-
-    inline Trajectory & getTrajectory(){ return problem.trajectory; }
-    inline const Trajectory & getTrajectory() const 
-                              { return problem.getTrajectory();}
-    inline void setTrajectory( const Trajectory & trajectory )
-                { problem.trajectory = trajectory; }
-
-    inline void setGradientHelper(ChompGradientHelper * helper)
-                        { problem.gradient.setGradientHelper(helper); }
+    void dontSubsample();
+    void doSubsample();
+    void setSubsample( bool subsample );
     
-    inline void setObserver( ChompObserver * obs ){ observer = obs; }
-    inline ChompObserver * getObserver(){ return observer; }
-    inline const ChompObserver * getObserver() const { return observer; }
+    void setAlpha( double a );
+    double getAlpha() const;
 
-    inline void doCovariantOptimization()
-                { problem.doCovariantOptimization(); }
-    inline void dontCovariantOptimization()
-                { problem.dontCovariantOptimization(); }
-    inline bool isCovariantOptimization()
-                { return problem.isCovariantOptimization(); }
+    void doFullGlobalAtFinal();
+    void dontFullGlobalAtFinal();
+    bool getFullGlobalAtFinal() const;
 
+    Trajectory & getTrajectory();
+    const Trajectory & getTrajectory() const;
+    void setTrajectory( const Trajectory & trajectory );
+
+    void setGradientHelper(GradientHelper * helper);
+    
+    void setObserver( Observer * obs );
+    Observer * getObserver();
+    const Observer * getObserver() const;
+
+    void doCovariantOptimization();
+    void dontCovariantOptimization();
+    bool isCovariantOptimization() const;
 
 };
+
+#include "MotionOptimizer-inl.h"
 
 }// namespace
 

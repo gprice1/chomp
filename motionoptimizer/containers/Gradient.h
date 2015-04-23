@@ -31,33 +31,33 @@
 *
 */
 
-#ifndef _CHOMP_GRADIENT_H_
-#define _CHOMP_GRADIENT_H_
+#ifndef _GRADIENT_H_
+#define _GRADIENT_H_
 
 #include "../utils/utils.h"
 #include "Trajectory.h"
 #include "Metric.h"
 
-namespace chomp {
+namespace mopt {
 
-class ChompGradientHelper {
+class GradientHelper {
   public:
-    virtual ~ChompGradientHelper();
+    virtual ~GradientHelper();
 
     virtual double addToGradient( const Trajectory & traj, MatX& g) =0;
     virtual double addToGradient( const Trajectory & traj, MatMap& g) =0;
 };
 
-class ChompCollisionHelper {
+class CollisionHelper {
   public:
 
     // nbodies = number of bodies considered in gradient term
     // nwkspace = workspace dimension (2 or 3 probably)
     // ncspace = config. space dimension
 
-    ChompCollisionHelper(size_t ncspace, size_t nwkspace, size_t nbodies);
+    CollisionHelper(size_t ncspace, size_t nwkspace, size_t nbodies);
 
-    virtual ~ChompCollisionHelper();
+    virtual ~CollisionHelper();
 
     // return the cost for a given configuration/body, along with jacobians
     virtual double getCost(const MatX& q,         // configuration
@@ -74,11 +74,11 @@ class ChompCollisionHelper {
 
 };
 
-class ChompCollGradHelper: public ChompGradientHelper {
+class CollGradHelper: public GradientHelper {
   public:
 
-    ChompCollGradHelper(ChompCollisionHelper* h, double gamma=0.1);
-    virtual ~ChompCollGradHelper();
+    CollGradHelper(CollisionHelper* h, double gamma=0.1);
+    virtual ~CollGradHelper();
 
     virtual double addToGradient(const Trajectory & traj, MatX& g);
     virtual double addToGradient(const Trajectory & traj, MatMap& g);
@@ -90,7 +90,7 @@ class ChompCollGradHelper: public ChompGradientHelper {
                            const Eigen::MatrixBase<Derived> & g_const);
 
   public:
-    ChompCollisionHelper* chelper;
+    CollisionHelper* chelper;
     double gamma;
 
     MatX dx_dq, cgrad;
@@ -102,12 +102,12 @@ class ChompCollGradHelper: public ChompGradientHelper {
     
 };
 
-class ChompGradient {
+class Gradient {
 
   private:
     static const char* TAG;
      
-    ChompGradientHelper* ghelper;
+    GradientHelper* ghelper;
     
     MatX Ax; // A*x of size N-by-M
   
@@ -126,15 +126,15 @@ class ChompGradient {
     double c; // c value for objective function
 
   public:
-    ChompGradient();
+    Gradient();
 
-    ~ChompGradient(){}
+    ~Gradient(){}
     
-    inline void setGradientHelper( ChompGradientHelper* help ){
+    inline void setGradientHelper( GradientHelper* help ){
         ghelper = help;
     }
-    inline ChompGradientHelper * getGradientHelper(){ return ghelper; }
-    inline const ChompGradientHelper * getGradientHelper() const 
+    inline GradientHelper * getGradientHelper(){ return ghelper; }
+    inline const GradientHelper * getGradientHelper() const 
                                        { return ghelper; }
 
     //prepares chomp to be run at a resolution level
@@ -170,8 +170,6 @@ class ChompGradient {
                              bool is_covariant = false );
     
     // evaluates the objective function for cur. thing.
-    // only works if prepareChompIter has been called since last
-    // modification of xi.
     double evaluateObjective( const Trajectory & trajectory,
                               bool is_covariant = false ) const;
     
@@ -188,9 +186,9 @@ class ChompGradient {
 
 //include all of the templated inline functions (or else linking
 //  error occur)
-#include "ChompGradient-inl.h"
+#include "Gradient-inl.h"
 
-}//namespace chomp
+}//namespace 
 
 
 #endif

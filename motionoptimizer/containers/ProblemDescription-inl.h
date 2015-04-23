@@ -1,6 +1,92 @@
 
+inline bool ProblemDescription::isConstrained() const 
+{ 
+    return !factory.empty();
+}
+inline bool ProblemDescription::isCovariant() const
+{ 
+    return doing_covariant;
+}
 
-inline const Metric & ProblemDescription::getMetric(){
+inline void ProblemDescription::setGoalset( Constraint * goal )
+{
+    goalset = goal;
+}
+
+inline const Constraint * ProblemDescription::getGoalset() const
+{ 
+    return goalset;
+}
+
+inline int ProblemDescription::N() const { return trajectory.N(); }
+inline int ProblemDescription::M() const { return trajectory.M(); }
+inline int ProblemDescription::size() const { return trajectory.size(); }
+
+inline void ProblemDescription::setUpperBounds(const MatX & upper)
+{ 
+    upper_bounds = upper;
+}
+
+inline void ProblemDescription::setLowerBounds(const MatX & lower)
+{ 
+    lower_bounds = lower;
+}
+
+inline const MatX & ProblemDescription::getUpperBounds() const 
+{ 
+    return upper_bounds;
+}
+inline const MatX & ProblemDescription::getLowerBounds() const
+{
+    return lower_bounds;
+}
+inline bool ProblemDescription::isBounded() const 
+{
+    if ( lower_bounds.size() == M() ) { return true; }
+    if ( upper_bounds.size() == M() ) { return true; }
+    return false;
+}
+
+inline const Trajectory & ProblemDescription::getTrajectory() const 
+{
+    return trajectory;
+}
+inline Trajectory & ProblemDescription::getTrajectory() 
+{
+    return trajectory;
+}
+
+inline const Gradient & ProblemDescription::getGradient() const 
+{
+    return gradient;
+}
+
+inline const ConstraintFactory & ProblemDescription::getFactory() const
+{
+    return factory;
+}
+
+
+inline void ProblemDescription::doCovariantOptimization()
+{ 
+    is_covariant = true;
+}
+inline void ProblemDescription::dontCovariantOptimization()
+{ 
+    is_covariant = false;
+}
+inline bool ProblemDescription::isCovariantOptimization() const
+{ 
+    return is_covariant;
+}
+
+inline bool ProblemDescription::isSubsampled() const
+{
+    return trajectory.isSubsampled();
+}
+
+inline const Metric & ProblemDescription::getMetric()
+{
     if ( trajectory.isSubsampled() ){
         return gradient.getSubsampledMetric();
     }

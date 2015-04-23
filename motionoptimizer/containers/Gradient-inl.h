@@ -1,7 +1,7 @@
 
 
 template <class Derived>
-inline void ChompGradient::subsampleGradient(int N_sub, 
+inline void Gradient::subsampleGradient(int N_sub, 
         const Eigen::MatrixBase<Derived> & g_sub_const)
 {   
     debug_status( TAG, "getSubsampledGradient", "start" );
@@ -19,7 +19,7 @@ inline void ChompGradient::subsampleGradient(int N_sub,
 }
 
 template <class Derived>
-inline void ChompGradient::evaluate(
+inline void Gradient::evaluate(
                            const Trajectory & trajectory,
                            const Eigen::MatrixBase<Derived> & g,
                            const Trajectory * covariant_trajectory )
@@ -56,7 +56,7 @@ inline void ChompGradient::evaluate(
 }
 
 template <class Derived>
-inline void ChompGradient::evaluateSmoothness(
+inline void Gradient::evaluateSmoothness(
                     const Trajectory & trajectory,
                     const Eigen::MatrixBase<Derived> & g_const,
                     bool is_covariant)
@@ -84,7 +84,7 @@ inline void ChompGradient::evaluateSmoothness(
 }
 
 template <class Derived>
-inline void ChompGradient::evaluateCollision(
+inline void Gradient::evaluateCollision(
                         const Trajectory & trajectory,
                         const Eigen::MatrixBase<Derived> & g_const,
                         bool is_covariant )

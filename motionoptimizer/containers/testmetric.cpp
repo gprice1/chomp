@@ -36,7 +36,7 @@
 #include <assert.h>
 #include <mzcommon/TimeUtil.h>
 
-using namespace chomp;
+using namespace mopt;
 
 void regularChol(const MatX& A, MatX& L) {
 
@@ -175,7 +175,7 @@ int primary( int argc, char ** argv ){
   MatX coeffs(1,3);
   
   coeffs << 1, -4, 6;
-  ChompObjectiveType otype = MINIMIZE_ACCELERATION;
+  ObjectiveType otype = MINIMIZE_ACCELERATION;
 
   MatX Ainv = A.inverse();
   
@@ -274,7 +274,7 @@ int secondary( int argc, char ** argv ){
   MatX coeffs(1,3);
   
   coeffs << 1, -4, 6;
-  ChompObjectiveType otype = MINIMIZE_ACCELERATION;
+  ObjectiveType otype = MINIMIZE_ACCELERATION;
   
   MatX Ainv = A.inverse();
 
@@ -378,7 +378,7 @@ int tertiary( int argc, char ** argv ){
 
   bool acceleration = true;
   
-  ChompObjectiveType otype;
+  ObjectiveType otype;
   if ( acceleration ){
     otype = MINIMIZE_ACCELERATION;
     coeffs.resize(1,3);

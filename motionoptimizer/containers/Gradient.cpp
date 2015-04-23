@@ -31,25 +31,22 @@
 *
 */
 
-#include <float.h>
-#include <cmath>
-#include <iomanip>
 
-#include "ChompGradient.h"
+#include "Gradient.h"
 
 
-namespace chomp {
+namespace mopt {
 
-ChompGradientHelper::~ChompGradientHelper() {}
+GradientHelper::~GradientHelper() {}
 
-ChompCollisionHelper::ChompCollisionHelper(size_t nc,
+CollisionHelper::CollisionHelper(size_t nc,
                                            size_t nw,
                                            size_t nb):
     ncspace(nc), nwkspace(nw), nbodies(nb) {}
 
-ChompCollisionHelper::~ChompCollisionHelper() {}
+CollisionHelper::~CollisionHelper() {}
 
-ChompCollGradHelper::ChompCollGradHelper(ChompCollisionHelper* h,
+CollGradHelper::CollGradHelper(CollisionHelper* h,
                                            double g):
     chelper(h), gamma(g)
 {
@@ -57,11 +54,11 @@ ChompCollGradHelper::ChompCollGradHelper(ChompCollisionHelper* h,
     cgrad = MatX(h->nwkspace, 1);
 }
 
-ChompCollGradHelper::~ChompCollGradHelper() {}
+CollGradHelper::~CollGradHelper() {}
 
 
 template< class Derived >
-inline double ChompCollGradHelper::computeGradient(
+inline double CollGradHelper::computeGradient(
                     const Trajectory & trajectory,
                     const Eigen::MatrixBase<Derived> & g_const)
 {
@@ -124,26 +121,26 @@ inline double ChompCollGradHelper::computeGradient(
     return total;
 
 }
-double ChompCollGradHelper::addToGradient( const Trajectory & trajectory,
+double CollGradHelper::addToGradient( const Trajectory & trajectory,
                                           MatX& g)
 {
     return computeGradient( trajectory, g );
 }
 
-double ChompCollGradHelper::addToGradient( const Trajectory & trajectory,
+double CollGradHelper::addToGradient( const Trajectory & trajectory,
                                           MatMap& g)
 {
     return computeGradient( trajectory, g );
 }
 
-ChompGradient::ChompGradient() :
+Gradient::Gradient() :
     ghelper(NULL)
 {}
 
 
-const char* ChompGradient::TAG = "ChompGradient";
+const char* Gradient::TAG = "Gradient";
 
-void ChompGradient::prepareRun(const Trajectory & trajectory,
+void Gradient::prepareRun(const Trajectory & trajectory,
                                bool use_goalset,
                                bool is_covariant)
 {
@@ -182,8 +179,8 @@ void ChompGradient::prepareRun(const Trajectory & trajectory,
     
 
 
-double ChompGradient::evaluateObjective(const Trajectory & trajectory,
-                                        bool is_covariant) const
+double Gradient::evaluateObjective(const Trajectory & trajectory,
+                                   bool is_covariant) const
 {
     if ( is_covariant ){
         return 0.5 * mydot( trajectory.getFullXi(), trajectory.getFullXi() )

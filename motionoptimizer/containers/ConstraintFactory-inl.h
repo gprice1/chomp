@@ -2,6 +2,33 @@
 //  in the constraint factory
 
 
+inline void ConstraintFactory::addGoalset( Constraint * goalset )
+{
+    constraints.push_back( goalset );
+}
+inline void ConstraintFactory::removeGoalset()
+{
+    constraints.resize( constraints.size() - 1 );
+}
+
+inline bool ConstraintFactory::empty() const 
+{ 
+    return constraint_intervals.empty();
+}
+
+inline Constraint* ConstraintFactory::getConstraint( size_t t ) const
+{
+    return constraints[t];
+}
+
+inline const std::vector<Constraint*> & ConstraintFactory::getConstraints()
+    const
+{
+    return constraints;
+}
+
+inline int ConstraintFactory::numOutput(){ return constraint_dims; }
+
 //THe definitions of the templated functions
 template <class Derived1, class Derived2>
 double ConstraintFactory::evaluate(

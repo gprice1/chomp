@@ -40,7 +40,7 @@
 #include <cairo/cairo-pdf.h>
 #endif
 
-using namespace chomp;
+using namespace mopt;
 
 
 class CircleConstraint : public Constraint {
@@ -73,7 +73,7 @@ public:
 
 #ifdef MZ_HAVE_CAIRO
 
-class PdfEmitter: public DebugChompObserver {
+class PdfEmitter: public DebugObserver {
 public:
 
   bool dumpOpt;
@@ -108,17 +108,17 @@ public:
   }
 
   virtual int notify(const OptimizerBase & chomper, 
-                     ChompEventType event,
+                     EventType event,
                      size_t iter,
                      double curObjective,
                      double lastObjective,
                      double hmag) {
 
-    DebugChompObserver::notify(chomper, event, iter, 
+    DebugObserver::notify(chomper, event, iter, 
                                curObjective, lastObjective, hmag);
 
-    if (! ( (event == CHOMP_INIT) ||
-            (event == CHOMP_FINISH) ||
+    if (! ( (event == INIT) ||
+            (event == FINISH) ||
             (dumpOpt) ) ) {
           
       return 0;
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
   std::cout << "  global smoothing: " << (doGlobalSmooth ? "ON" : "OFF") << "\n\n";
   
   
-  DebugChompObserver obs;
+  DebugObserver obs;
   MotionOptimizer chomper( &obs );
 
   CircleConstraint c;

@@ -4,13 +4,13 @@
 #include "mzcommon/TimeUtil.h"
 #include "OptimizerBase.h"
 
-namespace chomp{
+namespace mopt {
 
 class TestOptimizer : public OptimizerBase{
     
   public:
     
-    static const ChompEventType event = CHOMP_GLOBAL_ITER; 
+    static const EventType event = CHOMP_ITER; 
 
     static const char* TAG;
 
@@ -40,15 +40,16 @@ class TestOptimizer : public OptimizerBase{
     MatX violations;
     
     TestOptimizer(ProblemDescription & problem,
-                   ChompObserver * observer = NULL,
+                   Observer * observer = NULL,
                    double obstol = 1e-8,
                    double timeout_seconds = 0,
                    size_t max_iter = size_t(-1)); 
 
     virtual ~TestOptimizer(){
+        if ( x_data ){ delete x_data; }
         if ( g_data ){ delete g_data; }
-        if ( h_data ){  delete h_data; }
-        if  (H_data ){   delete H_data; }
+        if ( h_data ){ delete h_data; }
+        if ( H_data ){ delete H_data; }
     };
     
     void solve();
@@ -71,7 +72,7 @@ class TestOptimizer : public OptimizerBase{
     bool iterate();
 
     //check if chomp is finished.
-    bool checkFinished(ChompEventType event);
+    bool checkFinished(EventType event);
     
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective );

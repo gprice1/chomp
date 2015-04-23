@@ -1,10 +1,10 @@
 
 #include "OptimizerBase.h"
 
-namespace chomp {
+namespace mopt {
 
 OptimizerBase::OptimizerBase(ProblemDescription & problem,
-                             ChompObserver * observer,
+                             Observer * observer,
                              double obstol,
                              double timeout,
                              size_t max_iter):
@@ -20,7 +20,7 @@ OptimizerBase::OptimizerBase(ProblemDescription & problem,
 {
 }
 
-int OptimizerBase::notify(ChompEventType event) const
+int OptimizerBase::notify(EventType event) const
 {
     if (observer) {
         return observer->notify(*this, event, current_iteration, 

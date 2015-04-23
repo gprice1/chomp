@@ -32,13 +32,11 @@
 */
 
 #include "ChompLocalOptimizer.h"
-#include <float.h>
-#include <cmath>
 
-namespace chomp {
+namespace mopt {
 
 ChompLocalOptimizer::ChompLocalOptimizer(ProblemDescription & problem,
-                                        ChompObserver * observer,
+                                        Observer * observer,
                                         double obstol,
                                         double timeout_seconds,
                                         size_t max_iter) : 

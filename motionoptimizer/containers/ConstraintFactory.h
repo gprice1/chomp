@@ -37,7 +37,7 @@
 #include "Constraint.h"
 #include "Trajectory.h"
 
-namespace chomp {
+namespace mopt {
 
 class ConstraintFactory {
 
@@ -59,13 +59,6 @@ private:
         }
 
     };
-    /*
-    static inline bool operator < ( const ConstraintInterval & lhs,
-                                    const ConstraintInterval & rhs ){
-        return lhs.start < rhs.start;
-    }
-    */
-
 
 private:
 
@@ -81,55 +74,44 @@ private:
 public:
 
     ConstraintFactory(); 
-
     ~ConstraintFactory(); 
 
     void addConstraint( Constraint * constraint, 
                         double start,
                         double stop );
 
-    inline void addGoalset( Constraint * goalset ){
-        constraints.push_back( goalset );
-    }
-    inline void removeGoalset(){
-        constraints.resize( constraints.size() - 1 );
-    }
-
-    inline bool empty() const { return constraint_intervals.empty(); }
+    void addGoalset( Constraint * goalset );
+    void removeGoalset();
+    bool empty() const;
     
     Constraint* createConstraint(size_t t, size_t total);
 
-    inline Constraint* getConstraint( size_t t ) const {
-        return constraints[t];
-    }
+    Constraint* getConstraint( size_t t ) const;    
+    const std::vector<Constraint*> & getConstraints() const;
     
-    inline const std::vector<Constraint*> & getConstraints() const {
-        return constraints;
-    }
-
     //TODO consider renaming this to prepareRun, for
     //  consistency with ConstraintFactory
     void getAll(size_t total);
 
-    inline int numOutput(){ return constraint_dims; }
-    
-    //calculates the dimensionality of the whole constraint
-    //  vector.
-    void calculateConstraintDimension();
+    int numOutput();    
     
     template <class Derived1, class Derived2>
     double evaluate( const Trajectory & trajectory,
-                   const Eigen::MatrixBase<Derived1> & h_tot,
-                   const Eigen::MatrixBase<Derived2> & H_tot);
+                     const Eigen::MatrixBase<Derived1> & h_tot,
+                     const Eigen::MatrixBase<Derived2> & H_tot);
 
     
     template <class Derived>
     double evaluate(const Trajectory & trajectory,
-                  const Eigen::MatrixBase<Derived> & h_tot);
+                    const Eigen::MatrixBase<Derived> & h_tot);
 
 
 private:
     void sortIntervals();
+    
+    //calculates the dimensionality of the whole constraint
+    //  vector.
+    void calculateConstraintDimension();
 
 };
 

@@ -1,4 +1,13 @@
+inline bool Metric::isGoalset() const
+{
+    return goalset_coefficients.size() > 0;
+};
+    
+inline int Metric::size() const { return L.rows(); }
 
+inline int Metric::width()const { return L.cols(); }
+
+inline bool Metric::empty() const { return L.size() > 0; }
 
 inline double Metric::getLValue( int row_index,
                                  int col_index ) const 
@@ -413,7 +422,7 @@ double Metric::createGoalsetBMatrix(
 template <class Derived>
 void Metric::solveCovariantBounds( const MatX & lower, const MatX & upper,
                             const Eigen::MatrixBase<Derived> & covariant_lower_const,
-                            const Eigen::MatrixBase<Derived> & covariant_upper_const )
+                            const Eigen::MatrixBase<Derived> & covariant_upper_const ) const
 {
     
     assert( upper.size() > 0 && lower.size() > 0 );
@@ -449,7 +458,12 @@ void Metric::solveCovariantBounds( const MatX & lower, const MatX & upper,
                 covariant_lower.row( i ) += value * upper;
                 covariant_upper.row( i ) += value * lower;
             }
+        }
 
+        //TODO find out why this is necessary
+        if ( covariant_lower.row( i ) == covariant_upper.row( i ) ){
+            covariant_lower.row(i) = lower;
+            covariant_upper.row(i) = upper;
         }
     }
 }

@@ -7,7 +7,7 @@
 
 #include "OptimizerBase.h"
 
-namespace chomp {
+namespace mopt {
 
 class NLOptimizer : public OptimizerBase{
   
@@ -20,10 +20,10 @@ class NLOptimizer : public OptimizerBase{
 
     static const char * TAG;
 
-    static const ChompEventType event = NLOPT_ITER;
+    static const EventType event = NLOPT_ITER;
 
     NLOptimizer( ProblemDescription & problem,
-                 ChompObserver * observer,
+                 Observer * observer,
                  double obstol = 1e-8,
                  double timeout_seconds = 0,
                  size_t max_iter = size_t(-1)); 
@@ -58,5 +58,5 @@ class NLOptimizer : public OptimizerBase{
 };
 
 
-}//namespace chomp
+}//namespace 
 #endif 

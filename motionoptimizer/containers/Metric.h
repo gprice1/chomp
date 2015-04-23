@@ -4,20 +4,20 @@
 #include <Eigen/Dense>
 #include "../utils/utils.h"
 
-namespace chomp {
+namespace mopt {
 
 class Metric {
 
 private:
-    Eigen::MatrixXd L;
+    MatX L;
     Eigen::VectorXd coefficients;
-    Eigen::MatrixXd goalset_coefficients;
+    Eigen::VectorXd goalset_coefficients;
     
 
 public:
 
     Metric( int n, 
-            ChompObjectiveType otype,
+            ObjectiveType otype,
             bool do_subsample=false,
             bool do_goalset=false);
     
@@ -26,7 +26,7 @@ public:
 
     ~Metric(){}
     void initialize( int n, 
-                     ChompObjectiveType otype,
+                     ObjectiveType otype,
                      bool do_subsample=false,
                      bool do_goalset=false);
 
@@ -35,16 +35,15 @@ public:
     void doGoalset();
     void stopGoalset();
     
-    void printL() const ;
+    void printL() const;
 
-    inline bool isGoalset() const
-                { return goalset_coefficients.size() > 0;};
-        
-    inline int size() const { return L.rows(); }
-    inline int width()const { return L.cols(); }
+    bool isGoalset() const;
     
-    inline bool empty() const { return L.size() > 0; }
+    int size() const; 
+    int width() const;
     
+    bool empty() const;
+
     //the old diagmul call
     template <class Derived1, class Derived2 >        
     void multiply( const Eigen::MatrixBase<Derived1>& x,
@@ -129,7 +128,7 @@ public:
     template <class Derived>
     void solveCovariantBounds( const MatX & lower, const MatX & upper,
                                const Eigen::MatrixBase<Derived> & covariant_lower,
-                               const Eigen::MatrixBase<Derived> & covariant_upper );
+                               const Eigen::MatrixBase<Derived> & covariant_upper ) const ;
 
 
 

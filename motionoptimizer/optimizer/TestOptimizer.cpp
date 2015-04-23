@@ -1,15 +1,12 @@
 
 #include "TestOptimizer.h"
-#include "../containers/ChompGradient.h"
-#include "../containers/Trajectory.h"
-#include "HMC.h"
 
-namespace chomp {
+namespace mopt {
 
 const char* TestOptimizer::TAG = "TestOptimizer";
 
 TestOptimizer::TestOptimizer( ProblemDescription & problem,
-                                         ChompObserver * observer,
+                                         Observer * observer,
                                          double obstol,
                                          double timeout_seconds,
                                          size_t max_iter) : 
@@ -201,14 +198,14 @@ bool TestOptimizer::iterate()
     return checkFinished( event );
 }
 
-bool TestOptimizer::checkFinished(ChompEventType event)
+bool TestOptimizer::checkFinished(EventType event)
 {
     
     //get the new value of the objective
 
 
     if ( canTimeout && stop_time < TimeStamp::now() ) {
-        notify(CHOMP_TIMEOUT);
+        notify(TIMEOUT);
         return false;
     }
 

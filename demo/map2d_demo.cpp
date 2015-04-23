@@ -36,7 +36,7 @@
 #include <getopt.h>
 #include "MotionOptimizer.h"
 
-using namespace chomp;
+using namespace mopt;
 
 #ifdef MZ_HAVE_CAIRO
 #include <cairo/cairo.h>
@@ -134,7 +134,7 @@ bool savePNG_RGB24(const std::string& filename,
 //////////////////////////////////////////////////////////////////////
 // class to help evaluate collisons for gradients
 
-class Map2DCHelper: public ChompCollisionHelper {
+class Map2DCHelper: public CollisionHelper {
 public: 
 
   enum {
@@ -146,7 +146,7 @@ public:
   const Map2D& map;
 
   Map2DCHelper(const Map2D& m): 
-    ChompCollisionHelper(NUM_CSPACE, NUM_WKSPACE, NUM_BODIES), 
+    CollisionHelper(NUM_CSPACE, NUM_WKSPACE, NUM_BODIES), 
     map(m) {}
 
   virtual ~Map2DCHelper() {}
@@ -226,7 +226,7 @@ void usage(int status) {
 
 #ifdef MZ_HAVE_CAIRO
 
-class PdfEmitter: public DebugChompObserver {
+class PdfEmitter: public DebugObserver {
 public:
 
   const Map2D& map;
@@ -282,16 +282,16 @@ public:
   }
 
   virtual int notify(const OptimizerBase& chomper, 
-                     ChompEventType event,
+                     EventType event,
                      size_t iter,
                      double curObjective,
                      double lastObjective,
                      double hmag) {
  
-    DebugChompObserver::notify(chomper, event, iter, 
+    DebugObserver::notify(chomper, event, iter, 
                                curObjective, lastObjective, hmag);
 
-    bool dump_pdf = (event == CHOMP_FINISH ||
+    bool dump_pdf = (event == FINISH ||
                      dump_every == 0 || 
                      (iter % dump_every == 0));
     
@@ -379,7 +379,7 @@ int main(int argc, char** argv) {
   double alpha = 0.02;
   double errorTol = 1e-6;
   size_t max_iter = 500;
-  ChompObjectiveType otype = MINIMIZE_VELOCITY;
+  ObjectiveType otype = MINIMIZE_VELOCITY;
   int pdf = -1;
   float x0=0, y0=0, x1=0, y1=0;
 
@@ -456,7 +456,7 @@ int main(int argc, char** argv) {
   MatX q0, q1;
 
   Map2DCHelper mhelper(map);
-  ChompCollGradHelper cghelper(&mhelper, gamma);
+  CollGradHelper cghelper(&mhelper, gamma);
 
   vec2f p0(x0, y0), p1(x1, y1);
   if (p0.x() == p0.y() && p0 == p1) {
@@ -471,7 +471,7 @@ int main(int argc, char** argv) {
   chomper.getTrajectory().setObjectiveType( otype );
   chomper.setGradientHelper( &cghelper );
 
-  DebugChompObserver dobs;
+  DebugObserver dobs;
   chomper.setObserver( &dobs );
 
   chomper.setAlpha( alpha );

@@ -1,20 +1,19 @@
 
 #include "HMC.h"
-#include "../containers/Trajectory.h"
 #include "mzcommon/mersenne.h"
 #include "mzcommon/gauss.h"
 
 
-namespace chomp {
+namespace mopt {
 
-const std::string TAG = "HMC";
+const std::string HMC::TAG = "HMC";
 
 
 HMC::HMC( double lambda, bool doNotReject):
     lambda( lambda ),
     previous_energy( 0 ),
-    resample_iter ( - log( mt_genrand_real1()) / lambda ),
     doNotReject( doNotReject ),
+    resample_iter ( - log( mt_genrand_real1()) / lambda ),
     old_data( NULL )
 {
 }
@@ -46,7 +45,7 @@ void HMC::iterate(size_t current_iteration,
         if( doNotReject || 
             !checkForRejection(trajectory, momentum, lastObjective ) )
         {
-            getRandomMomentum( metric, momentum, current_iteration );
+            getRandomMomentum( metric, current_iteration, momentum );
         }
         
         resample_iter =  current_iteration + 1 

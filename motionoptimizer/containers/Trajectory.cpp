@@ -4,13 +4,13 @@
 
 #include <sstream>
 
-namespace chomp {
+namespace mopt {
 
 const char* Trajectory::TAG = "Trajectory";
 
 
 Trajectory::Trajectory( const MatX & q0, const MatX & q1, int N,
-                        ChompObjectiveType o_type, 
+                        ObjectiveType o_type, 
                         double t_total ):
     data(NULL),
     cached_data(NULL),
@@ -27,7 +27,7 @@ Trajectory::Trajectory( const MatX & q0, const MatX & q1, int N,
 
 Trajectory::Trajectory( const std::vector<double> & pinit,
                         const std::vector<double> & pgoal,
-                        int N, ChompObjectiveType o_type, 
+                        int N, ObjectiveType o_type, 
                         double t_total ):
     data(NULL),
     cached_data(NULL),
@@ -43,7 +43,7 @@ Trajectory::Trajectory( const std::vector<double> & pinit,
 //row major matrix as a vector
 Trajectory::Trajectory( const std::vector<double> & vec,
                         int M,
-                        ChompObjectiveType o_type, 
+                        ObjectiveType o_type, 
                         double t_total ):
     data(NULL),
     cached_data(NULL),
@@ -60,7 +60,7 @@ Trajectory::Trajectory( const std::vector<double> & vec,
 Trajectory::Trajectory(const MatX & xinit,
                        const MatX & pinit,
                        const MatX & pgoal,
-                       ChompObjectiveType o_type, 
+                       ObjectiveType o_type, 
                        double t_total ) : 
     data(NULL),
     cached_data(NULL),
@@ -85,7 +85,7 @@ Trajectory::Trajectory(const MatX & xinit,
 }
 //Initialization from a whole prexisting trajectory.
 Trajectory::Trajectory( const MatX & traj,
-                        ChompObjectiveType o_type, 
+                        ObjectiveType o_type, 
                         double t_total) :
     data(NULL),
     cached_data(NULL),
@@ -100,7 +100,7 @@ Trajectory::Trajectory( const MatX & traj,
 
 
 Trajectory::Trajectory(const std::vector<std::vector<double> > & traj,
-                       ChompObjectiveType o_type, 
+                       ObjectiveType o_type, 
                        double t_total) :
     data(NULL),
     cached_data(NULL),
@@ -115,7 +115,7 @@ Trajectory::Trajectory(const std::vector<std::vector<double> > & traj,
 
 Trajectory::Trajectory(const double * traj,
                        int M, int N,
-                       ChompObjectiveType o_type, 
+                       ObjectiveType o_type, 
                        double t_total) :
     data(NULL),
     cached_data(NULL),

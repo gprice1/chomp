@@ -1,15 +1,13 @@
 
 #include "ChompOptimizerBase.h"
-#include "../containers/ChompGradient.h"
-#include "../containers/Trajectory.h"
 #include "HMC.h"
 
-namespace chomp {
+namespace mopt {
 
 const char* ChompOptimizerBase::TAG = "ChompOptimizerBase";
 
 ChompOptimizerBase::ChompOptimizerBase( ProblemDescription & problem,
-                                         ChompObserver * observer,
+                                         Observer * observer,
                                          double obstol,
                                          double timeout_seconds,
                                          size_t max_iter) : 
@@ -44,8 +42,6 @@ void ChompOptimizerBase::solve(){
     
     if ( hmc ){ 
         use_momentum = true;
-        hmc->setupHMC( problem.getTrajectory().getObjectiveType(), alpha );
-        hmc->setupRun();
     }
 
     if ( use_momentum ){
@@ -85,16 +81,14 @@ bool ChompOptimizerBase::iterate(){
     //increment the iteration.
     current_iteration ++;
 
-    //TODO add back in the HMC once everything is figured out.
-    /*
     if ( hmc ) {
         //TODO make sure that we are doing Global Chomp,
         //  or add momentum into local chomp
-        hmc->iteration( curr_iter, problemtrajectory, momentum,
-                        problem.getLMatrix(),
-                        last_objective );
+        hmc->iterate( current_iteration, last_objective, 
+                      problem.getMetric(), 
+                      problem.getTrajectory(),
+                      momentum);
     }
-    */
 
     //check whether optimization is completed.
 
@@ -103,14 +97,14 @@ bool ChompOptimizerBase::iterate(){
     return checkFinished( event );
 }
 
-bool ChompOptimizerBase::checkFinished(ChompEventType event)
+bool ChompOptimizerBase::checkFinished(EventType event)
 {
     
     //get the new value of the objective
 
 
     if ( canTimeout && stop_time < TimeStamp::now() ) {
-        notify(CHOMP_TIMEOUT);
+        notify(TIMEOUT);
         return false;
     }
 
@@ -165,11 +159,11 @@ void ChompOptimizerBase::checkBounds()
         //iterate over all of the points, and make a matrix which
         //  has the magnitude of all the bounds violations
         //  for each variable in the trajectory
-        for ( int j = 0; j < problem.N(); j ++ ) {
+        for ( int j = 0; j < problem.M(); ++j ) {
             const double upper = (check_upper ? upper_bound(j) : HUGE_VAL);
             const double lower = (check_lower ? lower_bound(j) :-HUGE_VAL);
             
-            for( int i = 0; i < problem.N(); i ++ ){
+            for( int i = 0; i < problem.N(); ++i ){
 
                 //is there a violation of a lower bound?
                 const double value = problem.getTrajectory()(i,j);

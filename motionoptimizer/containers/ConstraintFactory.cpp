@@ -32,9 +32,8 @@
 */
 
 #include "ConstraintFactory.h"
-#include "Constraint.h"
 
-namespace chomp {
+namespace mopt {
 
 const char* ConstraintFactory::TAG = "ConstraintFactory";
 

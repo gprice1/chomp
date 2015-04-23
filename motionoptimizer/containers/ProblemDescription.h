@@ -2,7 +2,7 @@
 #define _PROBLEM_DESCRIPTION_H_
 
 #include "Trajectory.h"
-#include "ChompGradient.h"
+#include "Gradient.h"
 #include "ConstraintFactory.h"
 #include "Metric.h"
 
@@ -18,7 +18,7 @@
     #define TIMER_GET_TOTAL( x ) (void)0
 #endif 
 
-namespace chomp {
+namespace mopt {
     
 class ProblemDescription {
     
@@ -29,7 +29,7 @@ class ProblemDescription {
     
 private:
     Trajectory trajectory;
-    ChompGradient gradient;
+    Gradient gradient;
     ConstraintFactory factory;
     
     //in the case that we are doing covariant optimization,
@@ -62,28 +62,22 @@ public:
      
     const Metric & getMetric();
 
-    inline bool isConstrained() const 
-                { return !factory.empty(); }
-    inline bool isCovariant() const
-                { return doing_covariant; }
+    bool isConstrained() const; 
+    bool isCovariant() const;
     
-    inline void setGoalset( Constraint * goal )
-                {goalset = goal;}
-    inline const Constraint * getGoalset() const
-                 { return goalset; }
+    void setGoalset( Constraint * goal );
+    const Constraint * getGoalset() const;
     
-    inline int N(){ return trajectory.N(); }
-    inline int M(){ return trajectory.M(); }
-    inline int size(){ return trajectory.size(); }
+    int N() const;
+    int M() const;
+    int size() const;
     
-    inline void setUpperBounds(const MatX & upper)
-                { upper_bounds = upper;}
-    inline void setLowerBounds(const MatX & lower)
-                { lower_bounds = lower;}
-    inline const MatX & getUpperBounds()
-                 { return upper_bounds;}
-    inline const MatX & getLowerBounds()
-                 { return lower_bounds;}
+    void setUpperBounds(const MatX & upper);
+    void setLowerBounds(const MatX & lower);
+    const MatX & getUpperBounds() const ;
+    const MatX & getLowerBounds() const ;
+
+    bool isBounded() const;
 
     void copyTrajectoryTo( double * data );
     void copyTrajectoryTo( std::vector<double> & data );
@@ -91,9 +85,11 @@ public:
     void copyToTrajectory( const double * data );
     void copyToTrajectory( const std::vector<double> data );
 
-    inline const Trajectory & getTrajectory() const {return trajectory;}
-    inline const ChompGradient & getGradient() const {return gradient;}
-    inline const ConstraintFactory & getFactory() const {return factory;}
+    const Trajectory & getTrajectory() const;
+    Trajectory & getTrajectory();
+    
+    const Gradient & getGradient() const;
+    const ConstraintFactory & getFactory() const;
 
     double evaluateGradient( MatX & g );
     double evaluateGradient( const double * xi, double * g );
@@ -119,18 +115,21 @@ public:
     double evaluateObjective();
     double evaluateObjective( const double * xi );
     
-    inline void doCovariantOptimization(){ is_covariant = true; }
-    inline void dontCovariantOptimization(){ is_covariant = false; }
-    inline bool isCovariantOptimization(){ return is_covariant; }
+    void doCovariantOptimization();
+    void dontCovariantOptimization();
+    bool isCovariantOptimization() const; 
     
-    inline bool isSubsampled(){ return trajectory.isSubsampled(); }
-
+    bool isSubsampled() const;
+    
     void getTimes( 
         std::vector< std::pair<std::string, double> > & times ) const ;
     
     void printTimes( bool verbose=true ) const ;
 
     std::string getTimesString( bool verbose=true ) ;
+
+    void getFullBounds( std::vector< double > & lower,
+                        std::vector< double > & upper );
     
 private:
 

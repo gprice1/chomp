@@ -3,8 +3,9 @@
 
 #include "mzcommon/TimeUtil.h"
 #include "OptimizerBase.h"
+#include "HMC.h"
 
-namespace chomp{
+namespace mopt {
 
 class ChompOptimizerBase : public OptimizerBase{
     
@@ -13,7 +14,7 @@ class ChompOptimizerBase : public OptimizerBase{
     //either global or local iteration, depending
     //on the type of the optimization, this should be assigned in 
     // inheriting class constructor    
-    ChompEventType event; 
+    EventType event; 
 
     static const char* TAG;
 
@@ -39,7 +40,7 @@ class ChompOptimizerBase : public OptimizerBase{
     HMC * hmc;
     
     ChompOptimizerBase(ProblemDescription & problem,
-                       ChompObserver * observer = NULL,
+                       Observer * observer = NULL,
                        double obstol = 1e-8,
                        double timeout_seconds = 0,
                        size_t max_iter = size_t(-1)); 
@@ -66,7 +67,7 @@ class ChompOptimizerBase : public OptimizerBase{
     bool iterate();
 
     //check if chomp is finished.
-    bool checkFinished(ChompEventType event);
+    bool checkFinished(EventType event);
     
     // returns true if performance has converged
     bool goodEnough(double oldObjective, double newObjective );
