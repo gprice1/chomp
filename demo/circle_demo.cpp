@@ -122,7 +122,7 @@ class PdfEmitter: public DebugObserver {
     {
         if (filename.size() > 0){
             std::ofstream myfile;
-            myfile.open (filename, std::ios::app );
+            myfile.open (filename.c_str(), std::ios::app );
             
             myfile << ostream.str() << "}\n";
 
