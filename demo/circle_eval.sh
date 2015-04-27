@@ -3,7 +3,7 @@ SETTINGS="-p 10 -e 1e-12"
 
 ALGORITHMS=(
     'TEST'
-    'GLOBAL_CHOMP'
+    'CHOMP'
     'MMA'
     'CCSAQ'
     'SLSQP'
@@ -25,7 +25,7 @@ for alg in ${ALGORITHMS[@]}; do
     for n in ${STARTING_N[@]}; do
         
         if [ $alg == 'TEST'    ] ||
-           [ $alg == 'GLOBAL_CHOMP'   ]; then
+           [ $alg == 'CHOMP'   ]; then
             
             for alpha in ${ALPHAS[@]}; do
                 ../build/circle_demo -l $alg -n $n $SETTINGS -a $alpha -o accel

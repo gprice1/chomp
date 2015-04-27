@@ -108,7 +108,7 @@ inline Trajectory & MotionOptimizer::getTrajectory()
 
 inline const Trajectory & MotionOptimizer::getTrajectory() const 
 { 
-    return problem.getTrajectory();
+    return problem.trajectory;
 }
 inline void MotionOptimizer::setTrajectory( const Trajectory & trajectory )
 { 
@@ -142,14 +142,37 @@ inline const Observer * MotionOptimizer::getObserver() const
 
 inline void MotionOptimizer::doCovariantOptimization()
 { 
-    problem.doCovariantOptimization();
+    problem.is_covariant = true;
 }
 inline void MotionOptimizer::dontCovariantOptimization()
 { 
-    problem.dontCovariantOptimization();
+    problem.is_covariant = false;
+}
+inline void MotionOptimizer::setCovariantOptimization( bool covariant)
+{ 
+    problem.is_covariant = covariant;
 }
 inline bool MotionOptimizer::isCovariantOptimization() const
 { 
     return problem.isCovariantOptimization();
+}
+
+
+inline void MotionOptimizer::doCollisionConstraint()
+{
+    problem.collision_constraint = true;
+}
+inline void MotionOptimizer::dontCollisionConstraint()
+{
+    problem.collision_constraint = false;
+}
+inline void MotionOptimizer::setCollisionConstraint( 
+                                bool do_collision_constraint )
+{
+    problem.collision_constraint = do_collision_constraint;
+}
+inline bool MotionOptimizer::isCollisionConstraint() const
+{
+    return problem.collision_constraint;
 }
 

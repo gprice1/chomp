@@ -30,13 +30,17 @@ enum OptimizationAlgorithm {
     LBFGS_NLOPT,
     TNEWTON_PRECOND_RESTART_NLOPT,
     TNEWTON_RESTART_NLOPT,
+    TNEWTON_PRECOND_NLOPT,
     TNEWTON_NLOPT,
     VAR1_NLOPT,
     VAR2_NLOPT,
     NONE
 };
 
+
+#ifdef NLOPT_FOUND
 nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg );
+#endif
 
 std::string algorithmToString( OptimizationAlgorithm alg );
 
@@ -156,7 +160,13 @@ class MotionOptimizer {
 
     void doCovariantOptimization();
     void dontCovariantOptimization();
+    void setCovariantOptimization( bool covariant );
     bool isCovariantOptimization() const;
+
+    void doCollisionConstraint();
+    void dontCollisionConstraint();
+    void setCollisionConstraint( bool do_collision_constraint );
+    bool isCollisionConstraint() const ;
 
 };
 

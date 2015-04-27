@@ -1,4 +1,17 @@
 
+template <class Derived> 
+double ProblemDescription::evaluateCollisionFunction(
+                        const Eigen::MatrixBase<Derived> & g)
+{
+    prepareData();
+    
+    const double value = collision_function->evaluate( trajectory, g );
+    if ( doing_covariant ){ metric.multiplyLowerInverse( g ); } 
+
+    return value;
+}
+
+
 template <class Derived>
 double ProblemDescription::evaluateObjective( 
                            const Eigen::MatrixBase<Derived> & g )
@@ -38,15 +51,6 @@ inline double ProblemDescription::computeObjective(
     }
 
     return value;
-}
-
-inline void ProblemDescription::doCollisionConstraint()
-{ 
-    collision_constraint = true;
-}
-inline void ProblemDescription::dontCollisionConstraint()
-{
-    collision_constraint = false;
 }
 
 inline bool ProblemDescription::isCollisionConstraint() const
@@ -116,15 +120,6 @@ inline const ConstraintFactory & ProblemDescription::getFactory() const
     return factory;
 }
 
-
-inline void ProblemDescription::doCovariantOptimization()
-{ 
-    is_covariant = true;
-}
-inline void ProblemDescription::dontCovariantOptimization()
-{ 
-    is_covariant = false;
-}
 inline bool ProblemDescription::isCovariantOptimization() const
 { 
     return is_covariant;

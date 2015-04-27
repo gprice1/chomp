@@ -43,11 +43,17 @@ public:
     int width() const;
     
     bool empty() const;
+    
+    //the old diagmul call
+    template <class Derived>        
+    void sampleNormalDistribution(
+            double standard_deviation,
+            Eigen::MatrixBase<Derived> const & result) const;
 
     //the old diagmul call
     template <class Derived1, class Derived2 >        
     void multiply( const Eigen::MatrixBase<Derived1>& x,
-              const Eigen::MatrixBase<Derived2>& Ax_const ) const ;
+                   const Eigen::MatrixBase<Derived2>& Ax_const ) const ;
     
     //the old diagmul call
     template <class Derived >        

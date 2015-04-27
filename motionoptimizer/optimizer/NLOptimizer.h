@@ -36,13 +36,10 @@ class NLOptimizer : public OptimizerBase{
 
   private:
 
-    void giveBoundsToNLopt( nlopt::opt & optimizer );
-
-    void prepareNLoptConstraints( nlopt::opt & optimizer );
+    void prepareBounds( nlopt::opt & optimizer );
+    void prepareCollisionConstraint( nlopt::opt & optimizer );
+    void prepareConstraints( nlopt::opt & optimizer );
     
-    void copyNRows( const MatX & original_bounds, 
-                    std::vector<double> & result);
-
     //a wrapper function for passing the ChompGradient to NLopt.
     static double objectiveFunction(unsigned n,
                                     const double * x,
@@ -54,6 +51,12 @@ class NLOptimizer : public OptimizerBase{
                                    const double * x,
                                    double* H,
                                    void *data);
+    
+    //a wrapper function for passing the collision constraint to NLopt.
+    static double collisionConstraintFunction(unsigned n_by_m,
+                                              const double * x,
+                                              double* h,
+                                              void *data);
 
 };
 

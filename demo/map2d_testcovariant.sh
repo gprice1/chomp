@@ -9,10 +9,10 @@ gamma1="0.05"
 alpha2="0.1"
 gamma2="0.3"
 
-../build/map2d_demo -l GLOBAL_CHOMP -g $gamma1 $SETTINGS -a $alpha1 -o accel $MAP3A
-../build/map2d_demo -k -l GLOBAL_CHOMP -g $gamma1 $SETTINGS -a $alpha1 -o accel $MAP3A 
-../build/map2d_demo -l GLOBAL_CHOMP -g $gamma2 $SETTINGS -a $alpha2 -o vel $MAP3A
-../build/map2d_demo -k -l GLOBAL_CHOMP -g $gamma2 $SETTINGS -a $alpha2 -o vel $MAP3A
+../build/map2d_demo -l CHOMP -g $gamma1 $SETTINGS -a $alpha1 -o accel $MAP3A
+../build/map2d_demo -k -l CHOMP -g $gamma1 $SETTINGS -a $alpha1 -o accel $MAP3A 
+../build/map2d_demo -l CHOMP -g $gamma2 $SETTINGS -a $alpha2 -o vel $MAP3A
+../build/map2d_demo -k -l CHOMP -g $gamma2 $SETTINGS -a $alpha2 -o vel $MAP3A
 
 ../build/map2d_demo -l TEST -g $gamma1 $SETTINGS -a $alpha1 -o accel $MAP3A
 ../build/map2d_demo -k -l TEST -g $gamma1 $SETTINGS -a $alpha1 -o accel $MAP3A 

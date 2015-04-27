@@ -64,6 +64,11 @@ public:
     ~ProblemDescription();
 
     void upsample();
+
+    template <class Derived> 
+    double evaluateCollisionFunction(const Eigen::MatrixBase<Derived> & g);
+    double evaluateCollisionFunction( const double * xi=NULL,
+                                             double * g=NULL );
      
     template <class Derived>
     double evaluateObjective( const Eigen::MatrixBase<Derived> & g );
@@ -76,7 +81,6 @@ public:
                                      double * h,
                                      double * H = NULL);
     bool evaluateConstraint( MatX & h_t, MatX & H_t, int t );
-
 
     //Functions with the trajectory
     int N() const;
@@ -100,22 +104,18 @@ public:
     void updateTrajectory( const Eigen::MatrixBase<Derived> & delta, int t);
     void updateTrajectory( const double * delta, int t );
 
-    
     //Functions with constraints:
     bool isConstrained() const; 
     bool isCovariant() const;
 
     int getConstraintDims();
 
-    void doCollisionConstraint();
-    void dontCollisionConstraint();
     bool isCollisionConstraint() const ;
     
     const ConstraintFactory & getFactory() const;
     
     void setGoalset( Constraint * goal );
     const Constraint * getGoalset() const;
-
 
     const Metric & getMetric();
 
@@ -127,8 +127,6 @@ public:
 
     bool isBounded() const;
     
-    void doCovariantOptimization();
-    void dontCovariantOptimization();
     bool isCovariantOptimization() const; 
     
     bool isSubsampled() const;

@@ -49,10 +49,15 @@ void NLOptimizer::solve()
     //  because prepareNLoptConstraints can change the optimization
     //  routine.
     if ( problem.isConstrained() ){ 
-        prepareNLoptConstraints( optimizer );
+        prepareConstraints( optimizer );
     }
-    giveBoundsToNLopt( optimizer );
 
+    if ( problem.isCollisionConstraint() ){
+        prepareCollisionConstraint( optimizer );
+    }
+
+    prepareBounds( optimizer );
+    
     //set the objective function and the termination conditions.
     optimizer.set_min_objective( objectiveFunction, this );
     
@@ -88,12 +93,28 @@ void NLOptimizer::solve()
 
 }
 
-
-void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
+void NLOptimizer::prepareCollisionConstraint( nlopt::opt & optimizer )
 {
+    
+    const nlopt::algorithm current_algorithm = optimizer.get_algorithm();
 
-    //if there is no factory, do nothing
-    if ( !problem.isConstrained() ){ return; }
+    if ( current_algorithm != nlopt::LD_MMA || 
+         current_algorithm != nlopt::AUGLAG ||
+         current_algorithm != nlopt::AUGLAG_EQ ||
+         current_algorithm != nlopt::LD_SLSQP ||
+         current_algorithm != nlopt::LN_COBYLA )
+    {
+        nlopt::opt new_optimizer( nlopt::AUGLAG, problem.size());
+        new_optimizer.set_local_optimizer( optimizer );
+
+        optimizer = new_optimizer;
+    }
+    
+    optimizer.add_inequality_constraint( collisionConstraintFunction,                                                 this, 1e-4 );
+}
+
+void NLOptimizer::prepareConstraints( nlopt::opt & optimizer )
+{
 
     //Get the dimensionality of the constraint, and fill the
     //  constraint_tolerances vector with the appropriate number of
@@ -121,9 +142,6 @@ void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
             new_optimizer.set_local_optimizer( optimizer );
 
             optimizer = new_optimizer;
-            if ( obstol != 0 ){ optimizer.set_ftol_rel( obstol ); }
-            if ( max_iter != 0 ){ optimizer.set_maxeval( max_iter ); }
-
         }
         
         std::vector<double> constraint_tolerances;
@@ -136,19 +154,7 @@ void NLOptimizer::prepareNLoptConstraints( nlopt::opt & optimizer )
 }
 
 
-void NLOptimizer::copyNRows( const MatX & original_bounds, 
-                             std::vector<double> & result)
-{
-    result.reserve( problem.size() );
-    
-    //eigen::matrices are stored in column major format
-    for ( int i = 0; i < problem.M(); i ++ ){
-        result.resize( result.size()+problem.N(),
-                       original_bounds(i) );
-    }
-}
-
-void NLOptimizer::giveBoundsToNLopt( nlopt::opt & optimizer )
+void NLOptimizer::prepareBounds( nlopt::opt & optimizer )
 {
     
     //TODO throw error because the bounds are the wrong size.
@@ -205,6 +211,17 @@ void NLOptimizer::constraintFunction(unsigned constraint_dim,
     NLOptimizer * opt = reinterpret_cast<NLOptimizer*>(data);
 
     opt->constraint_magnitude = opt->problem.evaluateConstraint( x, h, H);
+}
+
+//a wrapper function for passing the ChompGradient to NLopt.
+double NLOptimizer::collisionConstraintFunction(unsigned n_by_m,
+                                              const double * x,
+                                              double* h,
+                                              void *data)
+{
+    NLOptimizer * opt = reinterpret_cast<NLOptimizer*>(data);
+
+     return opt->problem.evaluateCollisionFunction( x, h);
 }
 
 

@@ -1,3 +1,6 @@
+#include "mzcommon/mersenne.h"
+#include "mzcommon/gauss.h"
+
 inline bool Metric::isGoalset() const
 {
     return goalset_coefficients.size() > 0;
@@ -8,6 +11,36 @@ inline int Metric::size() const { return L.rows(); }
 inline int Metric::width()const { return L.cols(); }
 
 inline bool Metric::empty() const { return L.size() > 0; }
+
+
+//the old diagmul call
+template <class Derived>        
+void Metric::sampleNormalDistribution( 
+                double standard_deviation,
+                Eigen::MatrixBase<Derived> const & result_const) const
+{
+
+    assert(result_const.rows() == size() );
+
+    Eigen::MatrixBase<Derived>& result = 
+        const_cast<Eigen::MatrixBase<Derived>&>(result_const);
+    
+ 
+    for (int i = size()-1; i>=0 ; --i) {
+        const int j1 = std::min( i+width(), size() );
+
+        for ( int j = 0; j < result.cols(); ++j ){
+            result(i,j) = gauss_ziggurat( standard_deviation );
+        }
+        
+        for (int j=i+1 ; j<j1 ; ++j) {
+            result.row(i) -= getLValue(j, i) * result.row(j);
+        }
+        
+        result.row(i) /= getLValue( i, i );
+    }
+}
+
 
 inline double Metric::getLValue( int row_index,
                                  int col_index ) const 

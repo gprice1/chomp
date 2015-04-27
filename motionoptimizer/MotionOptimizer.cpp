@@ -111,6 +111,13 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
     {
         alg = CHOMP;
     }
+    
+    if ( (alg == LOCAL_CHOMP || alg == CHOMP || alg == TEST ) &&
+          problem.collision_constraint)
+    {
+        //TODO throw error
+        problem.collision_constraint = false;
+    }
 
     if ( alg == CHOMP ){
         ChompOptimizer * opt = new ChompOptimizer(
@@ -213,25 +220,27 @@ void MotionOptimizer::addConstraint( Constraint * c,
     problem.factory.addConstraint( c, start_time, end_time );
 }
 
+#ifdef NLOPT_FOUND
 nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg )
 {
 
     switch (alg){
-    case MMA_NLOPT: return nlopt::LD_MMA;
-    case CCSAQ_NLOPT: return nlopt::LD_CCSAQ;
-    case SLSQP_NLOPT: return nlopt::LD_SLSQP;
-    case LBFGS_NLOPT: return nlopt::LD_LBFGS;
-    case TNEWTON_PRECOND_RESTART_NLOPT:
-        return nlopt::LD_TNEWTON_PRECOND_RESTART;
-    case TNEWTON_RESTART_NLOPT: return nlopt::LD_TNEWTON_RESTART;
-    case TNEWTON_NLOPT: return nlopt::LD_TNEWTON;
-    case VAR1_NLOPT: return nlopt::LD_VAR1;
-    case VAR2_NLOPT: return nlopt::LD_VAR2;
-
-    //TODO Throw error.
-    default: return nlopt::LD_MMA;
+        case MMA_NLOPT:   return nlopt::LD_MMA;
+        case CCSAQ_NLOPT: return nlopt::LD_CCSAQ;
+        case SLSQP_NLOPT: return nlopt::LD_SLSQP;
+        case LBFGS_NLOPT: return nlopt::LD_LBFGS;
+        case VAR1_NLOPT:  return nlopt::LD_VAR1;
+        case VAR2_NLOPT:  return nlopt::LD_VAR2;
+        case TNEWTON_PRECOND_RESTART_NLOPT:
+            return nlopt::LD_TNEWTON_PRECOND_RESTART;
+        case TNEWTON_RESTART_NLOPT: return nlopt::LD_TNEWTON_RESTART;
+        case TNEWTON_PRECOND_NLOPT: return nlopt::LD_TNEWTON_PRECOND;
+        case TNEWTON_NLOPT: return nlopt::LD_TNEWTON;
+        //TODO Throw error.
+        default: return nlopt::LD_MMA;
     }
 }
+#endif
 
 std::string algorithmToString( OptimizationAlgorithm alg )
 {
@@ -240,6 +249,7 @@ std::string algorithmToString( OptimizationAlgorithm alg )
     case LOCAL_CHOMP:   return "LOCAL_CHOMP";
     case CHOMP:         return "CHOMP";
     case TEST:          return "TEST";
+#ifdef NLOPT_FOUND
     case MMA_NLOPT:     return "MMA";
     case CCSAQ_NLOPT:   return "CCSAQ";
     case SLSQP_NLOPT:   return "SLSQP";
@@ -247,13 +257,12 @@ std::string algorithmToString( OptimizationAlgorithm alg )
     case TNEWTON_NLOPT: return "NEWTON";
     case VAR1_NLOPT:    return "VAR1";
     case VAR2_NLOPT:    return "VAR2";
-    case NONE:          return "NONE";
-                        
-    case TNEWTON_PRECOND_RESTART_NLOPT:
-        return "TNEWTON_PRECOND_RESTART";
-    case TNEWTON_RESTART_NLOPT:
-        return "TNEWTON_RESTART";
+    case TNEWTON_PRECOND_RESTART_NLOPT: return "TNEWTON_PRECOND_RESTART";
+    case TNEWTON_RESTART_NLOPT:         return "TNEWTON_RESTART";
+    case TNEWTON_PRECOND_NLOPT:         return "TNEWTON_PRECOND";
+#endif
     //TODO Throw error.
+    case NONE:          return "NONE";
     default: 
         return "ERROR";
     }
@@ -261,33 +270,26 @@ std::string algorithmToString( OptimizationAlgorithm alg )
 
 OptimizationAlgorithm algorithmFromString( const std::string & str )
 {
-    if ( str == "LOCAL_CHOMP" ){
-        return LOCAL_CHOMP;
-    }else if ( str == "CHOMP" ){
-        return CHOMP;
-    }else if ( str == "TEST" ){
-        return TEST;
-    }else if ( str == "MMA" ){
-        return MMA_NLOPT;
-    }else if ( str == "CCSAQ" ){
-        return CCSAQ_NLOPT;
-    }else if ( str == "SLSQP" ){
-        return SLSQP_NLOPT;
-    }else if ( str == "LBFGS" ){
-        return LBFGS_NLOPT;
-    }else if ( str == "TNEWTON_PRECOND_RESTART" ){
-        return TNEWTON_PRECOND_RESTART_NLOPT;
-    }else if ( str == "TNEWTON_RESTART" ){
-        return TNEWTON_RESTART_NLOPT;
-    }else if ( str == "NEWTON" ){
-        return TNEWTON_NLOPT;
-    }else if ( str == "VAR1" ){
-        return VAR1_NLOPT;
-    }else if ( str == "VAR2" ){
-        return VAR2_NLOPT;
-    }else {
-        return NONE;
+    if ( str == "LOCAL_CHOMP" ){return LOCAL_CHOMP; }
+    else if ( str == "CHOMP" ){ return CHOMP;}
+    else if ( str == "TEST" ){  return TEST;}
+
+#ifdef NLOPT_FOUND
+    else if ( str == "MMA" ){   return MMA_NLOPT;}
+    else if ( str == "CCSAQ" ){ return CCSAQ_NLOPT;}
+    else if ( str == "SLSQP" ){ return SLSQP_NLOPT;}
+    else if ( str == "LBFGS" ){ return LBFGS_NLOPT;}
+    else if ( str == "NEWTON" ){return TNEWTON_NLOPT;}
+    else if ( str == "VAR1" ){  return VAR1_NLOPT;}
+    else if ( str == "VAR2" ){  return VAR2_NLOPT;}
+    else if ( str == "TNEWTON_RESTART" ){ return TNEWTON_RESTART_NLOPT;}
+    else if ( str == "TNEWTON_PRECOND" ){ return TNEWTON_PRECOND_NLOPT;}
+    else if ( str == "TNEWTON_PRECOND_RESTART" ){
+       return TNEWTON_PRECOND_RESTART_NLOPT;
     }
+#endif
+    
+    else { return NONE; }
 }
 
 }//namespace

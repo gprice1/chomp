@@ -67,15 +67,7 @@ void HMC::getRandomMomentum(const Metric & metric,
     //this is the standard deviation of the gaussian distribution.
     const double sigma = 1.0/sqrt(hmc_alpha); 
     
-    //get random univariate gaussians to start.
-    for ( int i = 0; i < momentum.size(); i ++ ){
-        momentum(i) = gauss_ziggurat( sigma );
-    }
-    
-    //transform the univariate gaussians into a multivariate
-    //  gaussian via multiplying by the inverse transpose of the
-    //  metric.
-    metric.multiplyLowerInverseTranspose( momentum );
+    metric.sampleNormalDistribution( sigma, momentum );
     
     debug_status( TAG, "getRandomMomentum", "end" );
     

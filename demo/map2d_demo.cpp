@@ -365,6 +365,7 @@ void usage(int status) {
     "  -d, --dump               Dump recorded data to a given filename\n"
     "  -o, --objective          Quantity to minimize (vel|accel)\n"
     "  -b, --bounds             Bound the trajectory to the given area\n"
+    "  -C, --coll_constraint    Treat collisions as a constraint\n"
     "      --help               See this message.\n";
   exit(status);
 }
@@ -383,12 +384,13 @@ int main(int argc, char** argv) {
     { "pdf",               required_argument, 0, 'p' },
     { "dump",              required_argument, 0, 'd' },
     { "covariance",        no_argument,       0, 'k' },
+    { "coll_constriant",   no_argument,       0, 'C' },
     { "help",              no_argument,       0, 'h' },
     { "bounds",            no_argument,       0, 'b' },
     { 0,                   0,                 0,  0  }
   };
 
-  const char* short_options = "l:c:n:a:g:e:m:o:p:d:khb";
+  const char* short_options = "l:c:n:a:g:e:m:o:p:d:kChb";
   int opt, option_index;
 
   bool do_covariant = false;
@@ -402,6 +404,7 @@ int main(int argc, char** argv) {
   float x0=0, y0=0, x1=0, y1=0;
   int doPDF = -2;
   bool doBounds = false;
+  bool collision_constraint = false;
 
   std::string filename;
   bool dump_data;
@@ -455,6 +458,9 @@ int main(int argc, char** argv) {
       break;
     case 'b':
       doBounds = true;
+      break;
+    case 'C':
+      collision_constraint = true;
       break;
     case 'd': 
         filename = std::string( optarg );
@@ -513,6 +519,10 @@ int main(int argc, char** argv) {
   chomper.setAlpha( alpha );
   
   chomper.setAlgorithm( alg ); 
+
+  if ( collision_constraint ){
+      chomper.doCollisionConstraint(); 
+  }
   
   if ( doBounds ){
       MatX upper(1,2), lower(1,2);
@@ -530,11 +540,12 @@ int main(int argc, char** argv) {
   if ( doPDF >= -1 )
   {
     char buf[1024];
-    sprintf(buf, "%s_g%f_a%f_o%s_%s_.pdf",
+    sprintf(buf, "%s_g%f_a%f_o%s_%s_%s_.pdf",
             algorithmToString( alg ).c_str(),
             gamma, alpha,
             otype == MINIMIZE_VELOCITY ? "vel" : "accel",
-            do_covariant ? "covariant" : "non-covariant" );
+            do_covariant ? "covariant" : "non-covariant",
+            collision_constraint ? "constr_coll" : "obj_coll" );
 
     pe = new PdfEmitter(map,
                         chomper.getTrajectory().getXi(),

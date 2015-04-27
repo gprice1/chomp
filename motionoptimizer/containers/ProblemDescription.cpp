@@ -109,6 +109,26 @@ void ProblemDescription::upsample()
     trajectory.upsample();
 }
 
+double ProblemDescription::evaluateCollisionFunction( const double * xi,
+                                                            double * g)
+{
+    //TODO throw error.
+    assert( collision_function );
+
+    prepareData( xi );
+    
+    double value;
+    if ( g ){
+        MatMap g_map( g, N(), M() );
+        value = collision_function->evaluate( trajectory, g_map );
+        if ( doing_covariant ){ metric.multiplyLowerInverse( g_map ); } 
+    }else {
+        value = collision_function->evaluate( trajectory );
+    }
+    
+    return value;
+}
+
 
 double ProblemDescription::evaluateObjective ( const double * xi,
                                                double * g )

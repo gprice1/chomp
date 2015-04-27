@@ -1,19 +1,18 @@
-SETTINGS="-p 1000 -n 127 -m 400 -e 1e-12 -b"
+SETTINGS="-p 1000 -n 127 -m 400 -e 1e-12 -b -k -d data.txt"
 
 MAP3A="-c 2.7,-2.7,-2.7,2.7 ../demo/maps/map3.txt"
 MAP3B="-c -2.7,-2.7,2.7,2.7 ../demo/maps/map3.txt"
 
 ALGORITHMS=(
-#    'GLOBAL_CHOMP'
-    'TNEWTON_PRECOND_RESTART'
+#    'CHOMP'
     'MMA'
     'CCSAQ'
-    'SLSQP'
     'LBFGS'
     'NEWTON'
+    'TNEWTON_RESTART'
+    'TNEWTON_PRECOND_RESTART'
     'VAR1'
     'VAR2'
-    'TNEWTON_RESTART'
     )
 
 GAMMAS=('0.8' '0.4' '0.2' '0.1' '0.05' '0.025'
@@ -27,7 +26,7 @@ for alg in ${ALGORITHMS[@]}; do
     
     for gamma in ${GAMMAS[@]}; do
         
-        if [ $alg == 'GLOBAL_CHOMP'   ] ||
+        if [ $alg == 'CHOMP'   ] ||
            [ $alg == 'TEST' ]; then
             
             for alpha in ${ALPHAS[@]}; do
@@ -39,10 +38,10 @@ for alg in ${ALGORITHMS[@]}; do
                 echo "../build/map2d_eval -A $alg -g $gamma $SETTINGS -a $alpha $MAP3A -o vel"
             done
         else 
-            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o accel -a 0.1    $MAP3A
-            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o vel   -a 0.1    $MAP3A
-            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o accel -a 0.1 -k $MAP3A
-            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o vel   -a 0.1 -k $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o accel   $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o vel     $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o accel  $MAP3A
+            ../build/map2d_demo -l $alg -g $gamma $SETTINGS -o vel    $MAP3A
 
             echo "../build/map2d_eval -A $alg -g $gamma -C $SETTINGS -a 0.1 -o vel $MAP3A "
         fi 
