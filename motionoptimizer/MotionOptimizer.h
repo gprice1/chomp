@@ -20,51 +20,117 @@
 
 
 namespace mopt {
+
+/**
+ * \enum OptimizationAlgorithm
+ * An enum that tells the MotionOptimizer class the type of 
+ * algorithm that will be used for optimization.
+ * All algorithms from the NLOPT optimization package are appended
+ * with '_NLOPT'
+ */    
 enum OptimizationAlgorithm {
-    LOCAL_CHOMP,
-    CHOMP,
-    TEST,
-    MMA_NLOPT,
-    CCSAQ_NLOPT,
-    SLSQP_NLOPT,
-    LBFGS_NLOPT,
-    TNEWTON_PRECOND_RESTART_NLOPT,
-    TNEWTON_RESTART_NLOPT,
-    TNEWTON_PRECOND_NLOPT,
-    TNEWTON_NLOPT,
-    VAR1_NLOPT,
-    VAR2_NLOPT,
-    NONE
+    LOCAL_CHOMP, ///< The local chomp algorithm, optimizes with gradient
+                 /// descent without using the metric
+    CHOMP,       ///< the standard CHOMP algorithm
+    TEST,        ///< An algorithm to test the interface between NLOPT and
+                 /// the problem description
+    MMA_NLOPT,   ///< The nlopt MMA algorithm
+    CCSAQ_NLOPT, ///< The nlopt MMA algorithm
+    SLSQP_NLOPT, ///< The nlopt MMA algorithm
+    LBFGS_NLOPT, ///< The nlopt MMA algorithm
+    TNEWTON_PRECOND_RESTART_NLOPT, ///< The nlopt Truncated Newton
+                                   /// algorithm with LBFGS preconditioner
+                                   /// and restarting
+    TNEWTON_RESTART_NLOPT, ///< The nlopt Truncated Newton algorithm with 
+                           /// restarting
+    TNEWTON_PRECOND_NLOPT, ///< The nlopt Truncated Newton algorithm with 
+                           /// and LBFGS preconditioner
+    TNEWTON_NLOPT, ///< The nlopt Truncated Newton algorithm
+    VAR1_NLOPT, ///< The nlopt VAR1 algorithm
+    VAR2_NLOPT, ///< The nlopt VAR2 algorithm
+    NONE        /// < a placeholder for no algorithm
 };
 
 
 #ifdef NLOPT_FOUND
+/**
+ * Converts between an nlopt::algorithm type and a
+ *  mopt::OptimizationAlgorithm type. 
+ */
 nlopt::algorithm getNLoptAlgorithm( OptimizationAlgorithm alg );
 #endif
 
+/**
+ * Takes an OptimizationAlgorithm enum and turns it into
+ * a string. Useful for printing information
+ * \param alg the algorithm to be stringified
+ */
 std::string algorithmToString( OptimizationAlgorithm alg );
 
+/**
+ * takes a string and turns it into an OptimizationAlgorithm
+ * \param str the string that will be turned into an OptimizationAlgorithm
+ * \sa OptimizationAlgorithm
+ */
 OptimizationAlgorithm algorithmFromString( const std::string & str );
 
+/**
+ * \class MotionOptimizer
+ * This is the main class that a user will interface with to
+ * do motion optimization. It is used by creating an optimizer,
+ * passing in arguments, and then calling solve()
+ */
 class MotionOptimizer {
     
 
   private:
-
+    
+    /**
+     * The description of the problem to be optimized.
+     * This variable is passed on to the optimizer and is
+     * the interface between the MotionOptimizer and the 
+     * optimizer.
+     */
     ProblemDescription problem;
     
+    /** 
+     * A pointer to an observer, if there is no observer for
+     * the given problem, then this variable is NULL.
+     */
     Observer * observer;
 
+    /** The max and min values of the length of the trajectory.
+     * If N_max is greater than N_min, then the MotionOptimizer
+     * will use upsampling to eventually get a trajectory >= N_max
+     */
     int N_max, N_min;
 
-    bool full_global_at_final, do_subsample;
+    /** 
+     * If this is set to true, then the algorithm will perform an
+     * optimization at full resolution as the last stage of optimzation.
+     * This variable is set to false as a default.
+     */ 
+    bool full_global_at_final;
 
-    double obstol, timeout_seconds, alpha;
+    /** 
+     * If this is set to false, then there will be no subsampling
+     * after stages of upsampling.
+     * By default, this variable is set to true.
+     */
+    bool do_subsample;
+
+    double obstol;
+    double timeout_seconds, alpha;
     size_t max_iterations;
 
     OptimizationAlgorithm algorithm1, algorithm2;
 
     const static char* TAG;
+
+
+    size_t workspace_dofs, number_of_bodies;
+    double gamma;
+    CollisionCostFunction * cost_function;
      
   public:
     //constructor.
@@ -151,8 +217,11 @@ class MotionOptimizer {
     const Trajectory & getTrajectory() const;
     void setTrajectory( const Trajectory & trajectory );
 
-    void setCollisionFunction( CollisionFunction * coll_func);
-    const CollisionFunction * getCollisionFunction() const;
+    void setCollisionCostFunction( CollisionCostFunction * coll_func,
+                                   size_t workspace_dofs,
+                                   size_t number_of_bodies,
+                                   double gamma);
+    const CollisionCostFunction * getCollisionCostFunction() const;
 
     void setObserver( Observer * obs );
     Observer * getObserver();
@@ -169,8 +238,6 @@ class MotionOptimizer {
     bool isCollisionConstraint() const ;
 
 };
-
-#include "MotionOptimizer-inl.h"
 
 }// namespace
 

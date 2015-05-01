@@ -11,6 +11,30 @@ Metric::Metric( int n ,
     initialize( n, otype, do_subsample, do_goalset );
 }
 
+bool Metric::isGoalset() const
+{
+    return goalset_coefficients.size() > 0;
+};
+    
+int Metric::size() const { return L.rows(); }
+
+int Metric::width()const { return L.cols(); }
+
+bool Metric::empty() const { return L.size() > 0; }
+
+double Metric::getLValue( int row_index, int col_index ) const 
+{
+    const int offset = coefficients.size() - 1;
+    return L(row_index, offset + col_index - row_index );
+}
+
+
+double Metric::getCoefficientValue( int row_index, int col_index ) const 
+{
+    const int offset = coefficients.size() - 1;
+    return coefficients( offset + col_index - row_index );
+}
+
 void Metric::initialize( int n ,
                          ObjectiveType otype,
                          bool do_subsample,

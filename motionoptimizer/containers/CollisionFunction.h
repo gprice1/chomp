@@ -40,6 +40,28 @@
 
 namespace mopt {
 
+class CollisionCostFunction {
+    
+  public:
+    CollisionCostFunction(){}
+    
+    virtual ~CollisionCostFunction(){}
+
+    // return the cost for a given configuration/body, along with jacobians
+    // q is the current configuration,
+    // body_index is the index of the current body element being
+    //      collision checked.
+    // dx_dq is the jacobian of workspace position
+    //       (workspace_DOFs X configuration_space_DOF)
+    // cgrad is the gradient (Jacobian transpose)
+    //       of cost with respect to workspace position
+    //       it should be a vector of shape: (workspace_DOF X 1)
+    virtual double getCost( const MatX& state,
+                            size_t current_index,
+                            MatX& dx_dq, 
+                            MatX& cgrad ) = 0;
+};
+    
 class CollisionFunction {
 
   private:
@@ -63,30 +85,15 @@ class CollisionFunction {
          wkspace_vel, wkspace_accel;
     MatX P, K; 
 
-  public:
-    // return the cost for a given configuration/body, along with jacobians
-    // q is the current configuration,
-    // body_index is the index of the current body element being
-    //      collision checked.
-    // dx_dq is the jacobian of workspace position
-    //       (workspace_DOFs X configuration_space_DOF)
-    // cgrad is the gradient (Jacobian transpose)
-    //       of cost with respect to workspace position
-    //       it should be a vector of shape: (workspace_DOF X 1)
-    typedef double (*CostFunction)(const MatX&, size_t,
-                                    MatX&,  MatX&, void * );
-  private:
-    CostFunction cost_function;
-    void * cost_function_data; 
-
+    CollisionCostFunction * cost_function;
+    
   public:
 
     CollisionFunction( size_t cspace_dofs,
                        size_t workspace_dofs, 
                        size_t n_bodies,
                        double gamma,
-                       CostFunction func,
-                       void * data = NULL );
+                       CollisionCostFunction * cost_function);
                         
     //evaluate the gradient of the objective function
     //  at the current trajectory
@@ -128,8 +135,7 @@ double CollisionFunction::evaluate(
 
         for (size_t u=0; u < number_of_bodies; ++u) {
 
-            float cost = (*cost_function)(q1, u, dx_dq, cgrad,
-                                      cost_function_data);
+            float cost = cost_function->getCost(q1, u, dx_dq, cgrad);
 
             debug_assert( size_t(dx_dq.rows()) == workspace_DOF );
             debug_assert( size_t(dx_dq.cols()) == configuration_space_DOF );

@@ -1,17 +1,6 @@
 #include "mzcommon/mersenne.h"
 #include "mzcommon/gauss.h"
 
-inline bool Metric::isGoalset() const
-{
-    return goalset_coefficients.size() > 0;
-};
-    
-inline int Metric::size() const { return L.rows(); }
-
-inline int Metric::width()const { return L.cols(); }
-
-inline bool Metric::empty() const { return L.size() > 0; }
-
 
 //the old diagmul call
 template <class Derived>        
@@ -40,23 +29,6 @@ void Metric::sampleNormalDistribution(
         result.row(i) /= getLValue( i, i );
     }
 }
-
-
-inline double Metric::getLValue( int row_index,
-                                 int col_index ) const 
-{
-    const int offset = coefficients.size() - 1;
-    return L(row_index, offset + col_index - row_index );
-}
-
-
-inline double Metric::getCoefficientValue( int row_index,
-                                           int col_index ) const 
-{
-    const int offset = coefficients.size() - 1;
-    return coefficients( offset + col_index - row_index );
-}
-
 
 template <class Derived1, class Derived2>
 void Metric::multiply(const Eigen::MatrixBase<Derived1>& original,
@@ -415,7 +387,6 @@ void Metric::multiplyGoalset(
     multiplyGoalset( original, result );
 }
 
-
 //This version of createBMatrix is used for goal set chomp.
 template <class Derived1, class Derived2>
 double Metric::createGoalsetBMatrix(
@@ -454,8 +425,9 @@ double Metric::createGoalsetBMatrix(
 
 template <class Derived>
 void Metric::solveCovariantBounds( const MatX & lower, const MatX & upper,
-                            const Eigen::MatrixBase<Derived> & covariant_lower_const,
-                            const Eigen::MatrixBase<Derived> & covariant_upper_const ) const
+                const Eigen::MatrixBase<Derived> & covariant_lower_const,
+                const Eigen::MatrixBase<Derived> & covariant_upper_const )
+const
 {
     
     assert( upper.size() > 0 && lower.size() > 0 );
@@ -463,7 +435,7 @@ void Metric::solveCovariantBounds( const MatX & lower, const MatX & upper,
     assert( upper.size() == covariant_upper_const.cols() );
     assert( covariant_lower_const.rows() == L.rows() );
     assert( covariant_upper_const.rows() == L.rows() );
-    
+     
     Eigen::MatrixBase<Derived> & covariant_upper = 
          const_cast<Eigen::MatrixBase<Derived>&>(covariant_upper_const);
     Eigen::MatrixBase<Derived> & covariant_lower = 

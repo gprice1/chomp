@@ -12,8 +12,9 @@ namespace mopt {
 class ConstraintFactory;
 
 class Trajectory {
-  public:
+  
 
+  private:
     double * data, * cached_data;
     DynamicMatMap xi;
     MatMap full_xi;
@@ -23,9 +24,13 @@ class Trajectory {
     ObjectiveType objective_type;
     
     static const char* TAG;
-  private:
     double dt, total_time;
     bool is_subsampled;
+
+    //this is a scratch variable for efficiently returning
+    //  ticks with border padding. Look at the function getTick. 
+    mutable MatX border_tick; 
+    
 
   public:
     Trajectory();
@@ -175,7 +180,7 @@ class Trajectory {
     
     //a small helper function to get states that smoothly fall
     //  off the positive and negative edges of the trajectory
-    inline MatX getTick(int tick) const;
+    MatX getTick(int tick) const;
     
     //utility functions for turning the trajectory into a 
     //  string, and then printing it.

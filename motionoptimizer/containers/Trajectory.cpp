@@ -601,6 +601,8 @@ void Trajectory::print() const{
     std::cout << toString();
 }
 
+
+
 void Trajectory::getNonCovariantTrajectory( const Metric & metric,
                                             Trajectory & other ) const
 {
@@ -666,5 +668,96 @@ void Trajectory::copyDataToOther( Trajectory & other ) const
     debug_status( TAG, "copyDataToOther", "end" );
 }
 
+
+void Trajectory::remapXi( int n, int full_n, int m ){
+    
+    //find out which inner stride to use.
+    //  if full_n is not equal to n, then we are subsampling,
+    //  and the correct stride is 2, otherwise, the correct stride is 1.
+    const int inner_stride = full_n == n ? 1 : 2;
+    
+    new (&xi) DynamicMatMap( data, n, m, 
+                             DynamicStride(full_n, inner_stride) );
+    new (&full_xi) MatMap( data, full_n, m);
+}
+
+//Update getTick to use row expressions
+/*
+ConstRow Trajectory::getTick( int tick ) const 
+{
+    if (tick < 0){ return q0.row(0) }
+    else if (tick >= n() ){ return q1.row(0);}
+    return xi.row( tick );
+}
+*/
+
+MatX Trajectory::getTick(int tick) const
+{
+    //if the tick is negative, get a state that falls off the
+    //  the edge of the trajectory
+    if (tick < 0) { return q0; }
+    
+    //if the tick is larger than the number of states,
+    //  get a state that falls off the positive edge of the
+    //  trajectory
+    if (tick >= N() ) { return q1;}
+
+    //if the tick corresponds to a state in the trajectory,
+    //  return the corresponding state.
+    return xi.row( tick );
+} 
+
+//lots of simple getters and setters.
+double * Trajectory::getData(){ return data; }
+const double * Trajectory::getData() const { return data; } 
+
+const DynamicMatMap & Trajectory::getTraj()const { return xi; }
+
+double Trajectory::getDt() const { return dt; }
+
+bool Trajectory::isSubsampled() const { return is_subsampled; }
+
+double & Trajectory::operator ()( int i, int j ){
+    return xi( i, j );
+}
+double const & Trajectory::operator()(int i, int j)const {
+    return xi( i, j );
+}
+
+int Trajectory::N() const { return xi.rows(); }
+int Trajectory::M() const { return xi.cols(); }
+
+int Trajectory::fullN() const { return full_xi.rows(); }
+int Trajectory::fullM() const { return full_xi.cols(); }
+
+int Trajectory::rows() const { return xi.rows();}
+int Trajectory::cols() const { return xi.cols();}
+
+int Trajectory::size() const { return xi.size();}
+
+const MatX & Trajectory::getQ0() const { return q0; }
+const MatX & Trajectory::getStartPoint() const { return q0; }
+
+const MatX & Trajectory::getQ1() const { return q1; };
+const MatX & Trajectory::getEndPoint() const { return q1; }
+
+//get individual matrix blocks or rows
+Row Trajectory::row( int i ) { return xi.row(i); }
+ConstRow Trajectory::row( int i ) const{ return xi.row(i); }
+
+Col Trajectory::col( int i ){  return xi.col(i); }
+ConstCol Trajectory::col( int i ) const { return xi.col(i); }
+
+const DynamicMatMap & Trajectory::getXi() const { return xi; } 
+const MatMap & Trajectory::getFullXi() const { return full_xi; } 
+
+void Trajectory::setObjectiveType( ObjectiveType otype)
+{
+    objective_type = otype;
+}
+ObjectiveType Trajectory::getObjectiveType() const
+{
+    return objective_type;
+}
 
 }//namespace

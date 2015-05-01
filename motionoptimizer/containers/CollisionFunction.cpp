@@ -44,16 +44,14 @@ CollisionFunction::CollisionFunction( size_t cspace_dofs,
                                       size_t workspace_dofs, 
                                       size_t n_bodies,
                                       double gamma,
-                                      CostFunction func,
-                                      void * data ) :
+                                      CollisionCostFunction * cost_func) :
     configuration_space_DOF( cspace_dofs ),
     workspace_DOF( workspace_dofs ),
     number_of_bodies( n_bodies ),
     gamma( gamma ),
     dx_dq( workspace_dofs, cspace_dofs ),
     cgrad( workspace_dofs, 1 ),
-    cost_function( func ),
-    cost_function_data( data )
+    cost_function( cost_func )
 {
 }
 
@@ -79,8 +77,7 @@ double CollisionFunction::evaluate( const Trajectory & trajectory )
 
       for (size_t u=0; u < number_of_bodies; ++u) {
 
-        float cost = (*cost_function)(q1, u, dx_dq, cgrad,
-                                      cost_function_data);
+        float cost = cost_function->getCost( q1, u, dx_dq, cgrad );
         if (cost > 0.0) {
 
           wkspace_vel = dx_dq * cspace_vel;

@@ -127,7 +127,6 @@ bool savePNG_RGB24(const std::string& filename,
 
   fclose(fp);
 
-
   return true;
 
 }
@@ -135,30 +134,36 @@ bool savePNG_RGB24(const std::string& filename,
 //////////////////////////////////////////////////////////////////////
 // function to help evaluate collisons for gradients
 
+class MapCostFunction : public CollisionCostFunction {
 
-double costFunction(const MatX& q, size_t body_index,
-               MatX& dx_dq, MatX& cgrad,
-               void * data) 
-{
-    assert( (q.rows() == 2 && q.cols() == 1) ||
-            (q.rows() == 1 && q.cols() == 2) );
+  private:
+    Map2D * map;
 
-    dx_dq.resize(3, 2);
-    dx_dq.setZero();
+  public:
+    MapCostFunction( Map2D * map ) : map( map ) {}
 
-    dx_dq << 1, 0, 0, 1, 0, 0;
+    virtual double getCost(const MatX& q, size_t body_index,
+                   MatX& dx_dq, MatX& cgrad ) 
+    {
+        assert( (q.rows() == 2 && q.cols() == 1) ||
+                (q.rows() == 1 && q.cols() == 2) );
 
-    cgrad.resize(3, 1);
+        dx_dq.resize(3, 2);
+        dx_dq.setZero();
 
-    vec3f g;
-    
-    Map2D * map = static_cast<Map2D*>( data );
-    float c = map->sampleCost(vec3f(q(0), q(1), 0.0), g);
+        dx_dq << 1, 0, 0, 1, 0, 0;
 
-    cgrad << g[0], g[1], 0.0;
+        cgrad.resize(3, 1);
 
-    return c;
-}
+        vec3f g;
+        
+        float c = map->sampleCost(vec3f(q(0), q(1), 0.0), g);
+
+        cgrad << g[0], g[1], 0.0;
+
+        return c;
+    }
+};
 
 //////////////////////////////////////////////////////////////////////
 // help generate an an initial trajectory
@@ -507,15 +512,17 @@ int main(int argc, char** argv) {
   MotionOptimizer chomper( NULL, errorTol, 0, max_iter );
   generateInitialTraj(chomper, N, p0, p1, q0, q1);
   
-  //create the collision function
-  CollisionFunction coll_func( 2, 3, 1, gamma, &costFunction, &map );
-  chomper.setCollisionFunction( &coll_func );
-
   chomper.getTrajectory().setObjectiveType( otype );
+  
+  MapCostFunction map_cost_func( &map );
+  chomper.setCollisionCostFunction( &map_cost_func,
+                                    3,
+                                    1,
+                                    gamma);
 
   DebugObserver dobs;
   chomper.setObserver( &dobs );
-
+ 
   chomper.setAlpha( alpha );
   
   chomper.setAlgorithm( alg ); 

@@ -25,7 +25,8 @@ MotionOptimizer::MotionOptimizer(Observer * observer,
     alpha( -1 ),
     max_iterations( max_iter ),
     algorithm1( alg1 ),
-    algorithm2( alg2 )
+    algorithm2( alg2 ),
+    cost_function( NULL )
 {
     debug << "MotionOptimizer initialized" << std::endl;
 }
@@ -35,6 +36,20 @@ void MotionOptimizer::solve(){
     debug_status( TAG, "solve", "start");
     
     N_min = problem.N();
+
+    //TODO have more thurough check of parameters to make sure that
+    //  everything is savy for optimization.
+    //  Checks to add: make sure that all of the stuff is
+    //      of hte proper dimesions
+    //check arguments sent to the problem 
+    CollisionFunction coll_func( problem.M(),
+                                 workspace_dofs,
+                                 number_of_bodies,
+                                 gamma,
+                                 cost_function );
+    if( cost_function ){
+        problem.collision_function = &coll_func;
+    }
 
     //optimize at the current resolution
     optimize( getOptimizer(algorithm1) );
@@ -291,5 +306,197 @@ OptimizationAlgorithm algorithmFromString( const std::string & str )
     
     else { return NONE; }
 }
+
+//simple getters and setters
+void MotionOptimizer::setNMax( int n_max ){ N_max = n_max; }
+int  MotionOptimizer::getNMax( ) const { return N_max; }
+
+void MotionOptimizer::setGoalset( Constraint * goal)
+{
+    problem.setGoalset(goal);
+}
+const Constraint * MotionOptimizer::getGoalset() const 
+{
+    return problem.getGoalset();
+}
+
+void MotionOptimizer::setTimeoutSeconds( double s )
+{ 
+    timeout_seconds = s;
+}
+double MotionOptimizer::getTimeoutSeconds() const
+{ 
+    return timeout_seconds;
+}
+
+void MotionOptimizer::setMaxIterations( size_t max )
+{ 
+    max_iterations = max; 
+}
+size_t MotionOptimizer::getMaxIterations() const
+{ 
+    return max_iterations;
+}
+
+void MotionOptimizer::setFunctionTolerance( double tol )
+{ 
+    obstol = tol;
+}
+double MotionOptimizer::getFunctionTolerance() const
+{ 
+    return obstol;
+}
+
+void MotionOptimizer::setAlgorithm(OptimizationAlgorithm a)
+{ 
+    algorithm1 = a;
+}
+
+OptimizationAlgorithm MotionOptimizer::getAlgorithm() const
+{ 
+    return algorithm1;
+}
+
+void MotionOptimizer::setAlgorithm1(OptimizationAlgorithm a1)
+{ 
+    algorithm1 = a1;
+}
+void MotionOptimizer::setAlgorithm2(OptimizationAlgorithm a2)
+{ 
+    algorithm2 = a2;
+}
+
+OptimizationAlgorithm MotionOptimizer::getAlgorithm1() const
+{ 
+    return algorithm1;
+}
+OptimizationAlgorithm MotionOptimizer::getAlgorithm2() const
+{ 
+    return algorithm2;
+}
+
+void MotionOptimizer::dontSubsample()
+{ 
+    do_subsample = false;
+}
+void MotionOptimizer::doSubsample()
+{ 
+    do_subsample = true;
+}
+void MotionOptimizer::setSubsample( bool subsample )
+{ 
+    do_subsample = subsample;
+}
+
+void MotionOptimizer::setAlpha( double a )
+{ 
+    alpha = a;
+}
+double MotionOptimizer::getAlpha() const
+{ 
+    return alpha;
+}
+
+void MotionOptimizer::doFullGlobalAtFinal()
+{ 
+    full_global_at_final = true;
+}
+void MotionOptimizer::dontFullGlobalAtFinal()
+{ 
+    full_global_at_final = false;
+}
+bool MotionOptimizer::getFullGlobalAtFinal() const
+{ 
+    return full_global_at_final;
+}
+
+Trajectory & MotionOptimizer::getTrajectory()
+{ 
+    return problem.trajectory;
+}
+
+const Trajectory & MotionOptimizer::getTrajectory() const 
+{ 
+    return problem.trajectory;
+}
+void MotionOptimizer::setTrajectory( const Trajectory & trajectory )
+{ 
+    problem.trajectory = trajectory;
+}
+
+void MotionOptimizer::setCollisionCostFunction( 
+                                CollisionCostFunction * coll_func,
+                                size_t wkspace_dofs,
+                                size_t n_bodies,
+                                double g)
+{
+    //TODO make this an error
+    assert( g > 0 );
+    assert( wkspace_dofs > 0 );
+    assert( n_bodies > 0 );
+    assert( coll_func != NULL );
+    
+    this->workspace_dofs = wkspace_dofs;
+    this->number_of_bodies = n_bodies;
+    this->gamma = g;
+    this->cost_function = coll_func;
+}
+
+const CollisionCostFunction * MotionOptimizer::getCollisionCostFunction()
+const
+{
+    return cost_function;
+}
+
+void MotionOptimizer::setObserver( Observer * obs )
+{ 
+    observer = obs;
+}
+
+Observer * MotionOptimizer::getObserver()
+{ 
+    return observer;
+}
+const Observer * MotionOptimizer::getObserver() const 
+{ 
+    return observer;
+}
+
+void MotionOptimizer::doCovariantOptimization()
+{ 
+    problem.is_covariant = true;
+}
+void MotionOptimizer::dontCovariantOptimization()
+{ 
+    problem.is_covariant = false;
+}
+void MotionOptimizer::setCovariantOptimization( bool covariant)
+{ 
+    problem.is_covariant = covariant;
+}
+bool MotionOptimizer::isCovariantOptimization() const
+{ 
+    return problem.isCovariantOptimization();
+}
+
+
+void MotionOptimizer::doCollisionConstraint()
+{
+    problem.collision_constraint = true;
+}
+void MotionOptimizer::dontCollisionConstraint()
+{
+    problem.collision_constraint = false;
+}
+void MotionOptimizer::setCollisionConstraint( 
+                                bool do_collision_constraint )
+{
+    problem.collision_constraint = do_collision_constraint;
+}
+bool MotionOptimizer::isCollisionConstraint() const
+{
+    return problem.collision_constraint;
+}
+
 
 }//namespace
