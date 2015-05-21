@@ -71,7 +71,9 @@ class CollisionFunction {
                        size_t workspace_dofs, 
                        size_t n_bodies,
                        double gamma);
-                        
+
+    virtual ~CollisionFunction(){}
+
     //evaluate the gradient of the objective function
     //  at the current trajectory
     template <class Derived>
@@ -96,9 +98,14 @@ class CollisionFunction {
     virtual double getCost( const MatX& state,
                             size_t current_index,
                             MatX& dx_dq, 
-                            MatX& collision_gradient ) = 0;
+                            MatX& collision_gradient ){ return 0;};
 
-    double projectCost( double cost, bool setGradient = true);
+    template< class Derived1, class Derived2 >
+    double projectCost( double cost,
+                        const Eigen::MatrixBase<Derived1> & jacobian,
+                        const Eigen::MatrixBase<Derived2> & coll_grad,
+                        bool set_gradient );
+
 
 };
 
@@ -121,6 +128,15 @@ double CollisionFunction::evaluate(
     double total = 0.0;
 
     for (int t=0; t < trajectory.rows() ; ++t) {
+        q0 = q1;
+        q1 = q2;
+        q2 = trajectory.getTick( t+1 ).transpose();
+
+        cspace_vel = 0.5 * (q2 - q0) / dt;        
+        cspace_accel = (q0 - 2.0*q1 + q2) / (dt * dt);
+
+        gradient_t.setZero();
+
         total += evaluateTimestep( t, trajectory );
         g.row(t) += gradient_t;
     }

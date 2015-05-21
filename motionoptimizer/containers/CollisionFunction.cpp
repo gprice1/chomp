@@ -47,9 +47,6 @@ CollisionFunction::CollisionFunction( size_t cspace_dofs,
     workspace_DOF( workspace_dofs ),
     number_of_bodies( n_bodies ),
     gamma( gamma ),
-    dx_dq( workspace_dofs, cspace_dofs ),
-    collision_gradient( workspace_dofs, 1 ),
-    gradient_t( 1, cspace_dofs )
 {
 }
 
@@ -65,6 +62,13 @@ double CollisionFunction::evaluate( const Trajectory & trajectory )
 
     for (int t=0; t < trajectory.rows() ; ++t) {
 
+        q0 = q1;
+        q1 = q2;
+        q2 = trajectory.getTick( t+1 ).transpose();
+
+        cspace_vel = 0.5 * (q2 - q0) / dt;        
+        cspace_accel = (q0 - 2.0*q1 + q2) / (dt * dt);
+
         total += evaluateTimestep( t, trajectory, false );
 
     }
@@ -76,15 +80,6 @@ double CollisionFunction::evaluateTimestep( int t,
                                             const Trajectory & trajectory,
                                             bool set_gradient )
 {
-
-    q0 = q1;
-    q1 = q2;
-    q2 = trajectory.getTick( t+1 ).transpose();
-
-    cspace_vel = 0.5 * (q2 - q0) / dt;        
-    cspace_accel = (q0 - 2.0*q1 + q2) / (dt * dt);
-
-    gradient_t.setZero();
     
     double total = 0;
 
@@ -96,7 +91,9 @@ double CollisionFunction::evaluateTimestep( int t,
         debug_assert( size_t(dx_dq.cols()) == configuration_space_DOF );
 
         if (cost > 0.0) {
-            total += projectCost( cost, set_gradient );
+            total += projectCost( cost, dx_dq,
+                                  collision_gradient,
+                                  set_gradient );
         }
     }
     
@@ -104,9 +101,15 @@ double CollisionFunction::evaluateTimestep( int t,
 }
 
 
-double CollisionFunction::projectCost( double cost, bool set_gradient ){
+template< class Derived1, class Derived2 >
+double CollisionFunction::projectCost(
+                           double cost,
+                           const Eigen::MatrixBase<Derived1> & jacobian,
+                           const Eigen::MatrixBase<Derived2> & coll_grad,
+                           bool set_gradient )
+{
     
-    wkspace_vel = dx_dq * cspace_vel;
+    wkspace_vel = jacobian * cspace_vel;
 
     //this prevents nans from propagating.
     //   Several lines below,  wkspace_vel /= wv_norm
@@ -120,7 +123,7 @@ double CollisionFunction::projectCost( double cost, bool set_gradient ){
     if ( set_gradient ){
         wkspace_vel /= wv_norm;
         
-        wkspace_accel = dx_dq * cspace_accel;
+        wkspace_accel = jacobian * cspace_accel;
 
         P = MatX::Identity(workspace_DOF, workspace_DOF)
             - (wkspace_vel * wkspace_vel.transpose());
@@ -128,8 +131,8 @@ double CollisionFunction::projectCost( double cost, bool set_gradient ){
         K = (P * wkspace_accel) / (wv_norm * wv_norm);
 
         // scalar * M-by-W        * (WxW * Wx1   - scalar * Wx1)
-        gradient_t += (scl * (dx_dq.transpose() *
-                      (P * collision_gradient - cost * K)).transpose());
+        gradient_t += (scl * (jacobian.transpose() *
+                      (P * coll_grad - cost * K)).transpose());
     }
 
     return cost * scl;
