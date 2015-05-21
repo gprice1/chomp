@@ -14,5 +14,5 @@ target_link_libraries( containers mzcommon )
 if( BUILD_TESTS )
     add_executable(testmetric testmetric.cpp )
     target_link_libraries( testmetric containers ) 
-endif( BUILD_TEST )
+endif( BUILD_TESTS )
 
