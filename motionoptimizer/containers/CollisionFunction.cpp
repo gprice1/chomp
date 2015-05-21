@@ -46,7 +46,7 @@ CollisionFunction::CollisionFunction( size_t cspace_dofs,
     configuration_space_DOF( cspace_dofs ),
     workspace_DOF( workspace_dofs ),
     number_of_bodies( n_bodies ),
-    gamma( gamma ),
+    gamma( gamma )
 {
 }
 
