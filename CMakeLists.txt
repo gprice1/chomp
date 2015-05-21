@@ -2,6 +2,10 @@
 cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_BUILD_TYPE Debug)
+
+set(BUILD_DEMOS TRUE)
+set(BUILD_TESTS FALSE)
+
 project(CHOMP_MULTIGRID)
 
 include(mzsettings.cmake)
@@ -22,7 +26,9 @@ include_directories(mzcommon)
 add_subdirectory(motionoptimizer)
 include_directories( motionoptimizer )
 
-add_subdirectory( demo )
+if( BUILD_DEMOS )
+    add_subdirectory( demo )
+endif( BUILD_DEMOS )
 
 link_directories ( ${CMAKE_CURRENT_SOURCE_DIR}/mzcommon
                    ${CMAKE_CURRENT_SOURCE_DIR}/motionoptimizer

@@ -11,6 +11,8 @@ set( SOURCE
 add_library(containers ${LIBRARY_TYPE} ${SOURCE} )
 target_link_libraries( containers mzcommon )
 
-add_executable(testmetric testmetric.cpp )
-target_link_libraries( testmetric containers ) 
+if( BUILD_TESTS )
+    add_executable(testmetric testmetric.cpp )
+    target_link_libraries( testmetric containers ) 
+endif( BUILD_TEST )
 

@@ -127,11 +127,6 @@ class MotionOptimizer {
 
     const static char* TAG;
 
-
-    size_t workspace_dofs, number_of_bodies;
-    double gamma;
-    CollisionCostFunction * cost_function;
-     
   public:
     //constructor.
     MotionOptimizer( Observer * observer = NULL,
@@ -217,11 +212,8 @@ class MotionOptimizer {
     const Trajectory & getTrajectory() const;
     void setTrajectory( const Trajectory & trajectory );
 
-    void setCollisionCostFunction( CollisionCostFunction * coll_func,
-                                   size_t workspace_dofs,
-                                   size_t number_of_bodies,
-                                   double gamma);
-    const CollisionCostFunction * getCollisionCostFunction() const;
+    void setCollisionFunction( CollisionFunction * coll_func);
+    const CollisionFunction * getCollisionFunction() const;
 
     void setObserver( Observer * obs );
     Observer * getObserver();

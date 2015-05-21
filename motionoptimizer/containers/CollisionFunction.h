@@ -40,27 +40,6 @@
 
 namespace mopt {
 
-class CollisionCostFunction {
-    
-  public:
-    CollisionCostFunction(){}
-    
-    virtual ~CollisionCostFunction(){}
-
-    // return the cost for a given configuration/body, along with jacobians
-    // q is the current configuration,
-    // body_index is the index of the current body element being
-    //      collision checked.
-    // dx_dq is the jacobian of workspace position
-    //       (workspace_DOFs X configuration_space_DOF)
-    // cgrad is the gradient (Jacobian transpose)
-    //       of cost with respect to workspace position
-    //       it should be a vector of shape: (workspace_DOF X 1)
-    virtual double getCost( const MatX& state,
-                            size_t current_index,
-                            MatX& dx_dq, 
-                            MatX& cgrad ) = 0;
-};
     
 class CollisionFunction {
 
@@ -71,13 +50,14 @@ class CollisionFunction {
     size_t workspace_DOF;
     size_t number_of_bodies;
 
-    double gamma;
+    double gamma, dt;
 
     //the jacobian that maps between work and configuration space
     MatX dx_dq;
 
     //The vector that is the collision gradient in workspace.
-    MatX cgrad;
+    MatX collision_gradient;
+    MatX gradient_t;
     
     //Working variables for the collision gradient computation
     MatX q0, q1, q2;
@@ -85,23 +65,40 @@ class CollisionFunction {
          wkspace_vel, wkspace_accel;
     MatX P, K; 
 
-    CollisionCostFunction * cost_function;
-    
   public:
 
     CollisionFunction( size_t cspace_dofs,
                        size_t workspace_dofs, 
                        size_t n_bodies,
-                       double gamma,
-                       CollisionCostFunction * cost_function);
+                       double gamma);
                         
     //evaluate the gradient of the objective function
     //  at the current trajectory
     template <class Derived>
     double evaluate( const Trajectory & trajectory,
                      const Eigen::MatrixBase<Derived> & g_const);
-
     double evaluate( const Trajectory & trajectory );
+
+  private:
+    virtual double evaluateTimestep( int t,
+                                     const Trajectory & trajectory,
+                                     bool set_gradient = true );
+    
+    // return the cost for a given configuration/body, along with jacobians
+    // q is the current configuration,
+    // body_index is the index of the current body element being
+    //      collision checked.
+    // dx_dq is the jacobian of workspace position
+    //       (workspace_DOFs X configuration_space_DOF)
+    // collision_gradient is the gradient (Jacobian transpose)
+    //       of cost with respect to workspace position
+    //       it should be a vector of shape: (workspace_DOF X 1)
+    virtual double getCost( const MatX& state,
+                            size_t current_index,
+                            MatX& dx_dq, 
+                            MatX& collision_gradient ) = 0;
+
+    double projectCost( double cost, bool setGradient = true);
 
 };
 
@@ -119,56 +116,13 @@ double CollisionFunction::evaluate(
     q1 = trajectory.getTick( -1 ).transpose();
     q2 = trajectory.getTick( 0  ).transpose();
     
-    const double inv_dt = 1/trajectory.getDt();
-    const double inv_dt_squared = inv_dt * inv_dt;
-
+    dt = trajectory.getDt();
+    
     double total = 0.0;
 
     for (int t=0; t < trajectory.rows() ; ++t) {
-
-        q0 = q1;
-        q1 = q2;
-        q2 = trajectory.getTick( t+1 ).transpose();
-
-        cspace_vel = 0.5 * (q2 - q0) * inv_dt;        
-        cspace_accel = (q0 - 2.0*q1 + q2) * inv_dt_squared;
-
-        for (size_t u=0; u < number_of_bodies; ++u) {
-
-            float cost = cost_function->getCost(q1, u, dx_dq, cgrad);
-
-            debug_assert( size_t(dx_dq.rows()) == workspace_DOF );
-            debug_assert( size_t(dx_dq.cols()) == configuration_space_DOF );
-
-            if (cost > 0.0) {
-
-                wkspace_vel = dx_dq * cspace_vel;
-
-                //this prevents nans from propagating.
-                //   Several lines below,  wkspace_vel /= wv_norm
-                //   if wv_norm is zero, nans propogate.
-                if (wkspace_vel.isZero()){ continue; }
-
-                wkspace_accel = dx_dq * cspace_accel;
-              
-                float wv_norm = wkspace_vel.norm();
-                wkspace_vel /= wv_norm;
-
-                // add to total
-                double scl = wv_norm * gamma * trajectory.getDt();
-
-                total += cost * scl;
-              
-                P = MatX::Identity(workspace_DOF, workspace_DOF)
-                    - (wkspace_vel * wkspace_vel.transpose());
-
-                K = (P * wkspace_accel) / (wv_norm * wv_norm);
-
-                // scalar * M-by-W        * (WxW * Wx1   - scalar * Wx1)
-                g.row(t) += (scl * (dx_dq.transpose() *
-                          (P * cgrad - cost * K)).transpose());
-            }
-        }
+        total += evaluateTimestep( t, trajectory );
+        g.row(t) += gradient_t;
     }
 
     return total;

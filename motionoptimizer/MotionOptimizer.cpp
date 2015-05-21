@@ -25,31 +25,17 @@ MotionOptimizer::MotionOptimizer(Observer * observer,
     alpha( -1 ),
     max_iterations( max_iter ),
     algorithm1( alg1 ),
-    algorithm2( alg2 ),
-    cost_function( NULL )
+    algorithm2( alg2 )
 {
-    debug << "MotionOptimizer initialized" << std::endl;
 }
 
-void MotionOptimizer::solve(){
+void MotionOptimizer::solve()
+{
     
     debug_status( TAG, "solve", "start");
     
     N_min = problem.N();
 
-    //TODO have more thurough check of parameters to make sure that
-    //  everything is savy for optimization.
-    //  Checks to add: make sure that all of the stuff is
-    //      of hte proper dimesions
-    //check arguments sent to the problem 
-    CollisionFunction coll_func( problem.M(),
-                                 workspace_dofs,
-                                 number_of_bodies,
-                                 gamma,
-                                 cost_function );
-    if( cost_function ){
-        problem.collision_function = &coll_func;
-    }
 
     //optimize at the current resolution
     optimize( getOptimizer(algorithm1) );
@@ -62,7 +48,10 @@ void MotionOptimizer::solve(){
         //upsample the trajectory and prepare for the next
         //  stage of optimization.
         problem.upsample();
-
+        
+        //if we are subsampling, optimize at the current
+        //  resolution with subsamling,
+        //  then optimize without subsampling.
         if (do_subsample ){
             optimize( getOptimizer( algorithm1 ), true );
 
@@ -71,6 +60,7 @@ void MotionOptimizer::solve(){
                                          algorithm2);
             optimize( getOptimizer( alg ) );
             
+        //if we are not subsampling, optimize without subsampling
         }else  {
             optimize( getOptimizer( algorithm1 ));
         }
@@ -86,14 +76,17 @@ void MotionOptimizer::solve(){
 }
 
 
+
 void MotionOptimizer::optimize( OptimizerBase * optimizer, 
-                                bool subsample ){
+                                bool subsample )
+{
     
     //if the optimizer is NULL, do not evaluate it.
     if ( !optimizer ) { return; }
 
     debug_status( TAG, "optimize", "start");
     
+    //prepare the problem to be run at the current resolution
     problem.prepareRun( subsample );
     
     //do not optimize if the observer throws an error.
@@ -103,10 +96,15 @@ void MotionOptimizer::optimize( OptimizerBase * optimizer,
     } else {
         debug << "Observer threw error on INIT, stopping optimization\n";
     }
-
+    
+    //the run is over, so tell the problem to clean up stuff
+    //  pertaning to the previous run.
     problem.endRun();
     
+    //notify the the finish
     optimizer->notify( FINISH );
+
+    //delete the used optimizer.
     delete optimizer;
 
 
@@ -127,6 +125,10 @@ OptimizerBase * MotionOptimizer::getOptimizer(OptimizationAlgorithm alg )
         alg = CHOMP;
     }
     
+    //Collision constraints should not be run with 'chomp-like'
+    //  algorithms because 
+    //  1) they have not been hooked up to it
+    //  2) they were designed with collision as a soft constraint.
     if ( (alg == LOCAL_CHOMP || alg == CHOMP || alg == TEST ) &&
           problem.collision_constraint)
     {
@@ -424,28 +426,17 @@ void MotionOptimizer::setTrajectory( const Trajectory & trajectory )
     problem.trajectory = trajectory;
 }
 
-void MotionOptimizer::setCollisionCostFunction( 
-                                CollisionCostFunction * coll_func,
-                                size_t wkspace_dofs,
-                                size_t n_bodies,
-                                double g)
+void MotionOptimizer::setCollisionFunction(CollisionFunction * coll_func)
 {
-    //TODO make this an error
-    assert( g > 0 );
-    assert( wkspace_dofs > 0 );
-    assert( n_bodies > 0 );
     assert( coll_func != NULL );
     
-    this->workspace_dofs = wkspace_dofs;
-    this->number_of_bodies = n_bodies;
-    this->gamma = g;
-    this->cost_function = coll_func;
+    problem.collision_function = coll_func;
 }
 
-const CollisionCostFunction * MotionOptimizer::getCollisionCostFunction()
+const CollisionFunction * MotionOptimizer::getCollisionFunction()
 const
 {
-    return cost_function;
+    return problem.collision_function;
 }
 
 void MotionOptimizer::setObserver( Observer * obs )

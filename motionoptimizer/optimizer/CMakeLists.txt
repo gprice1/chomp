@@ -18,9 +18,11 @@ if ( NLOPT_FOUND )
        )
 
     set( LINK_LIBS ${NLOPT_LIBRARIES} )
-
-    add_executable(nlopt_test nlopt_test.cpp)
-    target_link_libraries( nlopt_test ${NLOPT_LIBRARIES} )
+    
+    if( BUILD_TESTS )
+        add_executable(nlopt_test nlopt_test.cpp)
+        target_link_libraries( nlopt_test ${NLOPT_LIBRARIES} )
+    endif( BUILD_TESTS )
 
 endif( NLOPT_FOUND )
 

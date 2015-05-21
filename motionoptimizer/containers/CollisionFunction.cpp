@@ -37,21 +37,19 @@
 
 namespace mopt {
 
-
 const char* CollisionFunction::TAG = "CollisionFunction";
 
 CollisionFunction::CollisionFunction( size_t cspace_dofs,
                                       size_t workspace_dofs, 
                                       size_t n_bodies,
-                                      double gamma,
-                                      CollisionCostFunction * cost_func) :
+                                      double gamma) :
     configuration_space_DOF( cspace_dofs ),
     workspace_DOF( workspace_dofs ),
     number_of_bodies( n_bodies ),
     gamma( gamma ),
     dx_dq( workspace_dofs, cspace_dofs ),
-    cgrad( workspace_dofs, 1 ),
-    cost_function( cost_func )
+    collision_gradient( workspace_dofs, 1 ),
+    gradient_t( 1, cspace_dofs )
 {
 }
 
@@ -61,48 +59,81 @@ double CollisionFunction::evaluate( const Trajectory & trajectory )
     q1 = trajectory.getTick( -1 ).transpose();
     q2 = trajectory.getTick( 0  ).transpose();
     
-    const double inv_dt = 1/trajectory.getDt();
-    const double inv_dt_squared = inv_dt * inv_dt;
+    dt = trajectory.getDt();
 
     double total = 0.0;
 
     for (int t=0; t < trajectory.rows() ; ++t) {
 
-      q0 = q1;
-      q1 = q2;
-      q2 = trajectory.getTick( t+1 ).transpose();
+        total += evaluateTimestep( t, trajectory, false );
 
-      cspace_vel = 0.5 * (q2 - q0) * inv_dt;        
-      cspace_accel = (q0 - 2.0*q1 + q2) * inv_dt_squared;
-
-      for (size_t u=0; u < number_of_bodies; ++u) {
-
-        float cost = cost_function->getCost( q1, u, dx_dq, cgrad );
-        if (cost > 0.0) {
-
-          wkspace_vel = dx_dq * cspace_vel;
-
-          //this prevents nans from propagating. Several lines below, 
-          //    wkspace_vel /= wv_norm if wv_norm is zero, nans propogate.
-          if (wkspace_vel.isZero()){ continue; }
-
-          float wv_norm = wkspace_vel.norm();
-
-          // add to total
-          double scl = wv_norm * gamma * trajectory.getDt();
-
-          total += cost * scl;
-         
-        }
-      }
     }
     return total;
 }
 
 
+double CollisionFunction::evaluateTimestep( int t, 
+                                            const Trajectory & trajectory,
+                                            bool set_gradient )
+{
+
+    q0 = q1;
+    q1 = q2;
+    q2 = trajectory.getTick( t+1 ).transpose();
+
+    cspace_vel = 0.5 * (q2 - q0) / dt;        
+    cspace_accel = (q0 - 2.0*q1 + q2) / (dt * dt);
+
+    gradient_t.setZero();
+    
+    double total = 0;
+
+    for (size_t u=0; u < number_of_bodies; ++u) {
+
+        float cost = getCost(q1, u, dx_dq, collision_gradient);
+
+        debug_assert( size_t(dx_dq.rows()) == workspace_DOF );
+        debug_assert( size_t(dx_dq.cols()) == configuration_space_DOF );
+
+        if (cost > 0.0) {
+            total += projectCost( cost, set_gradient );
+        }
+    }
+    
+    return total;
+}
 
 
+double CollisionFunction::projectCost( double cost, bool set_gradient ){
+    
+    wkspace_vel = dx_dq * cspace_vel;
 
+    //this prevents nans from propagating.
+    //   Several lines below,  wkspace_vel /= wv_norm
+    //   if wv_norm is zero, nans propogate.
+    if (wkspace_vel.isZero()){ return 0; }
+    
+    float wv_norm = wkspace_vel.norm();
+    
+    double scl = wv_norm * gamma * dt;
+
+    if ( set_gradient ){
+        wkspace_vel /= wv_norm;
+        
+        wkspace_accel = dx_dq * cspace_accel;
+
+        P = MatX::Identity(workspace_DOF, workspace_DOF)
+            - (wkspace_vel * wkspace_vel.transpose());
+
+        K = (P * wkspace_accel) / (wv_norm * wv_norm);
+
+        // scalar * M-by-W        * (WxW * Wx1   - scalar * Wx1)
+        gradient_t += (scl * (dx_dq.transpose() *
+                      (P * collision_gradient - cost * K)).transpose());
+    }
+
+    return cost * scl;
+}
 
 }// namespace
 

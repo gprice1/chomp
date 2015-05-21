@@ -134,16 +134,23 @@ bool savePNG_RGB24(const std::string& filename,
 //////////////////////////////////////////////////////////////////////
 // function to help evaluate collisons for gradients
 
-class MapCostFunction : public CollisionCostFunction {
+class MapCollisionFunction : public CollisionFunction {
 
   private:
     Map2D * map;
 
   public:
-    MapCostFunction( Map2D * map ) : map( map ) {}
+    MapCollisionFunction( size_t cspace_dofs,
+                          size_t workspace_dofs, 
+                          size_t n_bodies,
+                          double gamma,
+                          Map2D * map ) :
+        CollisionFunction(cspace_dofs, workspace_dofs, n_bodies, gamma ),
+        map( map )
+    {}
 
     virtual double getCost(const MatX& q, size_t body_index,
-                   MatX& dx_dq, MatX& cgrad ) 
+                           MatX& dx_dq, MatX& cgrad ) 
     {
         assert( (q.rows() == 2 && q.cols() == 1) ||
                 (q.rows() == 1 && q.cols() == 2) );
@@ -514,11 +521,14 @@ int main(int argc, char** argv) {
   
   chomper.getTrajectory().setObjectiveType( otype );
   
-  MapCostFunction map_cost_func( &map );
-  chomper.setCollisionCostFunction( &map_cost_func,
-                                    3,
-                                    1,
-                                    gamma);
+  MapCollisionFunction map_collision_function(
+                             2,
+                             3,
+                             1,
+                             gamma,
+                             &map );
+
+  chomper.setCollisionFunction( &map_collision_function);
 
   DebugObserver dobs;
   chomper.setObserver( &dobs );

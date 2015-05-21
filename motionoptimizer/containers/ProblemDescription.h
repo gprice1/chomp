@@ -68,7 +68,7 @@ public:
     template <class Derived> 
     double evaluateCollisionFunction(const Eigen::MatrixBase<Derived> & g);
     double evaluateCollisionFunction( const double * xi=NULL,
-                                             double * g=NULL );
+                                            double * g=NULL );
      
     template <class Derived>
     double evaluateObjective( const Eigen::MatrixBase<Derived> & g );
