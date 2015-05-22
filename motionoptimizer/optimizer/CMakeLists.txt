@@ -10,7 +10,7 @@ set( SOURCE
    )
  
 
-if ( NLOPT_FOUND )
+if ( NLOPT_FOUND AND USE_NLOPT )
     
     set( SOURCE 
          ${CMAKE_CURRENT_SOURCE_DIR}/NLOptimizer.cpp
@@ -24,7 +24,7 @@ if ( NLOPT_FOUND )
         target_link_libraries( nlopt_test ${NLOPT_LIBRARIES} )
     endif( BUILD_TESTS )
 
-endif( NLOPT_FOUND )
+endif()
 
 add_library( optimizer ${LIBRARY_TYPE}  ${SOURCE} )
 target_link_libraries( optimizer ${LINK_LIBS} containers)
