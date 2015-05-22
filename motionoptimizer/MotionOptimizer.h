@@ -188,12 +188,16 @@ class MotionOptimizer {
     void setFunctionTolerance( double tol );
     double getFunctionTolerance() const;
     
-    void setAlgorithm(OptimizationAlgorithm a);
-    OptimizationAlgorithm getAlgorithm() const;
-
+    void setAlgorithm(OptimizationAlgorithm a1, OptimizationAlgorithm a2=NONE);
     void setAlgorithm1(OptimizationAlgorithm a1);
     void setAlgorithm2(OptimizationAlgorithm a2);
     
+    void setAlgorithm( const std::string & alg1,
+                       const std::string & alg2="NONE");
+    void setAlgorithm1( const std::string & alg_string );
+    void setAlgorithm2( const std::string & alg_string );
+    
+    OptimizationAlgorithm getAlgorithm() const;
     OptimizationAlgorithm getAlgorithm1() const;
     OptimizationAlgorithm getAlgorithm2() const;
 

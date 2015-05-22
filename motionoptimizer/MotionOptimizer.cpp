@@ -349,15 +349,14 @@ double MotionOptimizer::getFunctionTolerance() const
     return obstol;
 }
 
-void MotionOptimizer::setAlgorithm(OptimizationAlgorithm a)
+void MotionOptimizer::setAlgorithm(OptimizationAlgorithm a1,
+                                   OptimizationAlgorithm a2)
 { 
-    algorithm1 = a;
+    algorithm1 = a1;
+    algorithm2 = a2;
 }
 
-OptimizationAlgorithm MotionOptimizer::getAlgorithm() const
-{ 
-    return algorithm1;
-}
+
 
 void MotionOptimizer::setAlgorithm1(OptimizationAlgorithm a1)
 { 
@@ -368,6 +367,26 @@ void MotionOptimizer::setAlgorithm2(OptimizationAlgorithm a2)
     algorithm2 = a2;
 }
 
+void MotionOptimizer::setAlgorithm( const std::string & a1, 
+                                    const std::string & a2)
+{
+    algorithm1 = algorithmFromString( a1 ); 
+    algorithm2 = algorithmFromString( a2 ); 
+}
+void MotionOptimizer::setAlgorithm1( const std::string & a1)
+{
+    algorithm1 = algorithmFromString( a1 ); 
+}
+
+void MotionOptimizer::setAlgorithm2( const std::string & a2) 
+{
+    algorithm2 = algorithmFromString( a2 ); 
+}
+
+OptimizationAlgorithm MotionOptimizer::getAlgorithm() const
+{ 
+    return algorithm1;
+}
 OptimizationAlgorithm MotionOptimizer::getAlgorithm1() const
 { 
     return algorithm1;
