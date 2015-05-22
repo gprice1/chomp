@@ -228,6 +228,14 @@ class MotionOptimizer {
     void dontCollisionConstraint();
     void setCollisionConstraint( bool do_collision_constraint );
     bool isCollisionConstraint() const ;
+    
+    //TODO implement.
+    void doMomentum(){}
+    void dontMomentum(){}
+    void setMomentum( bool momentum ){}
+
+    void setHMC( double lambda ){}
+    double getHMC() const { return 0.0; }
 
 };
 

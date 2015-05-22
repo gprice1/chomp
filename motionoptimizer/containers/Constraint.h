@@ -35,7 +35,7 @@
 #define _CONSTRAINT_H_
 
 #include "../utils/utils.h"
-#include "Transform3.h"
+#include "mzcommon/Transform3.h"
 #include <vector>
 
 namespace mopt {

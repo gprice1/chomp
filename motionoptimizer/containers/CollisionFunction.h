@@ -51,10 +51,11 @@ class CollisionFunction {
     size_t number_of_bodies;
 
     double gamma, dt;
-
+    
+  protected:
     //the jacobian that maps between work and configuration space
     MatX dx_dq;
-
+    
     //The vector that is the collision gradient in workspace.
     MatX collision_gradient;
     MatX gradient_t;
@@ -81,7 +82,13 @@ class CollisionFunction {
                      const Eigen::MatrixBase<Derived> & g_const);
     double evaluate( const Trajectory & trajectory );
 
-  private:
+    size_t getNumberOfBodies() const { return number_of_bodies; }
+    size_t getWorkspaceDOF() const { return workspace_DOF; }
+    size_t getConfigurationSpaceDOF() const { return configuration_space_DOF; }
+
+    void setNumberOfBodies( size_t size ){ number_of_bodies = size; }
+
+  protected:
     virtual double evaluateTimestep( int t,
                                      const Trajectory & trajectory,
                                      bool set_gradient = true );
