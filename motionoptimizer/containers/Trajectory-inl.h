@@ -50,11 +50,12 @@ void Trajectory::initializeData( const Eigen::MatrixBase<Derived> & pinit,
                                  const Eigen::MatrixBase<Derived> & pgoal,
                                  int n )
 {
+    debug_status( TAG, "initializeData", "start" );
+
     q0 = pinit;
     q1 = pgoal;
 
-    const int m = q0.size();
-
+    debug_status( TAG, "initializeData", "early middle" );
     //if there is previously existant data,
     //  delete it.
     if (cached_data){ 
@@ -64,17 +65,23 @@ void Trajectory::initializeData( const Eigen::MatrixBase<Derived> & pinit,
         delete data;
     }
     
+    debug_status( TAG, "initializeData", "middle" );
+    
+    const int m = q0.size();
     //allocate the data
     data = new double[ n * m ];
 
     //remap the data
     remapXi( n, n, m );
 
+    debug_status( TAG, "initializeData", "before create initial" );
+    
     //copy over the data from the trajectory
     createInitialTrajectory();
 
     dt = total_time / xi.rows()+1;
     
+    debug_status( TAG, "initializeData", "end" );
 }
 
 

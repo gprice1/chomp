@@ -10,6 +10,11 @@ set(USE_NLOPT FALSE)
 project(CHOMP_MULTIGRID)
 
 include(mzsettings.cmake)
+if ( NOT USE_NLOPT )
+    set( NLOPT_FOUND FALSE )
+else()
+    add_definitions( -DNLOPT_FOUND )
+endif()
 
 set(BASE_LIBS
   ${OPENGL_LIBRARY}

@@ -10,7 +10,7 @@ set( SOURCE
    )
  
 
-if ( NLOPT_FOUND AND USE_NLOPT )
+if ( NLOPT_FOUND )
     
     set( SOURCE 
          ${CMAKE_CURRENT_SOURCE_DIR}/NLOptimizer.cpp
