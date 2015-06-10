@@ -1,13 +1,11 @@
 # CMakeLists.txt for hubomz
 cmake_minimum_required(VERSION 2.6)
 
-set(CMAKE_BUILD_TYPE Debug)
-
 set(BUILD_DEMOS TRUE)
 set(BUILD_TESTS FALSE)
 set(USE_NLOPT FALSE)
 
-project(CHOMP_MULTIGRID)
+project(CHOMP)
 
 include(mzsettings.cmake)
 if ( NOT USE_NLOPT )

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2014, Matt Zucker
+* Copyright (c) 2008-2014, Matt Zucker and Temple Price
 *
 * This file is provided under the following "BSD-style" License:
 *

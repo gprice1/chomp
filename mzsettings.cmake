@@ -57,6 +57,8 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O -pg")
 set(CMAKE_C_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -pg")
+
 macro(add_gui_app name)
   if(APPLE)
     add_executable(${name} MACOSX_BUNDLE ${ARGN})
