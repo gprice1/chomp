@@ -50,14 +50,22 @@ CollisionFunction::CollisionFunction( size_t cspace_dofs,
 {
 }
 
-double CollisionFunction::evaluate( const Trajectory & trajectory )
+void CollisionFunction::prepareEvaluation( const Trajectory & trajectory )
 {
-    
     q1 = trajectory.getTick( -1 ).transpose();
     q2 = trajectory.getTick( 0  ).transpose();
     
     dt = trajectory.getDt();
 
+    gradient_t.resize( 1, configuration_space_DOF );
+
+}
+
+double CollisionFunction::evaluate( const Trajectory & trajectory )
+{
+    
+    prepareEvaluation( trajectory );
+    
     double total = 0.0;
 
     for (int t=0; t < trajectory.rows() ; ++t) {
@@ -81,6 +89,8 @@ double CollisionFunction::evaluateTimestep( int t,
                                             bool set_gradient )
 {
     
+    debug_status( TAG, "evaluateTimestep", "start");
+    
     double total = 0;
 
     for (size_t u=0; u < number_of_bodies; ++u) {
@@ -96,6 +106,8 @@ double CollisionFunction::evaluateTimestep( int t,
                                   set_gradient );
         }
     }
+
+    debug_status( TAG, "evaluateTimestep", "end");
     
     return total;
 }

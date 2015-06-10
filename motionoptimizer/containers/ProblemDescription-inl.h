@@ -16,6 +16,7 @@ template <class Derived>
 double ProblemDescription::evaluateObjective( 
                            const Eigen::MatrixBase<Derived> & g )
 {
+    debug_status( TAG, "evaluateObjective", "start");
     TIMER_START( "gradient" );
     
     prepareData();
@@ -24,6 +25,7 @@ double ProblemDescription::evaluateObjective(
     
     TIMER_STOP( "gradient" );
     
+    debug_status( TAG, "evaluateObjective", "start");
     return value;
 
 }

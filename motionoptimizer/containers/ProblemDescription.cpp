@@ -2,7 +2,13 @@
 
 #include "ProblemDescription.h"
 
+
 namespace mopt {
+
+    
+const char* ProblemDescription::TAG = "ProblemDescription";
+
+
 ProblemDescription::ProblemDescription() :
     goalset( NULL ),
     use_goalset( false ),

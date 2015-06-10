@@ -49,6 +49,9 @@ private:
     bool collision_constraint;
 
     MatX g_full;
+
+    static const char * TAG;
+
     
     //Defines for timing things
 #ifdef DO_TIMING

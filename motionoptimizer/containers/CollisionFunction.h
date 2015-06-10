@@ -113,6 +113,8 @@ class CollisionFunction {
                         const Eigen::MatrixBase<Derived2> & coll_grad,
                         bool set_gradient );
 
+  private:
+    void prepareEvaluation( const Trajectory & trajectory );
 
 };
 
@@ -123,15 +125,15 @@ double CollisionFunction::evaluate(
                     const Trajectory & trajectory,
                     const Eigen::MatrixBase<Derived> & g_const)
 {
+
+    debug_status( TAG, "evaluate", "start");
+
     //cast away the const-ness of g_const
     Eigen::MatrixBase<Derived>& g = 
         const_cast<Eigen::MatrixBase<Derived>&>(g_const);
     
-    q1 = trajectory.getTick( -1 ).transpose();
-    q2 = trajectory.getTick( 0  ).transpose();
-    
-    dt = trajectory.getDt();
-    
+    prepareEvaluation( trajectory );
+
     double total = 0.0;
 
     for (int t=0; t < trajectory.rows() ; ++t) {
@@ -148,6 +150,8 @@ double CollisionFunction::evaluate(
         g.row(t) += gradient_t;
     }
 
+    debug_status( TAG, "evaluate", "start");
+    
     return total;
 }
 

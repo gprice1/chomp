@@ -10,6 +10,7 @@
 #include <time.h>
 #include <sys/time.h>
 
+namespace mopt {
 
 class Timer{
 
@@ -210,5 +211,7 @@ class Timer{
         }
     }
 };
+
+}//namespace
 
 #endif
