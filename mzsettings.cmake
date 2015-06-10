@@ -44,7 +44,7 @@ endif()
 add_definitions( -DDO_TIMING )
 
 set(CMAKE_C_FLAGS "-Wall -g -fPIC")
-set(CMAKE_CXX_FLAGS "-Wall -g -fPIC -pg")
+set(CMAKE_CXX_FLAGS "-Wall -g -fPIC")
 
 if(APPLE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-compare -Wno-deprecated")
@@ -52,7 +52,7 @@ if(APPLE)
 endif()
 
 set(CMAKE_C_FLAGS_DEBUG "-O")
-set(CMAKE_CXX_FLAGS_DEBUG "-O")
+set(CMAKE_CXX_FLAGS_DEBUG "-O -pg")
 
 set(CMAKE_C_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
